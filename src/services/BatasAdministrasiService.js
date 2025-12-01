@@ -1,26 +1,26 @@
 /* eslint-disable no-unused-vars */
-import { StrukturRuangs } from '@/models';
+import { BatasAdministrasi } from '@/models';
 import api from '@/utils/api';
 
-export default class StrukturRuangsService {
+export default class BatasAdministrasiService {
   /**
    * @param {string} token
    * @returns {Promise<{
    *  code: HTTPStatusCode;
    *  status: boolean;
    *  message: string;
-   *  data?: StrukturRuangs[];
+   *  data?: BatasAdministrasi[];
    * }>}
    * */
-  static async getAll({ token, ...filters }) {
+  static async getAll({ token, ...filters } = {}) {
     const params = Object.fromEntries(Object.entries(filters).filter(([_, value]) => value !== null && value !== undefined && value !== ''));
-    const response = await api.get('/struktur_ruang', { token, params });
+    const response = await api.get('/batas_administrasi', { token, params });
     if (!response.data) return response;
-    return { ...response, data: StrukturRuangs.fromApiData(response.data) };
+    return { ...response, data: BatasAdministrasi.fromApiData(response.data) };
   }
 
   /**
-   * @param {StrukturRuangs} data
+   * @param {BatasAdministrasi} data
    * @param {string} token
    * @returns {Promise<{
    *  code: HTTPStatusCode;
@@ -30,14 +30,12 @@ export default class StrukturRuangsService {
    * }}
    */
   static async store(data, token, file) {
-    const options = { body: StrukturRuangs.toApiData(data), token };
-    if (file) options.file = { geojson_file: file };
-    return await api.post('/struktur_ruang', options);
+    return await api.post('/batas_administrasi', { body: BatasAdministrasi.toApiData(data), token, file: { geojson_file: file } });
   }
 
   /**
    * @param {number} id
-   * @param {StrukturRuangs} data
+   * @param {BatasAdministrasi} data
    * @param {string} token
    * @returns {Promise<{
    *  code: HTTPStatusCode;
@@ -47,9 +45,7 @@ export default class StrukturRuangsService {
    * }>}
    */
   static async update(id, data, token, file) {
-    const options = { body: StrukturRuangs.toApiData(data), token };
-    if (file) options.file = { geojson_file: file };
-    return await api.post(`/struktur_ruang/${id}`, options);
+    return await api.post(`/batas_administrasi/${id}`, { body: BatasAdministrasi.toApiData(data), token, file: { geojson_file: file } });
   }
 
   /**
@@ -62,7 +58,7 @@ export default class StrukturRuangsService {
    * }>}
    */
   static async delete(id, token) {
-    return await api.delete(`/struktur_ruang/${id}`, { token });
+    return await api.delete(`/batas_administrasi/${id}`, { token });
   }
 
   /**
@@ -75,6 +71,6 @@ export default class StrukturRuangsService {
    * }>}
    */
   static async deleteBatch(ids, token) {
-    return await api.delete(`/struktur_ruang/multi-delete?ids=${ids.join(',')}`, { token });
+    return await api.delete(`/batas_administrasi/multi-delete?ids=${ids.join(',')}`, { token });
   }
 }

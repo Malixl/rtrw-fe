@@ -58,7 +58,8 @@ export const formFields = ({ options }) => [
         }
       ];
     },
-    accept: ['.geojson']
+    accept: ['.geojson'],
+    rules: []
   },
   {
     label: `Warna ${Modul.STRUKTUR}`,

@@ -7,7 +7,9 @@ enum Modul {
   PKKPRL = 'PKKPRL',
   PERIODE = 'Periode',
   INDIKASI_PROGRAM = 'Indikasi Program',
-  NEWS = 'Berita'
+  NEWS = 'Berita',
+  BATAS_ADMINISTRASI = 'Batas Administrasi'
 }
+
 
 export default Modul;

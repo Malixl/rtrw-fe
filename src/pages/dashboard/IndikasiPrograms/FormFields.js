@@ -47,6 +47,7 @@ export const formFields = ({ options }) => [
         }
       ];
     },
-    accept: ['.pdf']
+    accept: ['.pdf'],
+    rules: []
   }
 ];

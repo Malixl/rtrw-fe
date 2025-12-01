@@ -10,3 +10,5 @@ export { default as IndikasiPrograms } from './IndikasiPrograms/IndikasiPrograms
 export { default as News } from './News/News';
 export { default as CreateNews } from './News/Create';
 export { default as EditNews } from './News/Edit';
+export { default as BatasAdministrasi } from './BatasAdministrasi/BatasAdministrasi';
+

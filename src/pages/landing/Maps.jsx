@@ -1,23 +1,28 @@
 /* eslint-disable no-unused-vars */
 /* eslint-disable react/prop-types */
 import { useCrudModal, useNotification, useService } from '@/hooks';
-import { RtrwsService } from '@/services';
+import { RtrwsService, BatasAdministrasiService } from '@/services';
 import { BASE_URL } from '@/utils/api';
 import asset from '@/utils/asset';
+
 import { AimOutlined, InfoCircleOutlined, MenuOutlined } from '@ant-design/icons';
 import { Button, Checkbox, Collapse, Form, Select, Skeleton, Typography } from 'antd';
 import React from 'react';
-import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet';
+import { MapContainer, TileLayer, GeoJSON, Popup, LayersControl } from 'react-leaflet';
 import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
 import { getLeafletIcon } from '@/utils/leafletIcon';
 import * as AntdIcons from '@ant-design/icons';
+import FeaturePopup from '@/components/Map/FeaturePopup';
+
+const { BaseLayer } = LayersControl;
 
 const Maps = () => {
   const navigate = useNavigate();
   const { success, error } = useNotification();
   const modal = useCrudModal();
   const { execute, ...getAllRtrws } = useService(RtrwsService.getAll);
+  const { execute: fetchBatas, data: batasData, isLoading: isLoadingBatas, isSuccess: isBatasSuccess, message: batasMessage } = useService(BatasAdministrasiService.getAll);
   const klasifikasisByRtrw = useService(RtrwsService.getAllKlasifikasisByRtrw);
   const [selectedLayers, setSelectedLayers] = React.useState({});
   const [loadingLayers, setLoadingLayers] = React.useState({});
@@ -26,6 +31,7 @@ const Maps = () => {
   const [treeKetentuanKhususData, setTreeKetentuanKhususData] = React.useState([]);
   const [treePkkprlData, setTreePkkprlData] = React.useState([]);
   const [treeIndikasiProgramData, setTreeIndikasiProgramData] = React.useState([]);
+  const [popupInfo, setPopupInfo] = React.useState(null);
 
   const fetchRtrws = React.useCallback(() => {
     execute({ page: 1, per_page: 100000 });
@@ -33,9 +39,17 @@ const Maps = () => {
 
   React.useEffect(() => {
     fetchRtrws();
-  }, [fetchRtrws]);
+    fetchBatas({ page: 1, per_page: 100000 });
+  }, [fetchRtrws, fetchBatas]);
+
+  React.useEffect(() => {
+    if (!isLoadingBatas && !isBatasSuccess && batasMessage) {
+      console.error('Gagal memuat Batas Administrasi:', batasMessage);
+    }
+  }, [isLoadingBatas, isBatasSuccess, batasMessage]);
 
   const rtrws = getAllRtrws.data ?? [];
+  const batasAdministrasi = batasData ?? [];
 
   const handleToggleLayer = async (pemetaan) => {
     const key = pemetaan.key;
@@ -57,12 +71,14 @@ const Maps = () => {
       else if (type === 'struktur') url = `${BASE_URL}/struktur_ruang/${id}/geojson`;
       else if (type === 'ketentuan_khusus') url = `${BASE_URL}/ketentuan_khusus/${id}/geojson`;
       else if (type === 'pkkprl') url = `${BASE_URL}/pkkprl/${id}/geojson`;
+      else if (type === 'batas_administrasi') url = `${BASE_URL}/batas_administrasi/${id}/geojson`;
 
       const res = await fetch(url);
       const json = await res.json();
       const warna = pemetaan.warna ?? null;
       const iconName = pemetaan.icon_titik ?? null;
       const tipe_garis = pemetaan.tipe_garis ?? null;
+      const fillOpacity = pemetaan.fill_opacity ?? 0.8;
 
       const enhanced = {
         ...json,
@@ -75,7 +91,7 @@ const Maps = () => {
             props['stroke-opacity'] = props['stroke-opacity'] ?? 1;
 
             props.fill = props.fill ?? warna; // <-- FILL POLYGON
-            props['fill-opacity'] = props['fill-opacity'] ?? 0.8;
+            props['fill-opacity'] = props['fill-opacity'] ?? fillOpacity;
           }
           if (tipe_garis === 'dashed') {
             props.dashArray = props.dashArray ?? '6 6';
@@ -100,6 +116,27 @@ const Maps = () => {
       setLoadingLayers((prev) => ({ ...prev, [key]: false }));
     }
   };
+
+  React.useEffect(() => {
+    if (batasAdministrasi.length > 0) {
+      batasAdministrasi.forEach((item) => {
+        const pemetaan = {
+          key: `batas-${item.id}`,
+          id: item.id,
+          type: 'batas_administrasi',
+          nama: item.name,
+          warna: item.color || '#000000', // Default color for boundaries
+          tipe_garis: 'solid',
+          fill_opacity: 0.3
+        };
+        // Only toggle if not already selected
+        if (!selectedLayers[pemetaan.key]) {
+          handleToggleLayer(pemetaan);
+        }
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [batasAdministrasi]);
 
   function mapPolaRuang(data) {
     return data.map((klasifikasi) => ({
@@ -233,7 +270,30 @@ const Maps = () => {
     <section className="flex h-screen w-full">
       <div className="relative h-full w-full flex-[3]">
         <MapContainer center={[0.5412, 123.0595]} zoom={9} className="h-screen w-full">
-          <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+          <LayersControl position="topright">
+            <BaseLayer checked name="OpenStreetMap">
+              <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            </BaseLayer>
+            <BaseLayer name="Satelit (Esri)">
+              <TileLayer
+                attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
+                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+              />
+            </BaseLayer>
+            <BaseLayer name="Satelit dengan Label">
+              <TileLayer
+                attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
+                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+              />
+              <TileLayer url="https://stamen-tiles-{s}.a.ssl.fastly.net/toner-hybrid/{z}/{x}/{y}.png" attribution='Map tiles by <a href="http://stamen.com">Stamen Design</a>' />
+            </BaseLayer>
+            <BaseLayer name="Terrain">
+              <TileLayer
+                attribution='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
+                url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
+              />
+            </BaseLayer>
+          </LayersControl>
           {Object.values(selectedLayers).map((layer) => (
             <GeoJSON
               key={`${layer.type}-${layer.id}`}
@@ -247,10 +307,14 @@ const Maps = () => {
                 return L.marker(latlng);
               }}
               onEachFeature={(feature, layerGeo) => {
-                const name = feature.properties?.nama || feature.properties?.title || '';
-                if (name) {
-                  layerGeo.bindPopup(`<strong>${name}</strong>`);
-                }
+                layerGeo.on('click', (e) => {
+                  L.DomEvent.stopPropagation(e);
+                  setPopupInfo({
+                    position: e.latlng,
+                    properties: feature.properties
+                  });
+                });
+
                 const iconName = feature.properties?.icon;
                 if (iconName && feature.geometry && feature.geometry.type !== 'Point') {
                   const color = feature.properties?.stroke || '#1677ff';
@@ -265,6 +329,11 @@ const Maps = () => {
               }}
             />
           ))}
+          {popupInfo && (
+            <Popup position={popupInfo.position} onClose={() => setPopupInfo(null)}>
+              <FeaturePopup properties={popupInfo.properties} />
+            </Popup>
+          )}
         </MapContainer>
         <div className="absolute bottom-4 left-4 z-[1000]">
           <div className="w-96 rounded-lg bg-white p-4 shadow-lg">
@@ -343,6 +412,23 @@ const Maps = () => {
                 <hr className="my-2" />
               </>
             )}
+            {Object.entries(selectedLayers).some(([key]) => key.startsWith('batas')) && (
+              <>
+                <div className="flex max-h-28 flex-wrap gap-2">
+                  <b className="w-full text-sm">Batas Administrasi</b>
+
+                  {Object.entries(selectedLayers)
+                    .filter(([key]) => key.startsWith('batas'))
+                    .map(([_, item]) => (
+                      <div key={item.id} className="inline-flex items-center gap-x-1">
+                        <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna, opacity: 0.3 }} />
+                        <small>{item.meta.nama}</small>
+                      </div>
+                    ))}
+                </div>
+                <hr className="my-2" />
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -379,6 +465,83 @@ const Maps = () => {
             </Form>
           </Skeleton>
         </div>
+
+        {/* Batas Administrasi Section */}
+        <div className="mt-4 flex flex-col gap-y-4">
+          <Collapse ghost expandIcon={() => ''} defaultActiveKey={['batas']}>
+            <Collapse.Panel
+              key="batas"
+              header={
+                <div className="inline-flex w-full items-center justify-between">
+                  <div className="inline-flex w-full items-center gap-x-4">
+                    <div className="flex items-center justify-center rounded-md bg-blue-100 p-3">
+                      <AimOutlined className="text-blue-500" />
+                    </div>
+                    Batas Administrasi
+                  </div>
+                  <MenuOutlined />
+                </div>
+              }
+            >
+              <div className="flex flex-col gap-y-2 px-4">
+                {isLoadingBatas && (
+                  <>
+                    <Checkbox>
+                      <Skeleton.Input size="small" active />
+                    </Checkbox>
+                    <Checkbox>
+                      <Skeleton.Input size="small" active />
+                    </Checkbox>
+                  </>
+                )}
+
+                {!isLoadingBatas && batasAdministrasi.length === 0 && <div className="text-sm italic text-gray-500">Tidak ada data batas administrasi.</div>}
+
+                {batasAdministrasi.map((item) => {
+                  const pemetaan = {
+                    key: `batas-${item.id}`,
+                    id: item.id,
+                    type: 'batas_administrasi',
+                    nama: item.name,
+                    warna: item.color || '#000000',
+                    tipe_garis: 'solid',
+                    fill_opacity: 0.3
+                  };
+                  return (
+                    <Checkbox key={pemetaan.key} checked={!!selectedLayers[pemetaan.key]} onChange={() => handleToggleLayer(pemetaan)}>
+                      <span className="inline-flex items-center gap-x-2">
+                        {item.name}
+                        {loadingLayers[pemetaan.key] && <span className="h-3 w-3 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></span>}
+                        <Button
+                          icon={<InfoCircleOutlined />}
+                          type="link"
+                          onClick={() => {
+                            modal.show.description({
+                              title: item.name,
+                              data: [
+                                {
+                                  key: 'name',
+                                  label: `Nama Area`,
+                                  children: item.name
+                                },
+                                {
+                                  key: 'desc',
+                                  label: `Deskripsi`,
+                                  children: item.desc
+                                }
+                              ]
+                            });
+                          }}
+                        />
+                      </span>
+                    </Checkbox>
+                  );
+                })}
+              </div>
+            </Collapse.Panel>
+          </Collapse>
+        </div>
+
         {klasifikasisByRtrw.isLoading ? (
           <div className="flex flex-col gap-y-8">
             <div className="flex flex-col gap-y-2">

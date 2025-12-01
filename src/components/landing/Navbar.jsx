@@ -1,15 +1,17 @@
 import { landingLink } from '@/data/link';
 import { findItemByKey } from '@/utils/landingLink';
-import { MenuOutlined, UserOutlined } from '@ant-design/icons';
-import { Button, Drawer, Grid, Image, Menu, Skeleton } from 'antd';
+import { MenuOutlined, UserOutlined, DashboardOutlined, LogoutOutlined } from '@ant-design/icons';
+import { Button, Drawer, Dropdown, Grid, Image, Menu, Skeleton } from 'antd';
 import PropTypes from 'prop-types';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks';
 
 const Navbar = () => {
   const navigate = useNavigate();
   const breakpoints = Grid.useBreakpoint();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const { user, logout, isAdmin, isGuest } = useAuth();
 
   const openDrawer = () => {
     setIsDrawerOpen(true);
@@ -60,9 +62,39 @@ const Navbar = () => {
         )}
       </div>
       <div className="flex items-center justify-end gap-x-4">
-        <Button variant="solid" color="primary" icon={<UserOutlined />} onClick={() => navigate('/auth/login')}>
-          Masuk
-        </Button>
+        {isGuest() ? (
+          <Button variant="solid" color="primary" icon={<UserOutlined />} onClick={() => navigate('/auth/login')}>
+            Masuk
+          </Button>
+        ) : (
+          <Dropdown
+            menu={{
+              items: [
+                // Dashboard link hanya untuk Admin
+                ...(isAdmin()
+                  ? [
+                      {
+                        key: 'dashboard',
+                        label: 'Dashboard',
+                        icon: <DashboardOutlined />,
+                        onClick: () => navigate('/dashboard')
+                      }
+                    ]
+                  : []),
+                {
+                  key: 'logout',
+                  label: 'Keluar',
+                  icon: <LogoutOutlined />,
+                  onClick: logout,
+                  danger: true
+                }
+              ]
+            }}
+            placement="bottomRight"
+          >
+            <Button icon={<UserOutlined />}>{user?.name || 'User'}</Button>
+          </Dropdown>
+        )}
       </div>
     </div>
   );

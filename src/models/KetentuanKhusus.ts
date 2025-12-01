@@ -28,7 +28,7 @@ export interface OutgoingApiData {
   _method?: 'PUT';
   nama: string;
   deskripsi: string;
-  geojson_file: string;
+  geojson_file?: string;
   klasifikasi_id: string;
   warna: string;
 }
@@ -37,7 +37,7 @@ interface FormValue {
   _method?: 'PUT';
   name: string;
   desc: string;
-  geojson_file: string;
+  geojson_file?: string;
   id_klasifikasi: string;
   color: string;
 }
@@ -101,13 +101,15 @@ export default class KetentuanKhusus extends Model {
   public static toApiData<T extends FormValue | FormValue[]>(ketentuanKhusus: T): ReturnType<T, FormValue, OutgoingApiData> {
     if (Array.isArray(ketentuanKhusus)) return ketentuanKhusus.map((object) => this.toApiData(object)) as ReturnType<T, FormValue, OutgoingApiData>;
     const apiData: OutgoingApiData = {
-      ...(ketentuanKhusus._method ? { _method: ketentuanKhusus._method } : {}),
       nama: ketentuanKhusus.name,
       deskripsi: ketentuanKhusus.desc,
       klasifikasi_id: ketentuanKhusus.id_klasifikasi,
-      geojson_file: ketentuanKhusus.geojson_file,
       warna: ketentuanKhusus.color
     };
+
+    if (typeof ketentuanKhusus.geojson_file === 'string') {
+      apiData.geojson_file = ketentuanKhusus.geojson_file;
+    }
 
     return apiData as ReturnType<T, FormValue, OutgoingApiData>;
   }

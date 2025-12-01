@@ -30,7 +30,9 @@ export default class IndikasiProgramService {
    * }}
    */
   static async store(data, token, file) {
-    return await api.post('/indikasi_program', { body: IndikasiProgram.toApiData(data), token, file: { file_dokumen: file } });
+    const options = { body: IndikasiProgram.toApiData(data), token };
+    if (file) options.file = { file_dokumen: file };
+    return await api.post('/indikasi_program', options);
   }
 
   /**
@@ -45,7 +47,9 @@ export default class IndikasiProgramService {
    * }>}
    */
   static async update(id, data, token, file) {
-    return await api.post(`/indikasi_program/${id}`, { body: IndikasiProgram.toApiData(data), token, file: { file_dokumen: file } });
+    const options = { body: IndikasiProgram.toApiData(data), token };
+    if (file) options.file = { file_dokumen: file };
+    return await api.post(`/indikasi_program/${id}`, options);
   }
 
   /**

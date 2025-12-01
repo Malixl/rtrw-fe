@@ -1,5 +1,4 @@
 import { dashboardLink } from '@/data/link';
-import { useAuth } from '@/hooks';
 import { Drawer, Grid, Image, Menu, Tooltip } from 'antd';
 import Sider from 'antd/es/layout/Sider';
 import PropTypes from 'prop-types';
@@ -8,57 +7,32 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 const DashboardSider = ({ collapsed, onCloseMenu }) => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { user } = useAuth();
   const breakpoints = Grid.useBreakpoint();
 
   const isDesktop = breakpoints.lg || breakpoints.xl || breakpoints.xxl;
 
-  const menuItems = dashboardLink
-    .filter(({ permissions, roles }) => {
-      if (!user) return false;
-
-      const hasPermission = permissions && permissions.length > 0;
-      const hasRole = roles && roles.length > 0;
-
-      const isPublicPage = !hasPermission && !hasRole;
-      if (isPublicPage) return true;
-
-      const roleSpecific = hasRole && !hasPermission;
-      if (roleSpecific) return user.eitherIs(...roles);
-
-      const permissionSpecific = hasPermission && !hasRole;
-      if (permissionSpecific) return user.eitherCan(...permissions);
-
-      return user.eitherCan(...permissions) || user.eitherIs(...roles);
-    })
-    .map(({ label, children, icon: Icon }) => ({
-      key: label,
+  const menuItems = dashboardLink.map(({ label, children, icon: Icon }) => ({
+    key: label,
+    label: (
+      <Tooltip title={label} placement="right" color="blue">
+        <span>{label}</span>
+      </Tooltip>
+    ),
+    icon: (
+      <Tooltip title={label} placement="right" color="blue">
+        <Icon />
+      </Tooltip>
+    ),
+    children: children.map(({ path, label }) => ({
+      key: path,
       label: (
         <Tooltip title={label} placement="right" color="blue">
           <span>{label}</span>
         </Tooltip>
       ),
-      icon: (
-        <Tooltip title={label} placement="right" color="blue">
-          <Icon />
-        </Tooltip>
-      ),
-      children: children
-        .filter(({ permissions, roles }) => {
-          const hasPermission = !permissions || user?.eitherCan(...permissions);
-          const hasRole = !roles || user?.eitherIs(...roles);
-          return hasPermission && hasRole;
-        })
-        .map(({ path, label }) => ({
-          key: path,
-          label: (
-            <Tooltip title={label} placement="right" color="blue">
-              <span>{label}</span>
-            </Tooltip>
-          ),
-          onClick: () => navigate(path)
-        }))
-    }));
+      onClick: () => navigate(path)
+    }))
+  }));
 
   return isDesktop ? (
     <Sider theme="light" className="p-4" width={230} collapsed={collapsed}>

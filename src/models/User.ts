@@ -1,20 +1,13 @@
-import { Action, Role } from '@/constants';
-import Model, { ModelChildren } from './Model';
-import Permission from './Permission';
+import Model from './Model';
 
 export interface IncomingApiData {
   id: number;
   email: string;
   name: string;
-  role: {
-    id: number;
+  role?: {
     name: string;
-    permissions: string[];
-  };
-  permissions: string[];
+  } | string | null;
 }
-
-export interface untranslatedIncoming {}
 
 interface OutgoingApiData {
   email: IncomingApiData['email'];
@@ -26,41 +19,34 @@ export default class User extends Model {
     public email: string,
     public name: string,
     public token: string,
-    public role: Role,
-    public roleId: number,
-    public permissions: Permission[] = []
+    public role: string = 'admin'
   ) {
     super();
   }
 
-  is(role: Role) {
+  is(role: string) {
     return this.role === role;
   }
 
-  can(action: Action, model: ModelChildren) {
-    return this.permissions.some((permission) => permission.can(action, model));
+  can() {
+    return true;
   }
 
-  cant(action: Action, model: ModelChildren) {
-    return !this.can(action, model);
+  cant() {
+    return false;
   }
 
-  eitherCan(...permissions: [Action, ModelChildren][]) {
-    return permissions.some(([action, model]) => this.can(action, model));
+  eitherCan() {
+    return true;
   }
 
-  cantDoAny(...permissions: [Action, ModelChildren][]) {
-    return !this.eitherCan(...permissions);
+  cantDoAny() {
+    return false;
   }
 
   static fromApiData(apiData: IncomingApiData, token: string): User {
-    const roles = {
-      admin: Role.ADMIN,
-      opd_provinsi: Role.PEGAWAI
-    };
-    const role = roles[apiData.role.name as keyof typeof roles] || null;
-    const permissions = Permission.fromApiData([...apiData.role.permissions, ...apiData.permissions]);
-    return new User(apiData.id, apiData.email, apiData.name, token, role, apiData.role.id, permissions);
+    const roleName = typeof apiData.role === 'string' ? apiData.role : apiData.role?.name;
+    return new User(apiData.id, apiData.email, apiData.name, token, roleName || 'admin');
   }
 
   static toApiData(user: User): OutgoingApiData {
@@ -69,5 +55,3 @@ export default class User extends Model {
     };
   }
 }
-
-Model.children.pengguna = User;

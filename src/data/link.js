@@ -68,6 +68,7 @@ export const dashboardLink = [
       { path: '/dashboard/ketentuan_khusus', label: 'Ketentuan Khusus', element: Dashboard.KetentuanKhusus },
       { path: '/dashboard/pkkprl', label: 'PKKPRL', element: Dashboard.Pkkprl },
       { path: '/dashboard/indikasi_program', label: 'Indikasi Program', element: Dashboard.IndikasiPrograms },
+      { path: '/dashboard/batas_administrasi', label: 'Batas Administrasi', element: Dashboard.BatasAdministrasi },
       { path: '/dashboard/berita', label: 'Berita', element: Dashboard.News }
     ]
   }

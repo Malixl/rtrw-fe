@@ -28,10 +28,32 @@ export default function CrudModal({ isModalOpen, data: initialData, close, title
   useEffect(() => {
     if (isModalOpen) {
       form.resetFields();
-      form.setFieldsValue(initialData ?? {});
-      setRealtimeData(initialData ?? {});
+      const processedData = { ...(initialData ?? {}) };
+
+      formFields.forEach((field) => {
+        if (field.type === InputType.UPLOAD) {
+          const value = processedData[field.name];
+          if (value && !Array.isArray(value)) {
+            if (field.getFileList) {
+              processedData[field.name] = field.getFileList(initialData);
+            } else {
+              processedData[field.name] = [
+                {
+                  uid: '-1',
+                  name: 'File',
+                  status: 'done',
+                  url: value
+                }
+              ];
+            }
+          }
+        }
+      });
+
+      form.setFieldsValue(processedData);
+      setRealtimeData(processedData);
     }
-  }, [isModalOpen, initialData, form]);
+  }, [isModalOpen, initialData, form, formFields]);
 
   useEffect(() => {
     onChange(realtimeData);
@@ -97,10 +119,18 @@ export default function CrudModal({ isModalOpen, data: initialData, close, title
       case InputType.COLOR:
         return <ColorPicker showText format="hex" size="large" readOnly={field.readOnly} {...field.extra} />;
 
-      case InputType.UPLOAD:
+      case InputType.UPLOAD: {
+        if (!field.valuePropName) field.valuePropName = 'fileList';
+        if (!field.getValueFromEvent) {
+          field.getValueFromEvent = (e) => {
+            if (Array.isArray(e)) return e;
+            return e?.fileList ?? [];
+          };
+        }
+
         return (
           // FIXME: if readOnly, then show only the file/image and not the drag and drop area
-          <Dragger accept={field.accept.join(', ')} name={field.name} maxCount={field.max} beforeUpload={field.beforeUpload} listType="picture" {...field.extra} {...(initialData ? { defaultFileList: field.getFileList(initialData) } : {})}>
+          <Dragger accept={field.accept.join(', ')} name={field.name} maxCount={field.max} beforeUpload={field.beforeUpload} listType="picture" {...field.extra}>
             <p className="ant-upload-drag-icon">
               <InboxOutlined />
             </p>
@@ -108,6 +138,7 @@ export default function CrudModal({ isModalOpen, data: initialData, close, title
             <p className="ant-upload-hint">{strings('accepted_file_types_s', field.accept.join(', '))}</p>
           </Dragger>
         );
+      }
 
       case InputType.SELECT:
         return <Select {...field} />;
@@ -173,9 +204,20 @@ export default function CrudModal({ isModalOpen, data: initialData, close, title
         <Form form={form} layout="vertical" name="crudForm" className="mt-6 flex flex-col gap-y-2" onFinish={onSubmit} onValuesChange={handleValuesChange}>
           {formFields.map(({ renderIf, ...field }, index) => {
             if (renderIf && !renderIf(realtimeData)) return null;
+            const inputElement = renderFormInput(field);
             return (
-              <Form.Item key={index} label={field.label} name={field.name} className="m-0" rules={field.rules} dependencies={field.dependencies}>
-                {renderFormInput(field)}
+              <Form.Item
+                key={index}
+                label={field.label}
+                name={field.name}
+                className="m-0"
+                rules={field.rules}
+                dependencies={field.dependencies}
+                valuePropName={field.valuePropName}
+                getValueFromEvent={field.getValueFromEvent}
+                normalize={field.normalize}
+              >
+                {inputElement}
               </Form.Item>
             );
           })}

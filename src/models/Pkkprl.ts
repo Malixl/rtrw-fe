@@ -28,7 +28,7 @@ export interface OutgoingApiData {
   _method?: 'PUT';
   nama: string;
   deskripsi: string;
-  geojson_file: string;
+  geojson_file?: string;
   klasifikasi_id: string;
   warna: string;
 }
@@ -37,7 +37,7 @@ interface FormValue {
   _method?: 'PUT';
   name: string;
   desc: string;
-  geojson_file: string;
+  geojson_file?: string;
   id_klasifikasi: string;
   color: string;
 }
@@ -101,13 +101,15 @@ export default class Pkkprl extends Model {
   public static toApiData<T extends FormValue | FormValue[]>(pkkprl: T): ReturnType<T, FormValue, OutgoingApiData> {
     if (Array.isArray(pkkprl)) return pkkprl.map((object) => this.toApiData(object)) as ReturnType<T, FormValue, OutgoingApiData>;
     const apiData: OutgoingApiData = {
-      ...(pkkprl._method ? { _method: pkkprl._method } : {}),
       nama: pkkprl.name,
       deskripsi: pkkprl.desc,
       klasifikasi_id: pkkprl.id_klasifikasi,
-      geojson_file: pkkprl.geojson_file,
       warna: pkkprl.color
     };
+
+    if (typeof pkkprl.geojson_file === 'string') {
+      apiData.geojson_file = pkkprl.geojson_file;
+    }
 
     return apiData as ReturnType<T, FormValue, OutgoingApiData>;
   }

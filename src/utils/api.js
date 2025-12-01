@@ -23,7 +23,24 @@ async function customFetch(endpoint, method, body, token, file, abortController)
   const formData = new FormData();
   for (const key in body) {
     if (file && key in file) continue;
-    formData.append(key, body[key]);
+
+    // Handle color picker objects (convert to hex string)
+    let value = body[key];
+    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+      // If it's a color picker object, extract the hex value
+      if (value.toHexString) {
+        value = value.toHexString();
+      } else if (value.hex) {
+        value = value.hex;
+      } else if (value.value) {
+        value = value.value;
+      } else {
+        // If it's an unknown object, stringify it
+        value = JSON.stringify(value);
+      }
+    }
+
+    formData.append(key, value);
   }
 
   for (const key in file) {

@@ -1,6 +1,7 @@
 import { HttpStatusCode } from '@/constants';
 import { AuthContext } from '@/context';
 import { useLocalStorage, useService } from '@/hooks';
+import User from '@/models/User';
 import { AuthService } from '@/services';
 import env from '@/utils/env';
 import PropTypes from 'prop-types';
@@ -35,6 +36,15 @@ export default function AuthProvider({ children }) {
   const [token, setToken] = useLocalStorage('token', '');
   const [user, setUser] = useState(null);
 
+  const mapToUserInstance = useCallback(
+    (rawUser) => {
+      if (!rawUser) return null;
+      if (rawUser instanceof User) return rawUser;
+      return User.fromApiData(rawUser, token);
+    },
+    [token]
+  );
+
   env.dev(() => {
     window.token = token;
     window.user = user;
@@ -53,7 +63,7 @@ export default function AuthProvider({ children }) {
           setToken('');
           return;
         }
-        setUser(data);
+        setUser(mapToUserInstance(data));
       } catch (error) {
         console.error('Error fetching user:', error);
         setToken('');
@@ -61,7 +71,7 @@ export default function AuthProvider({ children }) {
     };
 
     fetchUser();
-  }, [getUser, setToken, token]);
+  }, [getUser, mapToUserInstance, setToken, token]);
 
   const login = useCallback(
     /**
@@ -119,6 +129,7 @@ export default function AuthProvider({ children }) {
   );
 
   const logout = useCallback(() => {
+    setUser(null);
     setToken('');
     logoutService(token);
   }, [logoutService, setToken, token]);
