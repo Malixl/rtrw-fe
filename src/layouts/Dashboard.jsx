@@ -1,21 +1,24 @@
 import { DashboardFooter, DashboardSider } from '@/components';
 import { useAuth } from '@/hooks';
-import { LogoutOutlined, MenuOutlined, UserOutlined } from '@ant-design/icons';
-import { Avatar, Button, Dropdown, Layout, Skeleton, Space, theme } from 'antd';
+import { LogoutOutlined, MenuOutlined, HomeOutlined } from '@ant-design/icons';
+import { Avatar, Button, Dropdown, Layout, Result, Skeleton, Space, theme } from 'antd';
 import { Content, Header } from 'antd/es/layout/layout';
 import { useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
   const [collapsed, setCollapsed] = useState(false);
-  const { logout, token, user } = useAuth();
+  const { logout, token, user, isLoading, canAccessDashboard, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
+  // Redirect to login if not authenticated
   useEffect(() => {
-    if (token) return;
-    navigate(`/auth/login?redirect=${pathname}`);
-  }, [navigate, token, pathname]);
+    if (isLoading) return;
+    if (!token) {
+      navigate(`/auth/login?redirect=${pathname}`);
+    }
+  }, [navigate, token, pathname, isLoading]);
 
   // const breadcrumbItems = generateBreadcrumb(dashboardLink, pathname);
 
@@ -24,9 +27,9 @@ const Dashboard = () => {
       {
         key: '1',
         label: (
-          <button onClick={() => navigate('/dashboard/profile-settings')} className="flex min-w-32 items-center gap-x-2">
-            <UserOutlined />
-            Pengaturan Profil
+          <button onClick={() => navigate('/')} className="flex min-w-32 items-center gap-x-2">
+            <HomeOutlined />
+            Beranda
           </button>
         )
       },
@@ -46,6 +49,33 @@ const Dashboard = () => {
   const {
     token: { colorBgContainer }
   } = theme.useToken();
+
+  // Show loading skeleton while checking auth
+  if (isLoading) {
+    return (
+      <Layout className="min-h-screen font-sans">
+        <Skeleton active paragraph={{ rows: 10 }} className="p-8" />
+      </Layout>
+    );
+  }
+
+  // Check if user can access dashboard
+  if (isAuthenticated && !canAccessDashboard()) {
+    return (
+      <Layout className="min-h-screen font-sans">
+        <Result
+          status="403"
+          title="Akses Ditolak"
+          subTitle="Anda tidak memiliki izin untuk mengakses dashboard"
+          extra={
+            <Button type="primary" onClick={() => navigate('/')}>
+              Kembali ke Beranda
+            </Button>
+          }
+        />
+      </Layout>
+    );
+  }
 
   return (
     <Layout className="min-h-screen font-sans">

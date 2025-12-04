@@ -1,26 +1,33 @@
 /* eslint-disable no-unused-vars */
 /* eslint-disable react/prop-types */
-import { useCrudModal, useNotification, useService } from '@/hooks';
+import { useAuth, useNotification, useService } from '@/hooks';
 import { RtrwsService, BatasAdministrasiService } from '@/services';
 import { BASE_URL } from '@/utils/api';
 import asset from '@/utils/asset';
 
-import { AimOutlined, InfoCircleOutlined, MenuOutlined } from '@ant-design/icons';
-import { Button, Checkbox, Collapse, Form, Select, Skeleton, Typography } from 'antd';
+import { LockOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
+import { Button, Result, Skeleton, Tooltip } from 'antd';
 import React from 'react';
 import { MapContainer, TileLayer, GeoJSON, Popup, LayersControl } from 'react-leaflet';
 import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
+import 'leaflet-draw';
+import 'leaflet-draw/dist/leaflet.draw.css';
 import { getLeafletIcon } from '@/utils/leafletIcon';
 import * as AntdIcons from '@ant-design/icons';
 import FeaturePopup from '@/components/Map/FeaturePopup';
+import MapUserInfo from '@/components/Map/MapUserInfo';
+import HomeControl from '@/components/Map/HomeControl';
+import CoordinateControl from '@/components/Map/CoordinateControl';
+import MapToolsControl from '@/components/Map/MapToolsControl';
+import MapSidebar from '@/components/Map/MapSidebar';
 
 const { BaseLayer } = LayersControl;
 
 const Maps = () => {
   const navigate = useNavigate();
   const { success, error } = useNotification();
-  const modal = useCrudModal();
+  const { canAccessMap, capabilities, isAuthenticated, isLoading: authLoading } = useAuth();
   const { execute, ...getAllRtrws } = useService(RtrwsService.getAll);
   const { execute: fetchBatas, data: batasData, isLoading: isLoadingBatas, isSuccess: isBatasSuccess, message: batasMessage } = useService(BatasAdministrasiService.getAll);
   const klasifikasisByRtrw = useService(RtrwsService.getAllKlasifikasisByRtrw);
@@ -32,15 +39,25 @@ const Maps = () => {
   const [treePkkprlData, setTreePkkprlData] = React.useState([]);
   const [treeIndikasiProgramData, setTreeIndikasiProgramData] = React.useState([]);
   const [popupInfo, setPopupInfo] = React.useState(null);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false);
+
+  // Check if user can access the map
+  const hasMapAccess = canAccessMap();
+  const showBlurMap = capabilities?.show_blur_map ?? !hasMapAccess;
+  const loginMessage = capabilities?.login_message || 'Silakan login untuk melihat peta interaktif';
 
   const fetchRtrws = React.useCallback(() => {
-    execute({ page: 1, per_page: 100000 });
-  }, [execute]);
+    if (hasMapAccess) {
+      execute({ page: 1, per_page: 100000 });
+    }
+  }, [execute, hasMapAccess]);
 
   React.useEffect(() => {
-    fetchRtrws();
-    fetchBatas({ page: 1, per_page: 100000 });
-  }, [fetchRtrws, fetchBatas]);
+    if (hasMapAccess) {
+      fetchRtrws();
+      fetchBatas({ page: 1, per_page: 100000 });
+    }
+  }, [fetchRtrws, fetchBatas, hasMapAccess]);
 
   React.useEffect(() => {
     if (!isLoadingBatas && !isBatasSuccess && batasMessage) {
@@ -266,11 +283,78 @@ const Maps = () => {
     return style;
   };
 
+  // Show loading state while checking auth
+  if (authLoading) {
+    return (
+      <section className="flex h-screen w-full items-center justify-center">
+        <Skeleton active paragraph={{ rows: 6 }} />
+      </section>
+    );
+  }
+
+  // Show access denied overlay for users without map access
+  if (!hasMapAccess) {
+    return (
+      <section className="relative flex h-screen w-full">
+        {/* Blurred Map Background */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className={showBlurMap ? 'pointer-events-none blur-sm grayscale' : ''}>
+            <MapContainer center={[0.5412, 123.0595]} zoom={9} className="h-screen w-full" zoomControl={false} dragging={false} scrollWheelZoom={false}>
+              <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            </MapContainer>
+          </div>
+        </div>
+
+        {/* Overlay with Login Prompt */}
+        <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="mx-4 max-w-md rounded-xl bg-white p-8 shadow-2xl">
+            <Result
+              icon={<LockOutlined className="text-6xl text-blue-500" />}
+              title="Akses Terbatas"
+              subTitle={loginMessage}
+              extra={
+                <div className="flex flex-col gap-3">
+                  <Button key="login" type="primary" size="large" onClick={() => navigate('/auth/login?redirect=/map')}>
+                    Login Sekarang
+                  </Button>
+                  <Button key="home" size="large" onClick={() => navigate('/')}>
+                    Kembali ke Beranda
+                  </Button>
+                </div>
+              }
+            />
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
-    <section className="flex h-screen w-full">
-      <div className="relative h-full w-full flex-[3]">
+    <section className="relative h-screen w-full">
+      {/* Dynamic styles for map controls based on sidebar state */}
+      <style>
+        {`
+          .leaflet-top.leaflet-right {
+            right: ${isSidebarCollapsed ? '10px' : '410px'};
+            transition: right 0.3s ease-in-out;
+          }
+        `}
+      </style>
+
+      {/* Map Container - Full Width */}
+      <div className="h-full w-full">
         <MapContainer center={[0.5412, 123.0595]} zoom={9} className="h-screen w-full">
-          <LayersControl position="topright">
+          {/* Custom Home Control - positioned at topleft */}
+          <HomeControl />
+
+          {/* Map Tools Control - drawing, screenshot, etc */}
+          <MapToolsControl />
+
+          {/* Coordinate and Scale display - bottom center */}
+          <CoordinateControl />
+
+          {/* Base Layer Control - next to zoom buttons (topright) */}
+          <LayersControl position="topleft">
             <BaseLayer checked name="OpenStreetMap">
               <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             </BaseLayer>
@@ -432,416 +516,27 @@ const Maps = () => {
           </div>
         </div>
       </div>
-      <div className="flex h-full w-full flex-[1] flex-col gap-y-4 overflow-y-auto bg-white p-8">
-        <div className="inline-flex items-center justify-between">
-          <div className="flex flex-col">
-            <Typography.Title level={5} style={{ margin: 0 }}>
-              Geospasial
-            </Typography.Title>
-            <p className="text-sm">Tampilan Map</p>
-          </div>
-          <Button variant="solid" color="primary" shape="round" onClick={() => navigate('/')}>
-            Ke Beranda
-          </Button>
-        </div>
-        <div className="mt-8">
-          <Skeleton loading={getAllRtrws.isLoading}>
-            <Form className="flex items-center gap-x-2" onFinish={handleFetchKlasifikasi}>
-              <Form.Item name="id_rtrw" style={{ margin: 0 }} className="w-full">
-                <Select size="large" placeholder="Pilih Data RTRW" className="w-full">
-                  {rtrws.map((item) => (
-                    <Select.Option key={item.id} value={item.id}>
-                      {item.name}
-                    </Select.Option>
-                  ))}
-                </Select>
-              </Form.Item>
 
-              <Form.Item style={{ margin: 0 }}>
-                <Button size="large" variant="solid" color="primary" htmlType="submit" loading={klasifikasisByRtrw.isLoading}>
-                  Kirim
-                </Button>
-              </Form.Item>
-            </Form>
-          </Skeleton>
-        </div>
-
-        {/* Batas Administrasi Section */}
-        <div className="mt-4 flex flex-col gap-y-4">
-          <Collapse ghost expandIcon={() => ''} defaultActiveKey={['batas']}>
-            <Collapse.Panel
-              key="batas"
-              header={
-                <div className="inline-flex w-full items-center justify-between">
-                  <div className="inline-flex w-full items-center gap-x-4">
-                    <div className="flex items-center justify-center rounded-md bg-blue-100 p-3">
-                      <AimOutlined className="text-blue-500" />
-                    </div>
-                    Batas Administrasi
-                  </div>
-                  <MenuOutlined />
-                </div>
-              }
-            >
-              <div className="flex flex-col gap-y-2 px-4">
-                {isLoadingBatas && (
-                  <>
-                    <Checkbox>
-                      <Skeleton.Input size="small" active />
-                    </Checkbox>
-                    <Checkbox>
-                      <Skeleton.Input size="small" active />
-                    </Checkbox>
-                  </>
-                )}
-
-                {!isLoadingBatas && batasAdministrasi.length === 0 && <div className="text-sm italic text-gray-500">Tidak ada data batas administrasi.</div>}
-
-                {batasAdministrasi.map((item) => {
-                  const pemetaan = {
-                    key: `batas-${item.id}`,
-                    id: item.id,
-                    type: 'batas_administrasi',
-                    nama: item.name,
-                    warna: item.color || '#000000',
-                    tipe_garis: 'solid',
-                    fill_opacity: 0.3
-                  };
-                  return (
-                    <Checkbox key={pemetaan.key} checked={!!selectedLayers[pemetaan.key]} onChange={() => handleToggleLayer(pemetaan)}>
-                      <span className="inline-flex items-center gap-x-2">
-                        {item.name}
-                        {loadingLayers[pemetaan.key] && <span className="h-3 w-3 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></span>}
-                        <Button
-                          icon={<InfoCircleOutlined />}
-                          type="link"
-                          onClick={() => {
-                            modal.show.description({
-                              title: item.name,
-                              data: [
-                                {
-                                  key: 'name',
-                                  label: `Nama Area`,
-                                  children: item.name
-                                },
-                                {
-                                  key: 'desc',
-                                  label: `Deskripsi`,
-                                  children: item.desc
-                                }
-                              ]
-                            });
-                          }}
-                        />
-                      </span>
-                    </Checkbox>
-                  );
-                })}
-              </div>
-            </Collapse.Panel>
-          </Collapse>
-        </div>
-
-        {klasifikasisByRtrw.isLoading ? (
-          <div className="flex flex-col gap-y-8">
-            <div className="flex flex-col gap-y-2">
-              <div className="mt-4 flex flex-col gap-y-4">
-                <Collapse ghost expandIcon={() => ''}>
-                  <Collapse.Panel
-                    header={
-                      <div className="inline-flex w-full items-center justify-between">
-                        <div className="inline-flex w-full items-center gap-x-4">
-                          <div className="flex items-center justify-center rounded-md bg-blue-100 p-3">
-                            <AimOutlined className="text-blue-500" />
-                          </div>
-                          <Skeleton.Input size="small" active />
-                        </div>
-                        <MenuOutlined />
-                      </div>
-                    }
-                  >
-                    <div className="flex flex-col gap-y-2 px-4">
-                      <Checkbox>
-                        <Skeleton.Input size="small" active />
-                      </Checkbox>
-                      <Checkbox>
-                        <Skeleton.Input size="small" active />
-                      </Checkbox>
-                      <Checkbox>
-                        <Skeleton.Input size="small" active />
-                      </Checkbox>
-                      <Checkbox>
-                        <Skeleton.Input size="small" active />
-                      </Checkbox>
-                    </div>
-                  </Collapse.Panel>
-                </Collapse>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col">
-            {treePolaRuangData.map((item) => (
-              <div key={item.key} className="flex flex-col gap-y-2">
-                <div className="mt-2 flex flex-col gap-y-4">
-                  <Collapse ghost expandIcon={() => ''}>
-                    <Collapse.Panel
-                      header={
-                        <div className="inline-flex w-full items-center justify-between">
-                          <div className="inline-flex w-full items-center gap-x-4">
-                            <div className="flex items-center justify-center rounded-md bg-blue-100 p-3">
-                              <AimOutlined className="text-blue-500" />
-                            </div>
-                            {item.title} {`(${item.tipe === 'pola_ruang' ? 'Pola Ruang' : ''})`}
-                          </div>
-                          <MenuOutlined />
-                        </div>
-                      }
-                    >
-                      <div className="flex flex-col gap-y-2 px-4">
-                        {item.children.map((pemetaan) => (
-                          <Checkbox key={pemetaan.key} onChange={() => handleToggleLayer(pemetaan)}>
-                            <span className="inline-flex items-center gap-x-2">
-                              {pemetaan.title}
-
-                              {loadingLayers[pemetaan.key] && <span className="h-3 w-3 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></span>}
-                              <Button
-                                icon={<InfoCircleOutlined />}
-                                type="link"
-                                onClick={() => {
-                                  modal.show.description({
-                                    title: pemetaan.nama,
-                                    data: [
-                                      {
-                                        key: 'name',
-                                        label: `Nama Polaruang`,
-                                        children: pemetaan.nama
-                                      },
-                                      {
-                                        key: 'desc',
-                                        label: `Deskripsi`,
-                                        children: pemetaan.deskripsi
-                                      }
-                                    ]
-                                  });
-                                }}
-                              />
-                            </span>
-                          </Checkbox>
-                        ))}
-                      </div>
-                    </Collapse.Panel>
-                  </Collapse>
-                </div>
-              </div>
-            ))}
-            {treeStrukturRuangData.map((item) => (
-              <div key={item.key} className="flex flex-col gap-y-2">
-                <div className="mt-2 flex flex-col gap-y-4">
-                  <Collapse ghost expandIcon={() => ''}>
-                    <Collapse.Panel
-                      header={
-                        <div className="inline-flex w-full items-center justify-between">
-                          <div className="inline-flex w-full items-center gap-x-4">
-                            <div className="flex items-center justify-center rounded-md bg-blue-100 p-3">
-                              <AimOutlined className="text-blue-500" />
-                            </div>
-                            {item.title} {`(${item.tipe === 'struktur_ruang' ? 'Struktur Ruang' : ''})`}
-                          </div>
-                          <MenuOutlined />
-                        </div>
-                      }
-                    >
-                      <div className="flex flex-col gap-y-2 px-4">
-                        {item.children.map((pemetaan) => (
-                          <Checkbox key={pemetaan.key} onChange={() => handleToggleLayer(pemetaan)}>
-                            <span className="inline-flex items-center gap-x-2">
-                              {pemetaan.title}
-
-                              {loadingLayers[pemetaan.key] && <span className="h-3 w-3 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></span>}
-                            </span>
-
-                            <Button
-                              icon={<InfoCircleOutlined />}
-                              type="link"
-                              onClick={() => {
-                                modal.show.description({
-                                  title: pemetaan.nama,
-                                  data: [
-                                    {
-                                      key: 'name',
-                                      label: `Nama Struktur Ruang`,
-                                      children: pemetaan.nama
-                                    },
-                                    {
-                                      key: 'desc',
-                                      label: `Deskripsi`,
-                                      children: pemetaan.deskripsi
-                                    }
-                                  ]
-                                });
-                              }}
-                            />
-                          </Checkbox>
-                        ))}
-                      </div>
-                    </Collapse.Panel>
-                  </Collapse>
-                </div>
-              </div>
-            ))}
-            {treeKetentuanKhususData.map((item) => (
-              <div key={item.key} className="flex flex-col gap-y-2">
-                <div className="mt-2 flex flex-col gap-y-4">
-                  <Collapse ghost expandIcon={() => ''}>
-                    <Collapse.Panel
-                      header={
-                        <div className="inline-flex w-full items-center justify-between">
-                          <div className="inline-flex w-full items-center gap-x-4">
-                            <div className="flex items-center justify-center rounded-md bg-blue-100 p-3">
-                              <AimOutlined className="text-blue-500" />
-                            </div>
-                            {item.title} {`(${item.tipe === 'ketentuan_khusus' ? 'Ketentuan Khusus' : ''})`}
-                          </div>
-                          <MenuOutlined />
-                        </div>
-                      }
-                    >
-                      <div className="flex flex-col gap-y-2 px-4">
-                        {item.children.map((pemetaan) => (
-                          <Checkbox key={pemetaan.key} onChange={() => handleToggleLayer(pemetaan)}>
-                            <span className="inline-flex items-center gap-x-2">
-                              {pemetaan.title}
-
-                              {loadingLayers[pemetaan.key] && <span className="h-3 w-3 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></span>}
-                            </span>
-
-                            <Button
-                              icon={<InfoCircleOutlined />}
-                              type="link"
-                              onClick={() => {
-                                modal.show.description({
-                                  title: pemetaan.nama,
-                                  data: [
-                                    {
-                                      key: 'name',
-                                      label: `Nama Struktur Ruang`,
-                                      children: pemetaan.nama
-                                    },
-                                    {
-                                      key: 'desc',
-                                      label: `Deskripsi`,
-                                      children: pemetaan.deskripsi
-                                    }
-                                  ]
-                                });
-                              }}
-                            />
-                          </Checkbox>
-                        ))}
-                      </div>
-                    </Collapse.Panel>
-                  </Collapse>
-                </div>
-              </div>
-            ))}
-            {treePkkprlData.map((item) => (
-              <div key={item.key} className="flex flex-col gap-y-2">
-                <div className="mt-2 flex flex-col gap-y-4">
-                  <Collapse ghost expandIcon={() => ''}>
-                    <Collapse.Panel
-                      header={
-                        <div className="inline-flex w-full items-center justify-between">
-                          <div className="inline-flex w-full items-center gap-x-4">
-                            <div className="flex items-center justify-center rounded-md bg-blue-100 p-3">
-                              <AimOutlined className="text-blue-500" />
-                            </div>
-                            {item.title} {`(${item.tipe === 'pkkprl' ? 'PKKPRL' : ''})`}
-                          </div>
-                          <MenuOutlined />
-                        </div>
-                      }
-                    >
-                      <div className="flex flex-col gap-y-2 px-4">
-                        {item.children.map((pemetaan) => (
-                          <Checkbox key={pemetaan.key} onChange={() => handleToggleLayer(pemetaan)}>
-                            <span className="inline-flex items-center gap-x-2">
-                              {pemetaan.title}
-
-                              {loadingLayers[pemetaan.key] && <span className="h-3 w-3 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></span>}
-                            </span>
-
-                            <Button
-                              icon={<InfoCircleOutlined />}
-                              type="link"
-                              onClick={() => {
-                                modal.show.description({
-                                  title: pemetaan.nama,
-                                  data: [
-                                    {
-                                      key: 'name',
-                                      label: `Nama Struktur Ruang`,
-                                      children: pemetaan.nama
-                                    },
-                                    {
-                                      key: 'desc',
-                                      label: `Deskripsi`,
-                                      children: pemetaan.deskripsi
-                                    }
-                                  ]
-                                });
-                              }}
-                            />
-                          </Checkbox>
-                        ))}
-                      </div>
-                    </Collapse.Panel>
-                  </Collapse>
-                </div>
-              </div>
-            ))}
-            {treeIndikasiProgramData.map((item) => (
-              <div key={item.key} className="flex flex-col gap-y-2">
-                <div className="mt-2 flex flex-col gap-y-4">
-                  <Collapse ghost expandIcon={() => ''}>
-                    <Collapse.Panel
-                      header={
-                        <div className="inline-flex w-full items-center justify-between">
-                          <div className="inline-flex w-full items-center gap-x-4">
-                            <div className="flex items-center justify-center rounded-md bg-blue-100 p-3">
-                              <AimOutlined className="text-blue-500" />
-                            </div>
-                            {item.title} {`(${item.tipe === 'indikasi_program' ? 'Indikasi Program' : ''})`}
-                          </div>
-                          <MenuOutlined />
-                        </div>
-                      }
-                    >
-                      <div className="flex flex-col gap-y-2 px-4">
-                        {item.children.map((pemetaan) => (
-                          <div key={pemetaan.key} className="inline-flex w-full items-center gap-x-2">
-                            <span>{pemetaan.title}</span>
-                            <Button
-                              icon={<InfoCircleOutlined />}
-                              type="link"
-                              onClick={() => {
-                                modal.show.paragraph({
-                                  data: {
-                                    content: <iframe className="min-h-96 w-full" src={asset(pemetaan.file_dokumen)} />
-                                  }
-                                });
-                              }}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </Collapse.Panel>
-                  </Collapse>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+      {/* Collapsible Sidebar - Overlay on right */}
+      <div className={`absolute right-0 top-0 z-[1000] h-full transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-0' : 'w-[400px]'}`}>
+        <MapSidebar
+          rtrws={rtrws}
+          batasAdministrasi={batasAdministrasi}
+          treePolaRuangData={treePolaRuangData}
+          treeStrukturRuangData={treeStrukturRuangData}
+          treeKetentuanKhususData={treeKetentuanKhususData}
+          treePkkprlData={treePkkprlData}
+          treeIndikasiProgramData={treeIndikasiProgramData}
+          selectedLayers={selectedLayers}
+          loadingLayers={loadingLayers}
+          isLoadingRtrws={getAllRtrws.isLoading}
+          isLoadingBatas={isLoadingBatas}
+          isLoadingKlasifikasi={klasifikasisByRtrw.isLoading}
+          onToggleLayer={handleToggleLayer}
+          onFetchKlasifikasi={handleFetchKlasifikasi}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
+        />
       </div>
     </section>
   );

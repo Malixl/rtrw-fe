@@ -107,6 +107,9 @@ export default function CrudModal({ isModalOpen, data: initialData, close, title
       case InputType.TEXT:
         return <Input placeholder={`Masukan ${field.label}`} size="large" readOnly={field.readOnly} {...field.extra} />;
 
+      case InputType.PASSWORD:
+        return <Input.Password placeholder={field.placeholder || `Masukan ${field.label}`} size="large" disabled={field.readOnly} {...field.extra} />;
+
       case InputType.NUMBER:
         return <InputNumber placeholder={`Masukan ${field.label}`} min={field.min} max={field.max} className="w-full" size="large" readOnly={field.readOnly} {...field.extra} />;
 

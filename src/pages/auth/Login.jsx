@@ -1,13 +1,26 @@
 import { useAuth, useNotification } from '@/hooks';
 import { EyeInvisibleOutlined, EyeOutlined, LockOutlined, UserOutlined } from '@ant-design/icons';
-import { Button, Card, Form, Input } from 'antd';
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Button, Card, Form, Input, Skeleton } from 'antd';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 const Login = () => {
-  const { login, isLoading } = useAuth();
+  const { login, isLoading, isAuthenticated, getRedirectAfterLogin } = useAuth();
   const { error } = useNotification();
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Redirect if already authenticated (initial check)
+  useEffect(() => {
+    if (isAuthenticated) {
+      const redirectParam = searchParams.get('redirect');
+      const defaultRedirect = getRedirectAfterLogin();
+      const redirectPath = redirectParam || defaultRedirect;
+      navigate(redirectPath, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   /**
    * @param {{
@@ -17,16 +30,40 @@ const Login = () => {
    * }} values
    */
   const onFinish = async (values) => {
-    const { isSuccess, message } = await login(values.email, values.password);
+    const { isSuccess, message, user } = await login(values.email, values.password);
     if (!isSuccess) return error('Gagal', message);
+
+    // Redirect based on user role after successful login
+    const redirectParam = searchParams.get('redirect');
+    let redirectPath = redirectParam;
+
+    if (!redirectPath) {
+      // Redirect based on role
+      if (user?.role === 'admin') {
+        redirectPath = '/dashboard';
+      } else {
+        redirectPath = '/map';
+      }
+    }
+
+    navigate(redirectPath, { replace: true });
   };
+
+  // Show loading if checking auth
+  if (isLoading) {
+    return (
+      <Card className="w-full max-w-md px-4">
+        <Skeleton active paragraph={{ rows: 6 }} />
+      </Card>
+    );
+  }
 
   return (
     <Card className="w-full max-w-md px-4">
       <div className="mb-5 mt-4 flex w-full flex-col items-center justify-center gap-y-2">
         <div className="mb-4 flex flex-col items-center justify-center gap-y-2 text-center">
           <h1 className="text-xl font-semibold">Selamat Datang!</h1>
-          <p className="max-w-xs text-xs">Sistem Informasi berbasis website untuk memenuhi kebutuhan pengelolaan manajemen</p>
+          <p className="max-w-xs text-xs text-gray-500">Sistem Informasi Geografis Rencana Tata Ruang Wilayah (RTRW) Provinsi Gorontalo</p>
         </div>
       </div>
       <Form name="login" layout="vertical" initialValues={{ remember: true }} onFinish={onFinish}>

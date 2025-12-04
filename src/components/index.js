@@ -12,12 +12,17 @@ export { default as Footer } from './landing/Footer';
 export { default as DataLoader } from './DataLoader';
 export { default as Reveal } from './landing/Reveal';
 
+// Guards
+export { AuthGuard, AdminGuard, GuestGuard } from './guards';
+
 // malik punya atoms
 export { default as Button } from './atoms/Button';
+export { default as CapabilityGate } from './atoms/CapabilityGate';
 export { default as ErrorText } from './atoms/ErrorText';
 export { default as FormLabel } from './atoms/FormLabel';
 export { default as IconWrapper } from './atoms/IconWrapper';
 export { default as Input } from './atoms/Input';
+export { default as ProtectedRoute } from './atoms/ProtectedRoute';
 export { default as SectionTitle } from './atoms/SectionTitle';
 export { default as Text } from './atoms/Text';
 

@@ -3,11 +3,12 @@ function flattenLandingLinks(links) {
 
   // Rekursi untuk traversing setiap item di dalam array links
   function traverse(linkArray) {
-    linkArray.forEach(({ key, element, children }) => {
+    linkArray.forEach(({ key, element, children, capability }) => {
       if (key && element) {
         result.push({
           path: key,
-          element: element
+          element: element,
+          capability: capability
         });
       }
       if (children) {
