@@ -30,7 +30,9 @@ export default class PkkprlService {
    * }}
    */
   static async store(data, token, file) {
-    return await api.post('/pkkprl', { body: Pkkprl.toApiData(data), token, file: { geojson_file: file } });
+    const options = { body: Pkkprl.toApiData(data), token };
+    if (file) options.file = { geojson_file: file };
+    return await api.post('/pkkprl', options);
   }
 
   /**
@@ -45,7 +47,9 @@ export default class PkkprlService {
    * }>}
    */
   static async update(id, data, token, file) {
-    return await api.post(`/pkkprl/${id}`, { body: Pkkprl.toApiData(data), token, file: { geojson_file: file } });
+    const options = { body: Pkkprl.toApiData(data), token };
+    if (file) options.file = { geojson_file: file };
+    return await api.post(`/pkkprl/${id}`, options);
   }
 
   /**

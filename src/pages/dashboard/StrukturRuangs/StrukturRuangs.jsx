@@ -10,6 +10,7 @@ import { StrukturRuangs as StrukturRuangModel } from '@/models';
 import { EnvironmentOutlined, ExpandAltOutlined } from '@ant-design/icons';
 import { formFields } from './FormFields';
 import { useParams } from 'react-router-dom';
+import { extractUploadFile, hasNewUploadFile, normalizeColorValue } from '@/utils/formData';
 
 const { UPDATE, READ, DELETE } = Action;
 
@@ -111,30 +112,23 @@ const StrukturRuangs = () => {
                 formFields: fields,
 
                 onSubmit: async (values) => {
-                  const isFileUpdated = values.geojson_file?.file instanceof File;
+                  const isFileUpdated = hasNewUploadFile(values.geojson_file);
 
                   const payload = {
                     ...values,
                     geometry_type: type,
-                    color: values.color.toHexString(),
-                    _method: 'PUT'
+                    color: normalizeColorValue(values.color)
                   };
 
-                  if (!isFileUpdated) {
-                    delete payload.geojson_file;
-                  }
+                  delete payload.geojson_file;
 
-                  const fileToSend = isFileUpdated ? values.geojson_file.file : null;
+                  const fileToSend = isFileUpdated ? extractUploadFile(values.geojson_file) : null;
 
                   const { message, isSuccess } = await updateStrukturRuang.execute(record.id, payload, token, fileToSend);
 
                   if (isSuccess) {
                     success('Berhasil', message);
-                    fetchStrukturRuangs({
-                      token,
-                      page: pagination.page,
-                      per_page: pagination.per_page
-                    });
+                    fetchStrukturRuangs();
                   } else {
                     error('Gagal', message);
                   }
@@ -191,7 +185,7 @@ const StrukturRuangs = () => {
                   const { isSuccess, message } = await deleteStrukturRuang.execute(record.id, token);
                   if (isSuccess) {
                     success('Berhasil', message);
-                    fetchStrukturRuangs({ token: token, page: pagination.page, per_page: pagination.per_page });
+                    fetchStrukturRuangs();
                   } else {
                     error('Gagal', message);
                   }
@@ -248,15 +242,15 @@ const StrukturRuangs = () => {
       title: `Tambah ${Modul.STRUKTUR}`,
       formFields: fields,
       onSubmit: async (values) => {
-        const { message, isSuccess } = await storeStrukturRuang.execute({ ...values, geometry_type: type, color: values.color.toHexString() }, token, values.geojson_file.file);
+        const payload = { ...values, geometry_type: type, color: normalizeColorValue(values.color) };
+        delete payload.geojson_file;
+        const fileToSend = extractUploadFile(values.geojson_file);
+
+        const { message, isSuccess } = await storeStrukturRuang.execute(payload, token, fileToSend);
 
         if (isSuccess) {
           success('Berhasil', message);
-          fetchStrukturRuangs({
-            token,
-            page: pagination.page,
-            per_page: pagination.per_page
-          });
+          fetchStrukturRuangs();
         } else {
           error('Gagal', message);
         }

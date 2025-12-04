@@ -5,6 +5,22 @@ export const BASE_URL = `${baseUrl}/api`;
 
 const controllers = {};
 
+// Token key constant - must match AuthProvider
+const TOKEN_KEY = 'token';
+
+/**
+ * Handle 401 Unauthorized response - clear token and redirect to login
+ */
+function handleUnauthorized() {
+  // Clear token from localStorage
+  localStorage.removeItem(TOKEN_KEY);
+
+  // Only redirect if not already on login page
+  if (!window.location.pathname.includes('/login')) {
+    window.location.href = '/login';
+  }
+}
+
 /**
  * @param {string} endpoint
  * @param {'GET' | 'POST' | 'PATCH' | 'DELETE'} method
@@ -23,7 +39,24 @@ async function customFetch(endpoint, method, body, token, file, abortController)
   const formData = new FormData();
   for (const key in body) {
     if (file && key in file) continue;
-    formData.append(key, body[key]);
+
+    // Handle color picker objects (convert to hex string)
+    let value = body[key];
+    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+      // If it's a color picker object, extract the hex value
+      if (value.toHexString) {
+        value = value.toHexString();
+      } else if (value.hex) {
+        value = value.hex;
+      } else if (value.value) {
+        value = value.value;
+      } else {
+        // If it's an unknown object, stringify it
+        value = JSON.stringify(value);
+      }
+    }
+
+    formData.append(key, value);
   }
 
   for (const key in file) {
@@ -49,6 +82,17 @@ async function customFetch(endpoint, method, body, token, file, abortController)
   else if (controllers[endpoint]) options.signal = controllers[endpoint].signal;
 
   const response = await fetch(BASE_URL + endpoint, options);
+
+  // Handle 401 Unauthorized - clear token and redirect to login
+  if (response.status === 401) {
+    handleUnauthorized();
+    return {
+      code: 401,
+      status: false,
+      message: 'Unauthorized - Session expired',
+      data: null
+    };
+  }
 
   return await response.json();
 }

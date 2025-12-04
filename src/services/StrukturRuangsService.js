@@ -30,7 +30,9 @@ export default class StrukturRuangsService {
    * }}
    */
   static async store(data, token, file) {
-    return await api.post('/struktur_ruang', { body: StrukturRuangs.toApiData(data), token, file: { geojson_file: file } });
+    const options = { body: StrukturRuangs.toApiData(data), token };
+    if (file) options.file = { geojson_file: file };
+    return await api.post('/struktur_ruang', options);
   }
 
   /**
@@ -45,7 +47,9 @@ export default class StrukturRuangsService {
    * }>}
    */
   static async update(id, data, token, file) {
-    return await api.post(`/struktur_ruang/${id}`, { body: StrukturRuangs.toApiData(data), token, file: { geojson_file: file } });
+    const options = { body: StrukturRuangs.toApiData(data), token };
+    if (file) options.file = { geojson_file: file };
+    return await api.post(`/struktur_ruang/${id}`, options);
   }
 
   /**

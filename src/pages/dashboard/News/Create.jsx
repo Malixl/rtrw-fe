@@ -7,6 +7,7 @@ import { Editor } from '@tinymce/tinymce-react';
 import Dragger from 'antd/es/upload/Dragger';
 import { InboxOutlined } from '@ant-design/icons';
 import strings from '@/utils/strings';
+import { extractUploadFile } from '@/utils/formData';
 
 const Create = () => {
   const { token } = useAuth();
@@ -34,7 +35,11 @@ const Create = () => {
         form={form}
         className="grid w-full grid-cols-6 gap-2"
         onFinish={async (values) => {
-          const { message, isSuccess } = await storeNews.execute(values, token, values.thumbnail.file);
+          const payload = { ...values };
+          delete payload.thumbnail;
+          const fileToSend = extractUploadFile(values.thumbnail);
+
+          const { message, isSuccess } = await storeNews.execute(payload, token, fileToSend);
           if (isSuccess) {
             success('Berhasil', message);
             navigate(-1);
@@ -116,6 +121,8 @@ const Create = () => {
           <Form.Item
             className="mb-4"
             name="thumbnail"
+            valuePropName="fileList"
+            getValueFromEvent={(e) => (Array.isArray(e) ? e : e?.fileList)}
             rules={[
               {
                 required: true,

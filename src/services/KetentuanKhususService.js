@@ -30,7 +30,9 @@ export default class KetentuanKhususService {
    * }}
    */
   static async store(data, token, file) {
-    return await api.post('/ketentuan_khusus', { body: KetentuanKhusus.toApiData(data), token, file: { geojson_file: file } });
+    const options = { body: KetentuanKhusus.toApiData(data), token };
+    if (file) options.file = { geojson_file: file };
+    return await api.post('/ketentuan_khusus', options);
   }
   /**
    * @param {number} id
@@ -44,7 +46,9 @@ export default class KetentuanKhususService {
    * }>}
    */
   static async update(id, data, token, file) {
-    return await api.post(`/ketentuan_khusus/${id}`, { body: KetentuanKhusus.toApiData(data), token, file: { geojson_file: file } });
+    const options = { body: KetentuanKhusus.toApiData(data), token };
+    if (file) options.file = { geojson_file: file };
+    return await api.post(`/ketentuan_khusus/${id}`, options);
   }
 
   /**

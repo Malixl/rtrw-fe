@@ -1,15 +1,18 @@
 import { HttpStatusCode } from '@/constants';
+import Role, { DEFAULT_GUEST_CAPABILITIES } from '@/constants/Role';
 import { AuthContext } from '@/context';
 import { useLocalStorage, useService } from '@/hooks';
+import User from '@/models/User';
 import { AuthService } from '@/services';
 import env from '@/utils/env';
 import PropTypes from 'prop-types';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 /**
  * @typedef {{
  *  isSuccess: boolean;
  *  message: string;
+ *  user?: import('@/models/User').default | null;
  * }} Response
  */
 
@@ -23,6 +26,18 @@ import { useCallback, useEffect, useState } from 'react';
  *  user: import('@/models/User').default | null;
  *  isLoading: boolean;
  *  onUnauthorized: () => void;
+ *  capabilities: import('@/constants/Role').Capabilities;
+ *  isAdmin: boolean;
+ *  isOPD: boolean;
+ *  isGuest: boolean;
+ *  isAuthenticated: boolean;
+ *  checkUserRole: () => Promise<{ role: string, capabilities: import('@/constants/Role').Capabilities }>;
+ *  hasCapability: (capability: string) => boolean;
+ *  canAccessDashboard: () => boolean;
+ *  canAccessMap: () => boolean;
+ *  canCrudMap: () => boolean;
+ *  canManageUsers: () => boolean;
+ *  getRedirectOptions: () => string[];
  * }>}
  */
 
@@ -32,14 +47,48 @@ export default function AuthProvider({ children }) {
   const { execute: forgotService, isLoading: forgotIsLoading } = useService(AuthService.forgot);
   const { execute: resetService, isLoading: resetIsLoading } = useService(AuthService.reset);
   const { execute: getUser, isLoading: getUserIsLoading } = useService(AuthService.me);
+  const { execute: checkRoleService } = useService(AuthService.checkRole);
+  const { execute: getGuestCapabilitiesService } = useService(AuthService.getGuestCapabilities);
+
   const [token, setToken] = useLocalStorage('token', '');
   const [user, setUser] = useState(null);
+  const [capabilities, setCapabilities] = useState(DEFAULT_GUEST_CAPABILITIES);
+
+  // Computed role states
+  const isAuthenticated = useMemo(() => !!token && !!user, [token, user]);
+  const isAdmin = useMemo(() => user?.role === Role.ADMIN, [user]);
+  const isOPD = useMemo(() => user?.role === Role.OPD, [user]);
+  const isGuest = useMemo(() => !isAuthenticated || user?.role === Role.GUEST, [isAuthenticated, user]);
+
+  const mapToUserInstance = useCallback(
+    (rawUser) => {
+      if (!rawUser) return null;
+      if (rawUser instanceof User) return rawUser;
+      return User.fromApiData(rawUser, token);
+    },
+    [token]
+  );
 
   env.dev(() => {
     window.token = token;
     window.user = user;
+    window.capabilities = capabilities;
   });
 
+  // Load guest capabilities on init (when no token)
+  useEffect(() => {
+    if (!token) {
+      const loadGuestCapabilities = async () => {
+        const { data } = await getGuestCapabilitiesService();
+        if (data?.capabilities) {
+          setCapabilities(data.capabilities);
+        }
+      };
+      loadGuestCapabilities();
+    }
+  }, [token, getGuestCapabilitiesService]);
+
+  // Fetch user data when token exists
   useEffect(() => {
     if (!token) {
       setUser(null);
@@ -51,17 +100,79 @@ export default function AuthProvider({ children }) {
         const { code, data } = await getUser(token);
         if (code === HttpStatusCode.UNAUTHORIZED) {
           setToken('');
+          setCapabilities(DEFAULT_GUEST_CAPABILITIES);
           return;
         }
-        setUser(data);
+        const userInstance = mapToUserInstance(data);
+        setUser(userInstance);
+        if (userInstance?.capabilities) {
+          setCapabilities(userInstance.capabilities);
+        }
       } catch (error) {
         console.error('Error fetching user:', error);
         setToken('');
+        setCapabilities(DEFAULT_GUEST_CAPABILITIES);
       }
     };
 
     fetchUser();
-  }, [getUser, setToken, token]);
+  }, [getUser, mapToUserInstance, setToken, token]);
+
+  // Check user role and capabilities
+  const checkUserRole = useCallback(async () => {
+    if (!token) {
+      return { role: Role.GUEST, capabilities: DEFAULT_GUEST_CAPABILITIES };
+    }
+
+    try {
+      const { data } = await checkRoleService(token);
+      if (data) {
+        setCapabilities(data.capabilities);
+        return data;
+      }
+    } catch (error) {
+      console.error('Error checking role:', error);
+    }
+
+    return { role: user?.role || Role.GUEST, capabilities };
+  }, [token, checkRoleService, user, capabilities]);
+
+  // Capability check helpers
+  const hasCapability = useCallback(
+    (capability) => {
+      if (!capabilities) return false;
+      const value = capabilities[capability];
+      return typeof value === 'boolean' ? value : !!value;
+    },
+    [capabilities]
+  );
+
+  const canAccessDashboard = useCallback(() => capabilities?.can_access_dashboard ?? false, [capabilities]);
+  const canAccessMap = useCallback(() => capabilities?.can_access_map ?? false, [capabilities]);
+  const canViewMap = useCallback(() => capabilities?.can_view_map ?? false, [capabilities]);
+  const canCrudMap = useCallback(() => capabilities?.can_crud_map ?? false, [capabilities]);
+  const canManageUsers = useCallback(() => capabilities?.can_manage_users ?? false, [capabilities]);
+  const shouldBlurMap = useCallback(() => capabilities?.show_blur_map ?? true, [capabilities]);
+  const getRedirectOptions = useCallback(() => capabilities?.redirect_options ?? [], [capabilities]);
+  const getRedirectAfterLogin = useCallback(() => {
+    // Jika sudah login, redirect berdasarkan role
+    if (isAuthenticated && user) {
+      if (user.role === Role.ADMIN) return '/dashboard';
+      if (user.role === Role.OPD) return '/map';
+    }
+    // Default redirect setelah login
+    return capabilities?.redirect_after_login ?? '/map';
+  }, [capabilities, isAuthenticated, user]);
+  const getLoginMessage = useCallback(() => capabilities?.login_message ?? 'Silakan login untuk melihat peta secara lengkap', [capabilities]);
+
+  // Permission check (untuk backward compatibility dengan spatie permissions)
+  const hasPermission = useCallback(
+    (permission) => {
+      if (!user?.permissions) return false;
+      return user.permissions.includes(permission);
+    },
+    [user]
+  );
 
   const login = useCallback(
     /**
@@ -70,16 +181,26 @@ export default function AuthProvider({ children }) {
      * @returns {Promise<Response>}
      */
     async (username, password) => {
-      const { message, isSuccess, data: token } = await loginService(username, password);
-      if (!isSuccess) return { message, isSuccess };
+      const { message, isSuccess, data } = await loginService(username, password);
+      if (!isSuccess) return { message, isSuccess, user: null };
 
-      setToken(token);
+      const { token: newToken, user: userData } = data;
+      setToken(newToken);
+
+      const userInstance = mapToUserInstance(userData);
+      setUser(userInstance);
+
+      if (userInstance?.capabilities) {
+        setCapabilities(userInstance.capabilities);
+      }
+
       return {
         isSuccess,
-        message: 'Login berhasil'
+        message: 'Login berhasil',
+        user: userInstance
       };
     },
-    [loginService, setToken]
+    [loginService, setToken, mapToUserInstance]
   );
 
   const forgot = useCallback(
@@ -119,8 +240,10 @@ export default function AuthProvider({ children }) {
   );
 
   const logout = useCallback(() => {
-    setToken('');
     logoutService(token);
+    setUser(null);
+    setToken('');
+    setCapabilities(DEFAULT_GUEST_CAPABILITIES);
   }, [logoutService, setToken, token]);
 
   const onUnauthorized = useCallback(() => logout(), [logout]);
@@ -128,14 +251,38 @@ export default function AuthProvider({ children }) {
   return (
     <AuthContext.Provider
       value={{
+        // Auth actions
         login,
         logout,
         forgot,
         reset,
+        onUnauthorized,
+
+        // Auth state
         token,
         user,
         isLoading: loginIsLoading || logoutIsLoading || getUserIsLoading || forgotIsLoading || resetIsLoading,
-        onUnauthorized
+
+        // Role & Capabilities state
+        capabilities,
+        isAdmin,
+        isOPD,
+        isGuest,
+        isAuthenticated,
+
+        // Role & Capability check functions
+        checkUserRole,
+        hasCapability,
+        hasPermission,
+        canAccessDashboard,
+        canAccessMap,
+        canViewMap,
+        canCrudMap,
+        canManageUsers,
+        shouldBlurMap,
+        getRedirectOptions,
+        getRedirectAfterLogin,
+        getLoginMessage
       }}
     >
       {children}

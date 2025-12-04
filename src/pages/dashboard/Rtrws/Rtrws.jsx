@@ -31,9 +31,10 @@ const Rtrws = () => {
     execute({
       page: pagination.page,
       per_page: pagination.per_page,
-      search: filterValues.search
+      search: filterValues.search,
+      token
     });
-  }, [execute, filterValues.search, pagination.page, pagination.per_page]);
+  }, [execute, filterValues.search, pagination.page, pagination.per_page, token]);
 
   React.useEffect(() => {
     fetchRtrws();
@@ -81,7 +82,7 @@ const Rtrws = () => {
                   const { message, isSuccess } = await updateRtrw.execute(record.id, values, token);
                   if (isSuccess) {
                     success('Berhasil', message);
-                    fetchRtrws({ token: token, page: pagination.page, per_page: pagination.per_page });
+                    fetchRtrws();
                   } else {
                     error('Gagal', message);
                   }
@@ -132,7 +133,7 @@ const Rtrws = () => {
                   const { isSuccess, message } = await deleteRtrw.execute(record.id, token);
                   if (isSuccess) {
                     success('Berhasil', message);
-                    fetchRtrws({ token: token, page: pagination.page, per_page: pagination.per_page });
+                    fetchRtrws();
                   } else {
                     error('Gagal', message);
                   }
@@ -154,7 +155,7 @@ const Rtrws = () => {
         const { message, isSuccess } = await storeRtrw.execute(values, token);
         if (isSuccess) {
           success('Berhasil', message);
-          fetchRtrws({ token: token, page: pagination.page, per_page: pagination.per_page });
+          fetchRtrws();
         } else {
           error('Gagal', message);
         }

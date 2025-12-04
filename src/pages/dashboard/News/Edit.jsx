@@ -9,6 +9,7 @@ import Dragger from 'antd/es/upload/Dragger';
 import { InboxOutlined } from '@ant-design/icons';
 import strings from '@/utils/strings';
 import { NewsService } from '@/services';
+import { extractUploadFile, hasNewUploadFile } from '@/utils/formData';
 
 const Edit = () => {
   const { token } = useAuth();
@@ -82,18 +83,16 @@ const Edit = () => {
             onValuesChange={handleValuesChange}
             className="grid w-full grid-cols-6 gap-2"
             onFinish={async (values) => {
-              const isFileUpdated = values.thumbnail?.file instanceof File;
+              const isFileUpdated = hasNewUploadFile(values.thumbnail);
 
               const payload = {
                 ...values,
                 _method: 'PUT'
               };
 
-              if (!isFileUpdated) {
-                delete payload.thumbnail;
-              }
+              delete payload.thumbnail;
 
-              const fileToSend = isFileUpdated ? values.thumbnail.file : null;
+              const fileToSend = isFileUpdated ? extractUploadFile(values.thumbnail) : null;
 
               const { message, isSuccess } = await updateNews.execute(initialData.id, payload, token, fileToSend);
 

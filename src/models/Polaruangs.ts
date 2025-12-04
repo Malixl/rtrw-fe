@@ -28,7 +28,7 @@ export interface OutgoingApiData {
   _method?: 'PUT';
   nama: string;
   deskripsi: string;
-  geojson_file: string;
+  geojson_file?: string;
   klasifikasi_id: string;
   warna: string;
 }
@@ -37,7 +37,7 @@ interface FormValue {
   _method?: 'PUT';
   name: string;
   desc: string;
-  geojson_file: string;
+  geojson_file?: string;
   id_klasifikasi: string;
   color: string;
 }
@@ -98,16 +98,18 @@ export default class Polaruangs extends Model {
     ) as ReturnType<T, IncomingApiData, Polaruangs>;
   }
 
-  public static toApiData<T extends FormValue | FormValue[]>(polaruangs: T): ReturnType<T, FormValue, OutgoingApiData> {
-    if (Array.isArray(polaruangs)) return polaruangs.map((object) => this.toApiData(object)) as ReturnType<T, FormValue, OutgoingApiData>;
+  public static toApiData<T extends FormValue | FormValue[]>(polaruang: T): ReturnType<T, FormValue, OutgoingApiData> {
+    if (Array.isArray(polaruang)) return polaruang.map((object) => this.toApiData(object)) as ReturnType<T, FormValue, OutgoingApiData>;
     const apiData: OutgoingApiData = {
-      ...(polaruangs._method ? { _method: polaruangs._method } : {}),
-      nama: polaruangs.name,
-      deskripsi: polaruangs.desc,
-      klasifikasi_id: polaruangs.id_klasifikasi,
-      geojson_file: polaruangs.geojson_file,
-      warna: polaruangs.color
+      nama: polaruang.name,
+      deskripsi: polaruang.desc,
+      klasifikasi_id: polaruang.id_klasifikasi,
+      warna: polaruang.color
     };
+
+    if (typeof polaruang.geojson_file === 'string') {
+      apiData.geojson_file = polaruang.geojson_file;
+    }
 
     return apiData as ReturnType<T, FormValue, OutgoingApiData>;
   }

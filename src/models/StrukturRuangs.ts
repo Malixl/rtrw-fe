@@ -31,7 +31,7 @@ export interface OutgoingApiData {
   _method?: 'PUT';
   nama: string;
   deskripsi: string;
-  geojson_file: string;
+  geojson_file?: string;
   klasifikasi_id: string;
   tipe_geometri: 'polyline' | 'poin';
   icon_titik?: string;
@@ -43,7 +43,7 @@ interface FormValue {
   _method?: 'PUT';
   name: string;
   desc: string;
-  geojson_file: string;
+  geojson_file?: string;
   id_klasifikasi: string;
   geometry_type: 'polyline' | 'poin';
   point_icon?: string;
@@ -116,16 +116,18 @@ export default class StrukturRuangs extends Model {
   public static toApiData<T extends FormValue | FormValue[]>(strukturRuangs: T): ReturnType<T, FormValue, OutgoingApiData> {
     if (Array.isArray(strukturRuangs)) return strukturRuangs.map((object) => this.toApiData(object)) as ReturnType<T, FormValue, OutgoingApiData>;
     const apiData: OutgoingApiData = {
-      ...(strukturRuangs._method ? { _method: strukturRuangs._method } : {}),
       nama: strukturRuangs.name,
       deskripsi: strukturRuangs.desc,
       klasifikasi_id: strukturRuangs.id_klasifikasi,
-      geojson_file: strukturRuangs.geojson_file,
       tipe_geometri: strukturRuangs.geometry_type,
       ...(strukturRuangs.point_icon ? { icon_titik: strukturRuangs.point_icon } : {}),
       ...(strukturRuangs.line_type ? { tipe_garis: strukturRuangs.line_type } : {}),
       warna: strukturRuangs.color
     };
+
+    if (typeof strukturRuangs.geojson_file === 'string') {
+      apiData.geojson_file = strukturRuangs.geojson_file;
+    }
 
     return apiData as ReturnType<T, FormValue, OutgoingApiData>;
   }

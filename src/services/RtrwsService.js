@@ -12,9 +12,9 @@ export default class RtrwsService {
    *  data?: Rtrws[];
    * }>}
    * */
-  static async getAll({ ...filters }) {
+  static async getAll({ token = null, ...filters } = {}) {
     const params = Object.fromEntries(Object.entries(filters).filter(([_, value]) => value !== null && value !== undefined && value !== ''));
-    const response = await api.get('/rtrw', { token: null, params });
+    const response = await api.get('/rtrw', { token, params });
     if (!response.data) return response;
     return { ...response, data: Rtrws.fromApiData(response.data) };
   }

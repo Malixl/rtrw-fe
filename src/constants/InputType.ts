@@ -1,5 +1,6 @@
 enum InputType {
   TEXT = 'text',
+  PASSWORD = 'password',
   NUMBER = 'number',
   LONGTEXT = 'longtext',
   DATE = 'date',

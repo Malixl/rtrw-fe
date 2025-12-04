@@ -3,62 +3,79 @@ import { useAuth } from '@/hooks';
 import { Drawer, Grid, Image, Menu, Tooltip } from 'antd';
 import Sider from 'antd/es/layout/Sider';
 import PropTypes from 'prop-types';
+import { useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 const DashboardSider = ({ collapsed, onCloseMenu }) => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { user } = useAuth();
   const breakpoints = Grid.useBreakpoint();
+  const { hasCapability, user } = useAuth();
 
   const isDesktop = breakpoints.lg || breakpoints.xl || breakpoints.xxl;
 
-  const menuItems = dashboardLink
-    .filter(({ permissions, roles }) => {
-      if (!user) return false;
+  // Filter menu items based on user capabilities
+  const menuItems = useMemo(() => {
+    return dashboardLink
+      .map(({ label, children, icon: Icon }) => {
+        // Filter children based on capabilities
+        const filteredChildren = children.filter((child) => {
+          // If no capability required, show the item
+          if (!child.capability && (!child.capabilities || child.capabilities.length === 0)) {
+            return true;
+          }
 
-      const hasPermission = permissions && permissions.length > 0;
-      const hasRole = roles && roles.length > 0;
+          // Check single capability
+          if (child.capability) {
+            return hasCapability(child.capability);
+          }
 
-      const isPublicPage = !hasPermission && !hasRole;
-      if (isPublicPage) return true;
+          // Check multiple capabilities
+          if (child.capabilities && child.capabilities.length > 0) {
+            if (child.requireAllCapabilities) {
+              return child.capabilities.every((cap) => hasCapability(cap));
+            }
+            return child.capabilities.some((cap) => hasCapability(cap));
+          }
 
-      const roleSpecific = hasRole && !hasPermission;
-      if (roleSpecific) return user.eitherIs(...roles);
+          // Also check old permission system for backward compatibility
+          if (child.permissions && child.permissions.length > 0 && user) {
+            return !user.cantDoAny(...child.permissions);
+          }
 
-      const permissionSpecific = hasPermission && !hasRole;
-      if (permissionSpecific) return user.eitherCan(...permissions);
+          return true;
+        });
 
-      return user.eitherCan(...permissions) || user.eitherIs(...roles);
-    })
-    .map(({ label, children, icon: Icon }) => ({
-      key: label,
-      label: (
-        <Tooltip title={label} placement="right" color="blue">
-          <span>{label}</span>
-        </Tooltip>
-      ),
-      icon: (
-        <Tooltip title={label} placement="right" color="blue">
-          <Icon />
-        </Tooltip>
-      ),
-      children: children
-        .filter(({ permissions, roles }) => {
-          const hasPermission = !permissions || user?.eitherCan(...permissions);
-          const hasRole = !roles || user?.eitherIs(...roles);
-          return hasPermission && hasRole;
-        })
-        .map(({ path, label }) => ({
-          key: path,
+        // Don't show parent if no children are accessible
+        if (filteredChildren.length === 0) {
+          return null;
+        }
+
+        return {
+          key: label,
           label: (
             <Tooltip title={label} placement="right" color="blue">
               <span>{label}</span>
             </Tooltip>
           ),
-          onClick: () => navigate(path)
-        }))
-    }));
+          icon: (
+            <Tooltip title={label} placement="right" color="blue">
+              <Icon />
+            </Tooltip>
+          ),
+          children: filteredChildren.map(({ path, label }) => ({
+            key: path,
+            label: (
+              <Tooltip title={label} placement="right" color="blue">
+                <span>{label}</span>
+              </Tooltip>
+            ),
+            onClick: () => navigate(path)
+          }))
+        };
+      })
+      .filter(Boolean); // Remove null items
+  }, [hasCapability, user, navigate]);
 
   return isDesktop ? (
     <Sider theme="light" className="p-4" width={230} collapsed={collapsed}>

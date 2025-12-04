@@ -9,6 +9,7 @@ import Modul from '@/constants/Modul';
 import { formFields } from './FormFields';
 import { Polaruangs as PolaruangModel } from '@/models';
 import { useParams } from 'react-router-dom';
+import { extractUploadFile, hasNewUploadFile, normalizeColorValue } from '@/utils/formData';
 
 const { UPDATE, READ, DELETE } = Action;
 
@@ -83,29 +84,21 @@ const Polaruangs = () => {
                 data: { ...record, id_klasifikasi: record.klasifikasi.id },
                 formFields: formFields({ options: { klasifikasi: klasifikasis } }),
                 onSubmit: async (values) => {
-                  const isFileUpdated = values.geojson_file?.file instanceof File;
-
+                  const isFileUpdated = hasNewUploadFile(values.geojson_file);
                   const payload = {
                     ...values,
-                    color: values.color.toHexString(),
-                    _method: 'PUT'
+                    color: normalizeColorValue(values.color)
                   };
 
-                  if (!isFileUpdated) {
-                    delete payload.geojson_file;
-                  }
+                  delete payload.geojson_file;
 
-                  const fileToSend = isFileUpdated ? values.geojson_file.file : null;
+                  const fileToSend = isFileUpdated ? extractUploadFile(values.geojson_file) : null;
 
                   const { message, isSuccess } = await updatePolaruang.execute(record.id, payload, token, fileToSend);
 
                   if (isSuccess) {
                     success('Berhasil', message);
-                    fetchPolaruangs({
-                      token,
-                      page: pagination.page,
-                      per_page: pagination.per_page
-                    });
+                    fetchPolaruangs();
                   } else {
                     error('Gagal', message);
                   }
@@ -162,7 +155,7 @@ const Polaruangs = () => {
                   const { isSuccess, message } = await deletePolaruang.execute(record.id, token);
                   if (isSuccess) {
                     success('Berhasil', message);
-                    fetchPolaruangs({ token: token, page: pagination.page, per_page: pagination.per_page });
+                    fetchPolaruangs();
                   } else {
                     error('Gagal', message);
                   }
@@ -181,10 +174,14 @@ const Polaruangs = () => {
       title: `Tambah ${Modul.POLARUANG}`,
       formFields: formFields({ options: { klasifikasi: klasifikasis } }),
       onSubmit: async (values) => {
-        const { message, isSuccess } = await storePolaruang.execute({ ...values, color: values.color.toHexString() }, token, values.geojson_file.file);
+        const payload = { ...values, color: normalizeColorValue(values.color) };
+        const fileToSend = extractUploadFile(values.geojson_file);
+        delete payload.geojson_file;
+
+        const { message, isSuccess } = await storePolaruang.execute(payload, token, fileToSend);
         if (isSuccess) {
           success('Berhasil', message);
-          fetchPolaruangs({ token: token, page: pagination.page, per_page: pagination.per_page });
+          fetchPolaruangs();
         } else {
           error('Gagal', message);
         }

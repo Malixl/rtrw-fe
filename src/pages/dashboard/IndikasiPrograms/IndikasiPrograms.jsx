@@ -9,6 +9,7 @@ import { Delete, Detail, Edit } from '@/components/dashboard/button';
 import Modul from '@/constants/Modul';
 import { formFields } from './FormFields';
 import { DownloadOutlined } from '@ant-design/icons';
+import { extractUploadFile, hasNewUploadFile } from '@/utils/formData';
 
 const { UPDATE, READ, DELETE } = Action;
 
@@ -69,10 +70,15 @@ const IndikasiPrograms = () => {
                 formFields: formFields({ options: { klasifikasi: klasifikasis } }),
 
                 onSubmit: async (values) => {
-                  const { message, isSuccess } = await updateIndikasiProgram.execute(record.id, { ...values, _method: 'PUT' }, token, values.doc.file);
+                  const isFileUpdated = hasNewUploadFile(values.doc);
+                  const payload = { ...values };
+                  delete payload.doc;
+                  const fileToSend = isFileUpdated ? extractUploadFile(values.doc) : null;
+
+                  const { message, isSuccess } = await updateIndikasiProgram.execute(record.id, payload, token, fileToSend);
                   if (isSuccess) {
                     success('Berhasil', message);
-                    fetchIndikasiPrograms({ token: token, page: pagination.page, per_page: pagination.per_page });
+                    fetchIndikasiPrograms();
                   } else {
                     error('Gagal', message);
                   }
@@ -136,10 +142,14 @@ const IndikasiPrograms = () => {
       title: `Tambah ${Modul.INDIKASI_PROGRAM}`,
       formFields: formFields({ options: { klasifikasi: klasifikasis } }),
       onSubmit: async (values) => {
-        const { message, isSuccess } = await storeIndikasiProgram.execute(values, token, values.doc.file);
+        const payload = { ...values };
+        const fileToSend = extractUploadFile(values.doc);
+        delete payload.doc;
+
+        const { message, isSuccess } = await storeIndikasiProgram.execute(payload, token, fileToSend);
         if (isSuccess) {
           success('Berhasil', message);
-          fetchIndikasiPrograms({ token: token, page: pagination.page, per_page: pagination.per_page });
+          fetchIndikasiPrograms();
         } else {
           error('Gagal', message);
         }
@@ -156,7 +166,7 @@ const IndikasiPrograms = () => {
         const { message, isSuccess } = await deleteBatchIndikasiProgram.execute(ids, token);
         if (isSuccess) {
           success('Berhasil', message);
-          fetchIndikasiPrograms(token, pagination.page, pagination.per_page);
+          fetchIndikasiPrograms();
           setSelectedIndikasiPrograms([]);
         } else {
           error('Gagal', message);

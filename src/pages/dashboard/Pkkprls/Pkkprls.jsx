@@ -9,6 +9,7 @@ import Modul from '@/constants/Modul';
 import { formFields } from './FormFields';
 import { Pkkprl as PkkprlModel } from '@/models';
 import { useParams } from 'react-router-dom';
+import { extractUploadFile, hasNewUploadFile, normalizeColorValue } from '@/utils/formData';
 
 const { UPDATE, READ, DELETE } = Action;
 
@@ -83,29 +84,22 @@ const Pkkprls = () => {
                 data: { ...record, id_klasifikasi: record.klasifikasi.id },
                 formFields: formFields({ options: { klasifikasi: klasifikasis } }),
                 onSubmit: async (values) => {
-                  const isFileUpdated = values.geojson_file?.file instanceof File;
+                  const isFileUpdated = hasNewUploadFile(values.geojson_file);
 
                   const payload = {
                     ...values,
-                    color: values.color.toHexString(),
-                    _method: 'PUT'
+                    color: normalizeColorValue(values.color)
                   };
 
-                  if (!isFileUpdated) {
-                    delete payload.geojson_file;
-                  }
+                  delete payload.geojson_file;
 
-                  const fileToSend = isFileUpdated ? values.geojson_file.file : null;
+                  const fileToSend = isFileUpdated ? extractUploadFile(values.geojson_file) : null;
 
                   const { message, isSuccess } = await updatePkkprl.execute(record.id, payload, token, fileToSend);
 
                   if (isSuccess) {
                     success('Berhasil', message);
-                    fetchPkkprl({
-                      token,
-                      page: pagination.page,
-                      per_page: pagination.per_page
-                    });
+                    fetchPkkprl();
                   } else {
                     error('Gagal', message);
                   }
@@ -162,7 +156,7 @@ const Pkkprls = () => {
                   const { isSuccess, message } = await deletePkkprl.execute(record.id, token);
                   if (isSuccess) {
                     success('Berhasil', message);
-                    fetchPkkprl({ token: token, page: pagination.page, per_page: pagination.per_page });
+                    fetchPkkprl();
                   } else {
                     error('Gagal', message);
                   }
@@ -181,10 +175,14 @@ const Pkkprls = () => {
       title: `Tambah ${Modul.PKKPRL}`,
       formFields: formFields({ options: { klasifikasi: klasifikasis } }),
       onSubmit: async (values) => {
-        const { message, isSuccess } = await storePkkprl.execute({ ...values, color: values.color.toHexString() }, token, values.geojson_file.file);
+        const payload = { ...values, color: normalizeColorValue(values.color) };
+        delete payload.geojson_file;
+        const fileToSend = extractUploadFile(values.geojson_file);
+
+        const { message, isSuccess } = await storePkkprl.execute(payload, token, fileToSend);
         if (isSuccess) {
           success('Berhasil', message);
-          fetchPkkprl({ token: token, page: pagination.page, per_page: pagination.per_page });
+          fetchPkkprl();
         } else {
           error('Gagal', message);
         }
