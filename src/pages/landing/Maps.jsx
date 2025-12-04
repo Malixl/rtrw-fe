@@ -39,7 +39,26 @@ const Maps = () => {
   const [treePkkprlData, setTreePkkprlData] = React.useState([]);
   const [treeIndikasiProgramData, setTreeIndikasiProgramData] = React.useState([]);
   const [popupInfo, setPopupInfo] = React.useState(null);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(true); // Default collapsed on mobile
+  const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
+  const [isTablet, setIsTablet] = React.useState(window.innerWidth >= 768 && window.innerWidth < 1024);
+
+  // Handle window resize for responsive
+  React.useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      setIsMobile(width < 768);
+      setIsTablet(width >= 768 && width < 1024);
+      // Auto collapse sidebar on mobile
+      if (width < 768) {
+        setIsSidebarCollapsed(true);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    handleResize(); // Initial check
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Check if user can access the map
   const hasMapAccess = canAccessMap();
@@ -330,16 +349,48 @@ const Maps = () => {
   }
 
   return (
-    <section className="relative h-screen w-full">
-      {/* Dynamic styles for map controls based on sidebar state */}
+    <section className="relative h-screen w-full overflow-hidden">
+      {/* Dynamic styles for map controls based on sidebar state and screen size */}
       <style>
         {`
-          .leaflet-top.leaflet-right {
-            right: ${isSidebarCollapsed ? '10px' : '410px'};
-            transition: right 0.3s ease-in-out;
+          /* Desktop styles */
+          @media (min-width: 1024px) {
+            .leaflet-top.leaflet-right {
+              right: ${isSidebarCollapsed ? '10px' : '410px'};
+              transition: right 0.3s ease-in-out;
+            }
+          }
+          
+          /* Tablet styles */
+          @media (min-width: 768px) and (max-width: 1023px) {
+            .leaflet-top.leaflet-right {
+              right: ${isSidebarCollapsed ? '10px' : '320px'};
+              transition: right 0.3s ease-in-out;
+            }
+          }
+          
+          /* Mobile styles */
+          @media (max-width: 767px) {
+            .leaflet-top.leaflet-right {
+              right: 10px;
+              top: 10px;
+            }
+            .leaflet-control-zoom {
+              display: none;
+            }
+            .map-tools-control {
+              transform: scale(0.9);
+            }
+            .leaflet-bottom.leaflet-left,
+            .leaflet-bottom.leaflet-right {
+              bottom: 60px !important;
+            }
           }
         `}
       </style>
+
+      {/* Mobile Floating Button to Open Sidebar */}
+      {isMobile && isSidebarCollapsed && <Button type="primary" icon={<MenuUnfoldOutlined />} onClick={() => setIsSidebarCollapsed(false)} className="absolute right-4 top-4 z-[1001] h-10 w-10 rounded-full shadow-lg" size="large" />}
 
       {/* Map Container - Full Width */}
       <div className="h-full w-full">
@@ -419,14 +470,15 @@ const Maps = () => {
             </Popup>
           )}
         </MapContainer>
-        <div className="absolute bottom-4 left-4 z-[1000]">
-          <div className="w-96 rounded-lg bg-white p-4 shadow-lg">
-            <h4 className="mb-2 font-semibold">Legend</h4>
+        {/* Legend - Responsive */}
+        <div className={`absolute z-[1000] ${isMobile ? 'bottom-2 left-2 right-2' : 'bottom-4 left-4'}`}>
+          <div className={`rounded-lg bg-white p-3 shadow-lg ${isMobile ? 'max-h-32 w-full overflow-y-auto' : 'w-96 p-4'}`}>
+            <h4 className={`mb-2 font-semibold ${isMobile ? 'text-sm' : ''}`}>Legend</h4>
             {/* POLA RUANG */}
             {Object.entries(selectedLayers).some(([key]) => key.startsWith('pola')) && (
               <>
-                <div className="flex max-h-28 flex-wrap gap-2">
-                  <b className="w-full text-sm">Pola Ruang</b>
+                <div className={`flex flex-wrap gap-1 ${isMobile ? 'gap-1' : 'max-h-28 gap-2'}`}>
+                  <b className={`w-full ${isMobile ? 'text-xs' : 'text-sm'}`}>Pola Ruang</b>
 
                   {Object.entries(selectedLayers)
                     .filter(([key]) => key.startsWith('pola'))
@@ -517,8 +569,8 @@ const Maps = () => {
         </div>
       </div>
 
-      {/* Collapsible Sidebar - Overlay on right */}
-      <div className={`absolute right-0 top-0 z-[1000] h-full transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-0' : 'w-[400px]'}`}>
+      {/* Collapsible Sidebar - Responsive */}
+      <div className={`absolute right-0 top-0 z-[1000] h-full transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-0' : isMobile ? 'w-full' : isTablet ? 'w-[320px]' : 'w-[400px]'}`}>
         <MapSidebar
           rtrws={rtrws}
           batasAdministrasi={batasAdministrasi}
@@ -536,8 +588,12 @@ const Maps = () => {
           onFetchKlasifikasi={handleFetchKlasifikasi}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
+          isMobile={isMobile}
         />
       </div>
+
+      {/* Mobile overlay when sidebar is open */}
+      {isMobile && !isSidebarCollapsed && <div className="absolute inset-0 z-[999] bg-black/50" onClick={() => setIsSidebarCollapsed(true)} />}
     </section>
   );
 };

@@ -59,7 +59,7 @@ export const rtrwContents = {
     {
       id: 4,
       title: 'Pengendalian Pemanfaatan Ruang',
-      description: 'Ketentuan untuk mencegah pelanggaran (misal: izin lokasi, zonasi, sanksi).',
+      description: 'Ketentuan untuk mencegah pelanggaran',
       icon: '⚖️'
     }
   ]

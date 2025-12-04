@@ -97,7 +97,9 @@ const MapSidebar = ({
   onFetchKlasifikasi,
   // Collapse control
   isCollapsed,
-  onToggleCollapse
+  onToggleCollapse,
+  // Responsive
+  isMobile = false
 }) => {
   const modal = useCrudModal();
 
@@ -198,33 +200,47 @@ const MapSidebar = ({
 
   return (
     <div className="relative flex h-full">
-      {/* Toggle Button - menempel langsung dengan sidebar */}
-      <Tooltip title={isCollapsed ? 'Buka Panel' : 'Tutup Panel'} placement="left">
-        <Button
-          type="primary"
-          icon={isCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-          onClick={onToggleCollapse}
-          className="absolute -left-10 top-[450px] z-[1001] h-12 w-10 -translate-y-1/2 rounded-l-lg rounded-r-none shadow-lg"
-          style={{ right: '100%', left: 'auto' }}
-        />
-      </Tooltip>
+      {/* Toggle Button - responsive positioning */}
+      {!isMobile && (
+        <Tooltip title={isCollapsed ? 'Buka Panel' : 'Tutup Panel'} placement="left">
+          <Button
+            type="primary"
+            icon={isCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+            onClick={onToggleCollapse}
+            className="absolute -left-10 top-1/2 z-[1001] h-12 w-10 -translate-y-1/2 rounded-l-lg rounded-r-none shadow-lg"
+            style={{ right: '100%', left: 'auto' }}
+          />
+        </Tooltip>
+      )}
 
       {/* Sidebar Content */}
-      <div className={`h-full overflow-y-auto bg-white shadow-xl transition-all duration-300 ease-in-out ${isCollapsed ? 'w-0 overflow-hidden p-0' : 'w-full p-6'}`}>
-        <div className={`flex min-w-[340px] flex-col gap-y-4 ${isCollapsed ? 'invisible opacity-0' : 'visible opacity-100'}`}>
+      <div className={`h-full overflow-y-auto bg-white shadow-xl transition-all duration-300 ease-in-out ${isCollapsed ? 'w-0 overflow-hidden p-0' : `w-full ${isMobile ? 'p-4' : 'p-6'}`}`}>
+        {/* Mobile Header with Close Button */}
+        {isMobile && !isCollapsed && (
+          <div className="mb-4 flex items-center justify-between border-b pb-3">
+            <Typography.Title level={5} style={{ margin: 0 }}>
+              Layer Control
+            </Typography.Title>
+            <Button type="text" icon={<MenuFoldOutlined />} onClick={onToggleCollapse} className="text-gray-500" />
+          </div>
+        )}
+
+        <div className={`flex flex-col gap-y-4 ${isMobile ? 'min-w-0' : 'min-w-[340px]'} ${isCollapsed ? 'invisible opacity-0' : 'visible opacity-100'}`}>
           {/* User Info */}
           <MapUserInfo />
 
-          {/* Header */}
-          <div className="flex flex-col">
-            <Typography.Title level={5} style={{ margin: 0 }}>
-              Geospasial
-            </Typography.Title>
-            <p className="text-sm text-gray-500">Tampilan Map</p>
-          </div>
+          {/* Header - hide on mobile since we have it above */}
+          {!isMobile && (
+            <div className="flex flex-col">
+              <Typography.Title level={5} style={{ margin: 0 }}>
+                Geospasial
+              </Typography.Title>
+              <p className="text-sm text-gray-500">Tampilan Map</p>
+            </div>
+          )}
 
           {/* RTRW Selection Form */}
-          <div className="mt-4">
+          <div className={isMobile ? 'mt-2' : 'mt-4'}>
             <Skeleton loading={isLoadingRtrws}>
               <Form className="flex items-center gap-x-2" onFinish={onFetchKlasifikasi}>
                 <Form.Item name="id_rtrw" style={{ margin: 0 }} className="w-full">
