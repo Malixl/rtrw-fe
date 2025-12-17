@@ -26,7 +26,7 @@ const Navbar = () => {
             <span className="rounded-lg border border-gray-200 bg-white p-2 text-primary-600 shadow-sm transition-transform group-hover:scale-110">
               <EnvironmentOutlined className="text-xl" />
             </span>
-            <span className="font-display bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-lg font-bold text-transparent md:text-xl">RTRW Provinsi Gorontalo</span>
+            <span className="font-display bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-base font-bold text-transparent md:text-xl">RTRW Provinsi Gorontalo</span>
           </Link>
 
           {/* Desktop nav */}
