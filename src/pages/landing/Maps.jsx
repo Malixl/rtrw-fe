@@ -433,10 +433,32 @@ const Maps = () => {
             <GeoJSON
               key={`${layer.type}-${layer.id}`}
               data={layer.data}
-              style={getFeatureStyle}
+              style={(feature) => {
+                // Custom style for Struktur Ruang: support stroke_width, custom color, etc.
+                const props = feature.properties || {};
+                let style = getFeatureStyle(feature);
+                // If this is a Struktur Ruang layer and has stroke_width, override weight
+                if (layer.type === 'struktur' && props['stroke-width']) {
+                  style = { ...style, weight: props['stroke-width'] };
+                }
+                return style;
+              }}
               pointToLayer={(feature, latlng) => {
-                const iconName = feature.properties?.icon;
-                const color = feature.properties?.stroke || feature.properties?.fill || '#1677ff';
+                // For Struktur Ruang point: use uploaded image_url as marker icon if available
+                const props = feature.properties || {};
+                if (layer.type === 'struktur' && props.icon_image_url) {
+                  // Use uploaded image as marker icon
+                  const icon = L.icon({
+                    iconUrl: props.icon_image_url,
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 32],
+                    className: 'custom-strukturruang-marker'
+                  });
+                  return L.marker(latlng, { icon });
+                }
+                // Fallback: use AntD icon if specified
+                const iconName = props.icon;
+                const color = props.stroke || props.fill || '#1677ff';
                 const leafletIcon = iconName ? getLeafletIcon(iconName, color) : undefined;
                 if (leafletIcon) return L.marker(latlng, { icon: leafletIcon });
                 return L.marker(latlng);
@@ -450,9 +472,26 @@ const Maps = () => {
                   });
                 });
 
-                const iconName = feature.properties?.icon;
+                // For Struktur Ruang: if icon_image_url is present and geometry is not Point, add marker at center
+                const props = feature.properties || {};
+                if (layer.type === 'struktur' && props.icon_image_url && feature.geometry && feature.geometry.type !== 'Point') {
+                  const icon = L.icon({
+                    iconUrl: props.icon_image_url,
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 32],
+                    className: 'custom-strukturruang-marker'
+                  });
+                  try {
+                    const latlng = layerGeo.getBounds().getCenter();
+                    L.marker(latlng, { icon }).addTo(layerGeo._map);
+                  } catch (err) {
+                    console.warn(err);
+                  }
+                }
+                // Fallback: AntD icon for non-point
+                const iconName = props.icon;
                 if (iconName && feature.geometry && feature.geometry.type !== 'Point') {
-                  const color = feature.properties?.stroke || '#1677ff';
+                  const color = props.stroke || '#1677ff';
                   const leafletIcon = getLeafletIcon(iconName, color);
                   try {
                     const latlng = layerGeo.getBounds().getCenter();
