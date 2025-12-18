@@ -11,4 +11,3 @@ export { default as NewsService } from './NewsService';
 export { default as DashboardService } from './DashboardService';
 export { default as BatasAdministrasiService } from './BatasAdministrasiService';
 export { default as UserService } from './UserService';
-

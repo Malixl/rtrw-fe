@@ -25,9 +25,12 @@ export interface IncomingApiData {
   id: number;
   email: string;
   name: string;
-  role?: {
-    name: string;
-  } | string | null;
+  role?:
+    | {
+        name: string;
+      }
+    | string
+    | null;
   permissions?: string[];
   capabilities?: Capabilities;
   created_at?: string;
@@ -147,25 +150,13 @@ export default class User extends Model {
   }
 
   static fromApiData(apiData: IncomingApiData, token: string): User {
-    const roleName = typeof apiData.role === 'string' 
-      ? apiData.role 
-      : apiData.role?.name || Role.GUEST;
-    
+    const roleName = typeof apiData.role === 'string' ? apiData.role : apiData.role?.name || Role.GUEST;
+
     const permissions = apiData.permissions || [];
-    
+
     const capabilities = apiData.capabilities || User.getDefaultCapabilities(roleName);
 
-    return new User(
-      apiData.id, 
-      apiData.email, 
-      apiData.name, 
-      token, 
-      roleName,
-      permissions,
-      capabilities,
-      apiData.created_at,
-      apiData.updated_at
-    );
+    return new User(apiData.id, apiData.email, apiData.name, token, roleName, permissions, capabilities, apiData.created_at, apiData.updated_at);
   }
 
   static toApiData(user: User): OutgoingApiData {
@@ -179,13 +170,7 @@ export default class User extends Model {
   /**
    * Create OutgoingApiData for new user
    */
-  static createApiData(data: {
-    name: string;
-    email: string;
-    password: string;
-    password_confirmation: string;
-    role: string;
-  }): OutgoingApiData {
+  static createApiData(data: { name: string; email: string; password: string; password_confirmation: string; role: string }): OutgoingApiData {
     return data;
   }
 }

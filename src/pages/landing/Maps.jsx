@@ -13,7 +13,6 @@ import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
 import 'leaflet-draw';
 import 'leaflet-draw/dist/leaflet.draw.css';
-import { getLeafletIcon } from '@/utils/leafletIcon';
 import * as AntdIcons from '@ant-design/icons';
 import FeaturePopup from '@/components/Map/FeaturePopup';
 import MapUserInfo from '@/components/Map/MapUserInfo';
@@ -112,7 +111,7 @@ const Maps = () => {
       const res = await fetch(url);
       const json = await res.json();
       const warna = pemetaan.warna ?? null;
-      const iconName = pemetaan.icon_titik ?? null;
+      const iconImageUrl = asset(pemetaan.icon_titik) ?? null;
       const tipe_garis = pemetaan.tipe_garis ?? null;
       const fillOpacity = pemetaan.fill_opacity ?? 0.8;
 
@@ -120,19 +119,33 @@ const Maps = () => {
         ...json,
         features: (json.features || []).map((feature) => {
           const props = { ...(feature.properties || {}) };
-          if (iconName) props.icon = iconName;
+
+          // warna
           if (warna) {
             props.stroke = warna;
-            props['stroke-width'] = props['stroke-width'] ?? 3;
-            props['stroke-opacity'] = props['stroke-opacity'] ?? 1;
-
-            props.fill = props.fill ?? warna; // <-- FILL POLYGON
-            props['fill-opacity'] = props['fill-opacity'] ?? fillOpacity;
+            props.fill = warna;
+            props['stroke-opacity'] = 1;
+            props['fill-opacity'] = fillOpacity;
           }
+
+          // tipe garis
           if (tipe_garis === 'dashed') {
-            props.dashArray = props.dashArray ?? '6 6';
-          } else if (tipe_garis === 'solid') {
+            props.dashArray = '6 6';
+            props['stroke-width'] = 3;
+          }
+
+          if (tipe_garis === 'solid') {
             props.dashArray = null;
+            props['stroke-width'] = 3;
+          }
+
+          if (tipe_garis === 'bold') {
+            props.dashArray = null;
+            props['stroke-width'] = 6; // 🔥 LEBIH TEBAL
+          }
+
+          if (iconImageUrl) {
+            props.icon_image_url = iconImageUrl;
           }
 
           return {
@@ -444,58 +457,43 @@ const Maps = () => {
                 return style;
               }}
               pointToLayer={(feature, latlng) => {
-                // For Struktur Ruang point: use uploaded image_url as marker icon if available
                 const props = feature.properties || {};
-                if (layer.type === 'struktur' && props.icon_image_url) {
-                  // Use uploaded image as marker icon
+
+                if (props.icon_image_url) {
                   const icon = L.icon({
                     iconUrl: props.icon_image_url,
                     iconSize: [32, 32],
                     iconAnchor: [16, 32],
-                    className: 'custom-strukturruang-marker'
+                    className: 'custom-marker-image'
                   });
+
                   return L.marker(latlng, { icon });
                 }
-                // Fallback: use AntD icon if specified
-                const iconName = props.icon;
-                const color = props.stroke || props.fill || '#1677ff';
-                const leafletIcon = iconName ? getLeafletIcon(iconName, color) : undefined;
-                if (leafletIcon) return L.marker(latlng, { icon: leafletIcon });
+
                 return L.marker(latlng);
               }}
               onEachFeature={(feature, layerGeo) => {
+                const props = feature.properties || {};
+
                 layerGeo.on('click', (e) => {
                   L.DomEvent.stopPropagation(e);
                   setPopupInfo({
                     position: e.latlng,
-                    properties: feature.properties
+                    properties: props
                   });
                 });
 
-                // For Struktur Ruang: if icon_image_url is present and geometry is not Point, add marker at center
-                const props = feature.properties || {};
-                if (layer.type === 'struktur' && props.icon_image_url && feature.geometry && feature.geometry.type !== 'Point') {
-                  const icon = L.icon({
-                    iconUrl: props.icon_image_url,
-                    iconSize: [32, 32],
-                    iconAnchor: [16, 32],
-                    className: 'custom-strukturruang-marker'
-                  });
+                if (props.icon_image_url && feature.geometry && feature.geometry.type !== 'Point') {
                   try {
-                    const latlng = layerGeo.getBounds().getCenter();
-                    L.marker(latlng, { icon }).addTo(layerGeo._map);
-                  } catch (err) {
-                    console.warn(err);
-                  }
-                }
-                // Fallback: AntD icon for non-point
-                const iconName = props.icon;
-                if (iconName && feature.geometry && feature.geometry.type !== 'Point') {
-                  const color = props.stroke || '#1677ff';
-                  const leafletIcon = getLeafletIcon(iconName, color);
-                  try {
-                    const latlng = layerGeo.getBounds().getCenter();
-                    L.marker(latlng, { icon: leafletIcon }).addTo(layerGeo._map);
+                    const center = layerGeo.getBounds().getCenter();
+
+                    const icon = L.icon({
+                      iconUrl: props.icon_image_url,
+                      iconSize: [32, 32],
+                      iconAnchor: [16, 32]
+                    });
+
+                    L.marker(center, { icon }).addTo(layerGeo._map);
                   } catch (err) {
                     console.warn(err);
                   }
@@ -562,8 +560,19 @@ const Maps = () => {
                     .filter(([key]) => key.startsWith('ketentuan_khusus'))
                     .map(([_, item]) => (
                       <div key={item.id} className="inline-flex items-center gap-x-1">
-                        <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna }} />
-                        <small>{item.meta.nama}</small>
+                        {item.meta.tipe_geometri === 'point' && (
+                          <>
+                            <img className="h-4 w-4" src={asset(item.meta.icon_titik)} />
+                            <small>{item.meta.nama}</small>
+                          </>
+                        )}
+
+                        {(item.meta.tipe_geometri === 'polyline' || item.meta.tipe_geometri === 'polygon') && (
+                          <>
+                            <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna }} />
+                            <small>{item.meta.nama}</small>
+                          </>
+                        )}
                       </div>
                     ))}
                 </div>
@@ -579,8 +588,19 @@ const Maps = () => {
                     .filter(([key]) => key.startsWith('pkkprl'))
                     .map(([_, item]) => (
                       <div key={item.id} className="inline-flex items-center gap-x-1">
-                        <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna }} />
-                        <small>{item.meta.nama}</small>
+                        {item.meta.tipe_geometri === 'point' && (
+                          <>
+                            <img className="h-4 w-4" src={asset(item.meta.icon_titik)} />
+                            <small>{item.meta.nama}</small>
+                          </>
+                        )}
+
+                        {(item.meta.tipe_geometri === 'polyline' || item.meta.tipe_geometri === 'polygon') && (
+                          <>
+                            <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna }} />
+                            <small>{item.meta.nama}</small>
+                          </>
+                        )}
                       </div>
                     ))}
                 </div>

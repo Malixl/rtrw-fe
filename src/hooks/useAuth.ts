@@ -30,19 +30,19 @@ export interface AuthContextType {
   forgot: (email: string) => Promise<AuthResponse>;
   reset: (token: string, password: string, confirmPassword: string) => Promise<AuthResponse>;
   onUnauthorized: () => void;
-  
+
   // Auth state
   token: string;
   user: User | null;
   isLoading: boolean;
-  
+
   // Role & Capabilities state
   capabilities: Capabilities;
   isAdmin: boolean;
   isOPD: boolean;
   isGuest: boolean;
   isAuthenticated: boolean;
-  
+
   // Role & Capability check functions
   checkUserRole: () => Promise<RoleCheckResponse>;
   hasCapability: (capability: keyof Capabilities) => boolean;

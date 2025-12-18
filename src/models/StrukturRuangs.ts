@@ -23,7 +23,7 @@ export interface IncomingApiData {
   geojson_file: string;
   tipe_geometri: 'polyline' | 'poin';
   icon_titik: string;
-  tipe_garis: 'dashed' | 'solid';
+  tipe_garis: 'dashed' | 'solid' | 'bold';
   warna: string;
 }
 
@@ -33,10 +33,10 @@ export interface OutgoingApiData {
   deskripsi: string;
   geojson_file?: string;
   klasifikasi_id: string;
+  warna: string;
   tipe_geometri: 'polyline' | 'poin';
   icon_titik?: string;
-  tipe_garis?: 'dashed' | 'solid';
-  warna: string;
+  tipe_garis?: 'dashed' | 'solid' | 'bold';
 }
 
 interface FormValue {
@@ -45,10 +45,10 @@ interface FormValue {
   desc: string;
   geojson_file?: string;
   id_klasifikasi: string;
+  color: string;
   geometry_type: 'polyline' | 'poin';
   point_icon?: string;
-  line_type?: 'dashed' | 'solid';
-  color: string;
+  line_type?: 'dashed' | 'solid' | 'bold';
 }
 
 type ReturnType<S, From, To> = S extends From[] ? To[] : To;
@@ -77,7 +77,7 @@ export default class StrukturRuangs extends Model {
     public geojson_file: string,
     public geometry_type: 'polyline' | 'poin',
     public point_icon: string,
-    public line_type: 'dashed' | 'solid',
+    public line_type: 'dashed' | 'solid' | 'bold',
     public color: string
   ) {
     super();

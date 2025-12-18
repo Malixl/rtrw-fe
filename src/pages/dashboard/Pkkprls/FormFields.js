@@ -59,18 +59,11 @@ export const formFields = ({ options }) => [
       ];
     },
     accept: ['.geojson'],
-    rules: []
-  },
-  {
-    label: `Warna ${Modul.STRUKTUR}`,
-    name: 'color',
-    type: InputType.COLOR,
     rules: [
       {
         required: true,
-        message: `Warna ${Modul.STRUKTUR} harus diisi`
+        message: `File dokumen ${Modul.PKKPRL} harus diisi`
       }
-    ],
-    size: 'large'
+    ]
   }
 ];

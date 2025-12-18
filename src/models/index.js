@@ -11,4 +11,3 @@ export { default as Pkkprl } from './Pkkprl';
 export { default as IndikasiProgram } from './IndikasiProgram';
 export { default as News } from './News';
 export { default as BatasAdministrasi } from './BatasAdministrasi';
-

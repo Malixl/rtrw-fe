@@ -1,5 +1,5 @@
 import { DataTable, DataTableHeader } from '@/components';
-import { Action } from '@/constants';
+import { Action, InputType } from '@/constants';
 import { useAuth, useCrudModal, useNotification, usePagination, useService } from '@/hooks';
 import { BatasAdministrasiService } from '@/services';
 import { Button, Card, Skeleton, Space } from 'antd';
@@ -7,8 +7,33 @@ import React from 'react';
 import { Delete, Detail, Edit } from '@/components/dashboard/button';
 import Modul from '@/constants/Modul';
 import { formFields } from './FormFields';
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { DeleteOutlined, ExpandAltOutlined, ExpandOutlined, PlusOutlined } from '@ant-design/icons';
 import { extractUploadFile, hasNewUploadFile } from '@/utils/formData';
+
+const buildEditFieldsByGeometry = (record) => {
+  let fields = [...formFields()];
+
+  if (record.geometry_type === 'polyline') {
+    fields.push({
+      label: `Tipe garis ${Modul.STRUKTUR}`,
+      name: 'line_type',
+      type: InputType.SELECT,
+      rules: [
+        {
+          required: true,
+          message: `Tipe garis ${Modul.STRUKTUR} harus diisi`
+        }
+      ],
+      options: [
+        { label: <div className="w-full border-4" />, value: 'bold' },
+        { label: <div className="w-full border" />, value: 'solid' },
+        { label: <div className="w-full border border-dashed" />, value: 'dashed' }
+      ]
+    });
+  }
+
+  return fields;
+};
 
 const BatasAdministrasi = () => {
   const { token } = useAuth();
@@ -64,10 +89,8 @@ const BatasAdministrasi = () => {
               modal.edit({
                 title: `Edit ${Modul.BATAS_ADMINISTRASI}`,
                 data: record,
-                formFields: formFields(),
+                formFields: buildEditFieldsByGeometry(record),
                 onSubmit: async (values) => {
-                  const isFileUpdated = hasNewUploadFile(values.geojson_file);
-
                   const payload = {
                     ...values,
                     _method: 'PUT'
@@ -75,7 +98,14 @@ const BatasAdministrasi = () => {
 
                   delete payload.geojson_file;
 
-                  const fileToSend = isFileUpdated ? extractUploadFile(values.geojson_file) : null;
+                  if (record.geometry_type !== 'polyline') {
+                    delete payload.line_type;
+                  }
+
+                  let fileToSend = null;
+                  if (hasNewUploadFile(values.geojson_file)) {
+                    fileToSend = extractUploadFile(values.geojson_file);
+                  }
 
                   const { message, isSuccess } = await updateBatasAdministrasi.execute(record.id, payload, token, fileToSend);
 
@@ -137,23 +167,100 @@ const BatasAdministrasi = () => {
     }
   ];
 
-  const onCreate = () => {
+  const onModalCreate = (type) => {
+    let fields = [...formFields()];
+    if (type === 'polyline') {
+      fields.push({
+        label: `Tipe garis ${Modul.STRUKTUR}`,
+        name: 'line_type',
+        type: InputType.SELECT,
+        rules: [
+          {
+            required: true,
+            message: `Tipe garis ${Modul.STRUKTUR} harus diisi`
+          }
+        ],
+        options: [
+          {
+            label: <div className="w-full border-4" />,
+            value: 'bold'
+          },
+          {
+            label: <div className="w-full border" />,
+            value: 'solid'
+          },
+          {
+            label: <div className="w-full border border-dashed" />,
+            value: 'dashed'
+          }
+        ]
+      });
+    }
+
     modal.create({
       title: `Tambah ${Modul.BATAS_ADMINISTRASI}`,
-      formFields: formFields(),
+      formFields: fields,
       onSubmit: async (values) => {
-        const payload = { ...values };
-        delete payload.geojson_file;
-        const fileToSend = extractUploadFile(values.geojson_file);
+        const payload = {
+          ...values,
+          geometry_type: type
+        };
 
-        const { message, isSuccess } = await storeBatasAdministrasi.execute(payload, token, fileToSend);
+        delete payload.geojson_file;
+
+        if (type !== 'polyline') {
+          delete payload.line_type;
+        }
+
+        const geojsonFile = extractUploadFile(values.geojson_file);
+
+        const { message, isSuccess } = await storeBatasAdministrasi.execute(payload, token, geojsonFile);
+
         if (isSuccess) {
           success('Berhasil', message);
           fetchBatasAdministrasi();
         } else {
           error('Gagal', message);
         }
+
         return isSuccess;
+      }
+    });
+  };
+
+  const onCreate = () => {
+    modal.show.paragraph({
+      data: {
+        content: (
+          <div className="mt-4 flex items-center justify-center gap-x-4">
+            <Card
+              className="h-full w-full"
+              hoverable
+              onClick={() => {
+                onModalCreate('polyline');
+              }}
+            >
+              <div className="flex h-full flex-col items-center justify-center gap-y-2">
+                <ExpandAltOutlined className="mb-2 text-3xl" />
+                <span className="text-sm font-semibold">Polyline</span>
+                <small className="text-center text-gray-500">Data spasial garis koordinat.</small>
+              </div>
+            </Card>
+            <Card
+              className="h-full w-full"
+              hoverable
+              onClick={() => {
+                onModalCreate('polygon');
+              }}
+            >
+              <div className="flex h-full flex-col items-center justify-center gap-y-2">
+                <ExpandOutlined className="mb-2 text-3xl" />
+                <span className="text-sm font-semibold">Polygon</span>
+                <small className="text-center text-gray-500">Data spasial area koordinat.</small>
+              </div>
+            </Card>
+          </div>
+        )
       }
     });
   };

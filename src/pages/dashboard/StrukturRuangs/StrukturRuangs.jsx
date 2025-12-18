@@ -214,7 +214,7 @@ const StrukturRuangs = () => {
           }
         ]
       });
-    } else {
+    } else if (type === 'polyline') {
       fields.push({
         label: `Tipe garis ${Modul.STRUKTUR}`,
         name: 'line_type',
@@ -226,6 +226,10 @@ const StrukturRuangs = () => {
           }
         ],
         options: [
+          {
+            label: <div className="w-full border-4" />,
+            value: 'bold'
+          },
           {
             label: <div className="w-full border" />,
             value: 'solid'

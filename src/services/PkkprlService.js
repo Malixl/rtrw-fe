@@ -30,8 +30,22 @@ export default class PkkprlService {
    * }}
    */
   static async store(data, token, file) {
-    const options = { body: Pkkprl.toApiData(data), token };
-    if (file) options.file = { geojson_file: file };
+    const options = {
+      body: Pkkprl.toApiData(data),
+      token
+    };
+
+    if (file?.geojson_file || file?.icon_titik) {
+      options.file = {};
+    }
+
+    if (file?.geojson_file) {
+      options.file.geojson_file = file.geojson_file;
+    }
+
+    if (file?.icon_titik) {
+      options.file.icon_titik = file.icon_titik;
+    }
     return await api.post('/pkkprl', options);
   }
 
@@ -39,16 +53,25 @@ export default class PkkprlService {
    * @param {number} id
    * @param {Pkkprl} data
    * @param {string} token
-   * @returns {Promise<{
-   *  code: HTTPStatusCode;
-   *  status: boolean;
-   *  message: string;
-   *  errors?: { [key: string]: string[] };
-   * }>}
+   * @param {{ geojson_file?: File, icon_titik?: File }} file
    */
   static async update(id, data, token, file) {
-    const options = { body: Pkkprl.toApiData(data), token };
-    if (file) options.file = { geojson_file: file };
+    const options = {
+      body: Pkkprl.toApiData(data),
+      token
+    };
+
+    if (file?.geojson_file || file?.icon_titik) {
+      options.file = {};
+    }
+
+    if (file?.geojson_file) {
+      options.file.geojson_file = file.geojson_file;
+    }
+
+    if (file?.icon_titik) {
+      options.file.icon_titik = file.icon_titik;
+    }
     return await api.post(`/pkkprl/${id}`, options);
   }
 

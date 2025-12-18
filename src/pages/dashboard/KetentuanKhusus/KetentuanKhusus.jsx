@@ -1,5 +1,5 @@
 import { DataTable, DataTableHeader } from '@/components';
-import { Action } from '@/constants';
+import { Action, InputType } from '@/constants';
 import { useAuth, useCrudModal, useNotification, usePagination, useService } from '@/hooks';
 import { KlasifikasisService, KetentuanKhususService } from '@/services';
 import { Card, ColorPicker, Skeleton, Space } from 'antd';
@@ -10,8 +10,86 @@ import { formFields } from './FormFields';
 import { KetentuanKhusus as KetentuanKhususModel } from '@/models';
 import { useParams } from 'react-router-dom';
 import { extractUploadFile, hasNewUploadFile, normalizeColorValue } from '@/utils/formData';
+import { EnvironmentOutlined, ExpandAltOutlined, ExpandOutlined } from '@ant-design/icons';
 
 const { UPDATE, READ, DELETE } = Action;
+
+const buildEditFieldsByGeometry = (record, klasifikasis) => {
+  let fields = [...formFields({ options: { klasifikasi: klasifikasis } })];
+
+  if (record.geometry_type === 'point') {
+    fields.push({
+      label: `Gambar Icon ${Modul.KETENTUAN_KHUSUS}`,
+      name: 'icon',
+      type: InputType.UPLOAD,
+      max: 1,
+      beforeUpload: () => false,
+      getFileList: () => {
+        return record?.point_icon
+          ? [
+              {
+                url: record.point_icon,
+                name: record.name || 'icon',
+                status: 'done'
+              }
+            ]
+          : [];
+      },
+      accept: ['.jpg', '.jpeg', '.png', '.svg'],
+      rules: []
+    });
+  }
+
+  if (record.geometry_type === 'polyline') {
+    fields.push(
+      {
+        label: `Tipe garis ${Modul.STRUKTUR}`,
+        name: 'line_type',
+        type: InputType.SELECT,
+        rules: [
+          {
+            required: true,
+            message: `Tipe garis ${Modul.STRUKTUR} harus diisi`
+          }
+        ],
+        options: [
+          { label: <div className="w-full border-4" />, value: 'bold' },
+          { label: <div className="w-full border" />, value: 'solid' },
+          { label: <div className="w-full border border-dashed" />, value: 'dashed' }
+        ]
+      },
+      {
+        label: `Warna ${Modul.KETENTUAN_KHUSUS}`,
+        name: 'color',
+        type: InputType.COLOR,
+        rules: [
+          {
+            required: true,
+            message: `Warna ${Modul.KETENTUAN_KHUSUS} harus diisi`
+          }
+        ],
+        size: 'large'
+      }
+    );
+  }
+
+  if (record.geometry_type === 'plygon') {
+    fields.push({
+      label: `Warna ${Modul.KETENTUAN_KHUSUS}`,
+      name: 'color',
+      type: InputType.COLOR,
+      rules: [
+        {
+          required: true,
+          message: `Warna ${Modul.KETENTUAN_KHUSUS} harus diisi`
+        }
+      ],
+      size: 'large'
+    });
+  }
+
+  return fields;
+};
 
 const KetentuanKhusus = () => {
   const { token, user } = useAuth();
@@ -81,19 +159,35 @@ const KetentuanKhusus = () => {
             onClick={() => {
               modal.edit({
                 title: `Edit ${Modul.KETENTUAN_KHUSUS}`,
-                data: { ...record, id_klasifikasi: record.klasifikasi.id },
-                formFields: formFields({ options: { klasifikasi: klasifikasis } }),
+                data: {
+                  ...record,
+                  id_klasifikasi: record.klasifikasi.id,
+                  icon: record.point_icon ?? null
+                },
+                formFields: buildEditFieldsByGeometry(record, klasifikasis),
                 onSubmit: async (values) => {
-                  const isFileUpdated = hasNewUploadFile(values.geojson_file);
-
                   const payload = {
                     ...values,
-                    color: normalizeColorValue(values.color)
+                    color: normalizeColorValue(values.color),
+                    geometry_type: record.geometry_type
                   };
 
                   delete payload.geojson_file;
+                  delete payload.icon;
 
-                  const fileToSend = isFileUpdated ? extractUploadFile(values.geojson_file) : null;
+                  const files = {};
+
+                  if (hasNewUploadFile(values.geojson_file)) {
+                    const geo = extractUploadFile(values.geojson_file);
+                    files.geojson_file = geo?.geojson_file ?? geo;
+                  }
+
+                  if (record.geometry_type === 'point' && hasNewUploadFile(values.icon)) {
+                    const icon = extractUploadFile(values.icon);
+                    files.icon_titik = icon?.icon ?? icon;
+                  }
+
+                  const fileToSend = Object.keys(files).length ? files : null;
 
                   const { message, isSuccess } = await updateKetentuanKhusus.execute(record.id, payload, token, fileToSend);
 
@@ -170,23 +264,170 @@ const KetentuanKhusus = () => {
     });
   }
 
-  const onCreate = () => {
+  const onModalCreate = (type) => {
+    let fields = [...formFields({ options: { klasifikasi: klasifikasis } })];
+
+    if (type === 'point') {
+      fields.push({
+        label: `Gambar Icon ${Modul.KETENTUAN_KHUSUS}`,
+        name: 'icon',
+        type: InputType.UPLOAD,
+        max: 1,
+        beforeUpload: () => {
+          return false;
+        },
+        getFileList: (data) => {
+          return [
+            {
+              url: data?.icon,
+              name: data?.name
+            }
+          ];
+        },
+        accept: ['.jpg', '.jpeg', '.png', '.svg'],
+        rules: [
+          {
+            required: true,
+            message: `Icon ${Modul.KETENTUAN_KHUSUS} harus diisi`
+          }
+        ]
+      });
+    } else if (type === 'polyline') {
+      fields.push(
+        {
+          label: `Tipe garis ${Modul.STRUKTUR}`,
+          name: 'line_type',
+          type: InputType.SELECT,
+          rules: [
+            {
+              required: true,
+              message: `Tipe garis ${Modul.STRUKTUR} harus diisi`
+            }
+          ],
+          options: [
+            {
+              label: <div className="w-full border-4" />,
+              value: 'bold'
+            },
+            {
+              label: <div className="w-full border" />,
+              value: 'solid'
+            },
+            {
+              label: <div className="w-full border border-dashed" />,
+              value: 'dashed'
+            }
+          ]
+        },
+        {
+          label: `Warna ${Modul.KETENTUAN_KHUSUS}`,
+          name: 'color',
+          type: InputType.COLOR,
+          rules: [
+            {
+              required: true,
+              message: `Warna ${Modul.KETENTUAN_KHUSUS} harus diisi`
+            }
+          ],
+          size: 'large'
+        }
+      );
+    } else if (type === 'polygon') {
+      fields.push({
+        label: `Warna ${Modul.KETENTUAN_KHUSUS}`,
+        name: 'color',
+        type: InputType.COLOR,
+        rules: [
+          {
+            required: true,
+            message: `Warna ${Modul.KETENTUAN_KHUSUS} harus diisi`
+          }
+        ],
+        size: 'large'
+      });
+    }
+
     modal.create({
       title: `Tambah ${Modul.KETENTUAN_KHUSUS}`,
-      formFields: formFields({ options: { klasifikasi: klasifikasis } }),
+      formFields: fields,
       onSubmit: async (values) => {
-        const payload = { ...values, color: normalizeColorValue(values.color) };
+        const payload = {
+          ...values,
+          color: normalizeColorValue(values.color),
+          geometry_type: type
+        };
+
         delete payload.geojson_file;
-        const fileToSend = extractUploadFile(values.geojson_file);
+        delete payload.icon;
+
+        const geojsonFile = extractUploadFile(values.geojson_file);
+        const iconFile = type === 'point' ? extractUploadFile(values.icon) : null;
+
+        const fileToSend = {
+          geojson_file: geojsonFile?.geojson_file ?? geojsonFile,
+          icon_titik: iconFile?.icon ?? iconFile
+        };
 
         const { message, isSuccess } = await storeKetentuanKhusus.execute(payload, token, fileToSend);
+
         if (isSuccess) {
           success('Berhasil', message);
           fetchKetentuanKhusus();
         } else {
           error('Gagal', message);
         }
+
         return isSuccess;
+      }
+    });
+  };
+
+  const onCreate = () => {
+    modal.show.paragraph({
+      data: {
+        content: (
+          <div className="mt-4 flex items-center justify-center gap-x-4">
+            <Card
+              className="h-full w-full"
+              hoverable
+              onClick={() => {
+                onModalCreate('point');
+              }}
+            >
+              <div className="flex h-full flex-col items-center justify-center gap-y-2">
+                <EnvironmentOutlined className="mb-2 text-3xl" />
+                <span className="text-sm font-semibold">Point</span>
+                <small className="text-center text-gray-500">Data spasial titik koordinat.</small>
+              </div>
+            </Card>
+            <Card
+              className="h-full w-full"
+              hoverable
+              onClick={() => {
+                onModalCreate('polyline');
+              }}
+            >
+              <div className="flex h-full flex-col items-center justify-center gap-y-2">
+                <ExpandAltOutlined className="mb-2 text-3xl" />
+                <span className="text-sm font-semibold">Polyline</span>
+                <small className="text-center text-gray-500">Data spasial garis koordinat.</small>
+              </div>
+            </Card>
+            <Card
+              className="h-full w-full"
+              hoverable
+              onClick={() => {
+                onModalCreate('polygon');
+              }}
+            >
+              <div className="flex h-full flex-col items-center justify-center gap-y-2">
+                <ExpandOutlined className="mb-2 text-3xl" />
+                <span className="text-sm font-semibold">Polygon</span>
+                <small className="text-center text-gray-500">Data spasial area koordinat.</small>
+              </div>
+            </Card>
+          </div>
+        )
       }
     });
   };

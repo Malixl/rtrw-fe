@@ -11,5 +11,4 @@ enum Modul {
   BATAS_ADMINISTRASI = 'Batas Administrasi'
 }
 
-
 export default Modul;
