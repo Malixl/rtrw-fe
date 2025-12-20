@@ -1,5 +1,6 @@
 /* eslint-disable react/prop-types */
 import { useCallback } from 'react';
+import LegendItem from './LegendItem';
 import { Button, Checkbox, Collapse, Form, Select, Skeleton, Typography, Tooltip } from 'antd';
 import { AimOutlined, InfoCircleOutlined, MenuOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import { useCrudModal } from '@/hooks';
@@ -175,20 +176,25 @@ const MapSidebar = ({
                 );
               }
 
+              // Fallback tipe_geometri jika tidak ada (default polygon)
+              const tipe_geometri = pemetaan.tipe_geometri || 'polygon';
               return (
-                <LayerCheckbox
-                  key={pemetaan.key}
-                  pemetaan={pemetaan}
-                  isChecked={!!selectedLayers[pemetaan.key]}
-                  isLoading={loadingLayers[pemetaan.key]}
-                  onToggle={() => onToggleLayer(pemetaan)}
-                  onInfoClick={() =>
-                    showInfoModal(pemetaan.nama, [
-                      { key: 'name', label: `Nama ${labelKey}`, children: pemetaan.nama },
-                      { key: 'desc', label: 'Deskripsi', children: pemetaan.deskripsi }
-                    ])
-                  }
-                />
+                <div key={pemetaan.key} className="mb-2">
+                  <LayerCheckbox
+                    pemetaan={pemetaan}
+                    isChecked={!!selectedLayers[pemetaan.key]}
+                    isLoading={loadingLayers[pemetaan.key]}
+                    onToggle={() => onToggleLayer(pemetaan)}
+                    onInfoClick={() =>
+                      showInfoModal(pemetaan.nama, [
+                        { key: 'name', label: `Nama ${labelKey}`, children: pemetaan.nama },
+                        { key: 'desc', label: 'Deskripsi', children: pemetaan.deskripsi }
+                      ])
+                    }
+                  />
+                  {/* Legend SELALU tampil di bawah checkbox, baik dicentang maupun tidak */}
+                  <LegendItem tipe_geometri={tipe_geometri} icon_titik={pemetaan.icon_titik} warna={pemetaan.warna} nama={pemetaan.nama} />
+                </div>
               );
             })}
           </CollapsibleSection>
@@ -280,19 +286,22 @@ const MapSidebar = ({
               {batasAdministrasi.map((item) => {
                 const pemetaan = createBatasPemetaan(item);
                 return (
-                  <LayerCheckbox
-                    key={pemetaan.key}
-                    pemetaan={{ ...pemetaan, title: item.name }}
-                    isChecked={!!selectedLayers[pemetaan.key]}
-                    isLoading={loadingLayers[pemetaan.key]}
-                    onToggle={() => onToggleLayer(pemetaan)}
-                    onInfoClick={() =>
-                      showInfoModal(item.name, [
-                        { key: 'name', label: 'Nama Area', children: item.name },
-                        { key: 'desc', label: 'Deskripsi', children: item.desc }
-                      ])
-                    }
-                  />
+                  <div key={pemetaan.key} className="mb-2">
+                    <LayerCheckbox
+                      pemetaan={{ ...pemetaan, title: item.name }}
+                      isChecked={!!selectedLayers[pemetaan.key]}
+                      isLoading={loadingLayers[pemetaan.key]}
+                      onToggle={() => onToggleLayer(pemetaan)}
+                      onInfoClick={() =>
+                        showInfoModal(item.name, [
+                          { key: 'name', label: 'Nama Area', children: item.name },
+                          { key: 'desc', label: 'Deskripsi', children: item.desc }
+                        ])
+                      }
+                    />
+                    {/* Legend untuk batas administrasi */}
+                    <LegendItem tipe_geometri={pemetaan.tipe_geometri || 'polygon'} icon_titik={pemetaan.icon_titik} warna={pemetaan.warna} nama={pemetaan.nama} />
+                  </div>
                 );
               })}
             </CollapsibleSection>

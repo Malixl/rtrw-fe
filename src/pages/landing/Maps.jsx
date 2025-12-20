@@ -399,6 +399,37 @@ const Maps = () => {
               bottom: 60px !important;
             }
           }
+
+          /* === LABEL KHUSUS UNTUK BATAS ADMINISTRASI SAJA === */
+          .batas-label {
+            /* HAPUS BACKGROUND */
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            
+            /* STYLE TEKS SAJA */
+            font-weight: 700 !important;
+            font-size: 13px !important;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #000000 !important;
+            
+            /* STROKE/TEKS BORDER PUTIH */
+            text-shadow: 
+              1px 1px 0 #FFFFFF,
+              -1px 1px 0 #FFFFFF,
+              1px -1px 0 #FFFFFF,
+              -1px -1px 0 #FFFFFF,
+              0px 1px 0 #FFFFFF,
+              0px -1px 0 #FFFFFF,
+              1px 0px 0 #FFFFFF,
+              -1px 0px 0 #FFFFFF !important;
+            
+            text-align: center;
+            white-space: nowrap;
+            pointer-events: none;
+          }
         `}
       </style>
 
@@ -447,10 +478,8 @@ const Maps = () => {
               key={`${layer.type}-${layer.id}`}
               data={layer.data}
               style={(feature) => {
-                // Custom style for Struktur Ruang: support stroke_width, custom color, etc.
                 const props = feature.properties || {};
                 let style = getFeatureStyle(feature);
-                // If this is a Struktur Ruang layer and has stroke_width, override weight
                 if (layer.type === 'struktur' && props['stroke-width']) {
                   style = { ...style, weight: props['stroke-width'] };
                 }
@@ -458,7 +487,6 @@ const Maps = () => {
               }}
               pointToLayer={(feature, latlng) => {
                 const props = feature.properties || {};
-
                 if (props.icon_image_url) {
                   const icon = L.icon({
                     iconUrl: props.icon_image_url,
@@ -466,15 +494,14 @@ const Maps = () => {
                     iconAnchor: [16, 32],
                     className: 'custom-marker-image'
                   });
-
                   return L.marker(latlng, { icon });
                 }
-
                 return L.marker(latlng);
               }}
               onEachFeature={(feature, layerGeo) => {
                 const props = feature.properties || {};
 
+                // Event klik untuk popup
                 layerGeo.on('click', (e) => {
                   L.DomEvent.stopPropagation(e);
                   setPopupInfo({
@@ -483,21 +510,52 @@ const Maps = () => {
                   });
                 });
 
-                if (props.icon_image_url && feature.geometry && feature.geometry.type !== 'Point') {
-                  try {
-                    const center = layerGeo.getBounds().getCenter();
+                // === HANYA UNTUK BATAS ADMINISTRASI - SANGAT SPESIFIK ===
+                // Cek: 1. Hanya batas administrasi, 2. Hanya polygon/multipolygon, 3. Hanya fitur pertama
+                if (layer.type === 'batas_administrasi') {
+                  const geomType = feature.geometry.type;
+                  const isArea = geomType === 'Polygon' || geomType === 'MultiPolygon';
 
-                    const icon = L.icon({
-                      iconUrl: props.icon_image_url,
-                      iconSize: [32, 32],
-                      iconAnchor: [16, 32]
+                  // Dapatkan index fitur ini dalam array features
+                  const featureIndex = layer.data.features.findIndex((f) => JSON.stringify(f) === JSON.stringify(feature));
+
+                  // Hanya tambahkan label pada fitur pertama yang area
+                  if (isArea && featureIndex === 0) {
+                    const layerName = layer.meta?.nama || 'Wilayah';
+
+                    // Gunakan event 'add' untuk memastikan map tersedia
+                    layerGeo.once('add', () => {
+                      layerGeo.bindTooltip(layerName, {
+                        permanent: true,
+                        direction: 'center',
+                        className: 'batas-label',
+                        interactive: false
+                      });
                     });
-
-                    L.marker(center, { icon }).addTo(layerGeo._map);
-                  } catch (err) {
-                    console.warn(err);
                   }
                 }
+
+                // === HAPUS SEMUA LOGIKA PENAMBAHAN ICON DI TENGAH POLYGON ===
+                // Ini menyebabkan gambar rusak muncul di Pola Ruang dan layer lainnya
+                // HAPUS KODE DI BAWAH INI:
+                // if (props.icon_image_url && feature.geometry && feature.geometry.type !== 'Point' && layer.type !== 'batas_administrasi') {
+                //   try {
+                //     const center = layerGeo.getBounds().getCenter();
+                //     const icon = L.icon({
+                //       iconUrl: props.icon_image_url,
+                //       iconSize: [32, 32],
+                //       iconAnchor: [16, 32]
+                //     });
+                //
+                //     setTimeout(() => {
+                //       if (layerGeo._map) {
+                //         L.marker(center, { icon }).addTo(layerGeo._map);
+                //       }
+                //     }, 100);
+                //   } catch (err) {
+                //     console.warn('Gagal menambahkan icon:', err);
+                //   }
+                // }
               }}
             />
           ))}
@@ -507,135 +565,6 @@ const Maps = () => {
             </Popup>
           )}
         </MapContainer>
-        {/* Legend - Responsive */}
-        <div className={`absolute z-[1000] ${isMobile ? 'bottom-2 left-2 right-2' : 'bottom-4 left-4'}`}>
-          <div className={`rounded-lg bg-white p-3 shadow-lg ${isMobile ? 'max-h-32 w-full overflow-y-auto' : 'w-96 p-4'}`}>
-            <h4 className={`mb-2 font-semibold ${isMobile ? 'text-sm' : ''}`}>Legend</h4>
-            {/* POLA RUANG */}
-            {Object.entries(selectedLayers).some(([key]) => key.startsWith('pola')) && (
-              <>
-                <div className={`flex flex-wrap gap-1 ${isMobile ? 'gap-1' : 'max-h-28 gap-2'}`}>
-                  <b className={`w-full ${isMobile ? 'text-xs' : 'text-sm'}`}>Pola Ruang</b>
-
-                  {Object.entries(selectedLayers)
-                    .filter(([key]) => key.startsWith('pola'))
-                    .map(([_, item]) => (
-                      <div key={item.id} className="inline-flex items-center gap-x-1">
-                        <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna }} />
-                        <small>{item.meta.nama}</small>
-                      </div>
-                    ))}
-                </div>
-                <hr className="my-2" />
-              </>
-            )}
-            {/* STRUKTUR RUANG */}
-            {Object.entries(selectedLayers).some(([key]) => key.startsWith('struktur')) && (
-              <>
-                <div className="flex max-h-28 flex-wrap gap-2">
-                  <b className="w-full text-sm">Struktur Ruang</b>
-
-                  {Object.entries(selectedLayers)
-                    .filter(([key]) => key.startsWith('struktur'))
-                    .map(([_, item]) => {
-                      const IconComponent = item.meta.icon_titik ? AntdIcons[item.meta.icon_titik] : null;
-                      return (
-                        <div key={item.id} className="inline-flex items-center gap-x-1">
-                          {item.meta.tipe_geometri === 'point' && (
-                            <>
-                              <img className="h-4 w-4" src={asset(item.meta.icon_titik)} />
-                              <small>{item.meta.nama}</small>
-                            </>
-                          )}
-
-                          {(item.meta.tipe_geometri === 'polyline' || item.meta.tipe_geometri === 'polygon') && (
-                            <>
-                              <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna }} />
-                              <small>{item.meta.nama}</small>
-                            </>
-                          )}
-                        </div>
-                      );
-                    })}
-                </div>
-                <hr className="my-2" />
-              </>
-            )}
-            {Object.entries(selectedLayers).some(([key]) => key.startsWith('ketentuan_khusus')) && (
-              <>
-                <div className="flex max-h-28 flex-wrap gap-2">
-                  <b className="w-full text-sm">Ketentuan Khusus</b>
-
-                  {Object.entries(selectedLayers)
-                    .filter(([key]) => key.startsWith('ketentuan_khusus'))
-                    .map(([_, item]) => (
-                      <div key={item.id} className="inline-flex items-center gap-x-1">
-                        {item.meta.tipe_geometri === 'point' && (
-                          <>
-                            <img className="h-4 w-4" src={asset(item.meta.icon_titik)} />
-                            <small>{item.meta.nama}</small>
-                          </>
-                        )}
-
-                        {(item.meta.tipe_geometri === 'polyline' || item.meta.tipe_geometri === 'polygon') && (
-                          <>
-                            <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna }} />
-                            <small>{item.meta.nama}</small>
-                          </>
-                        )}
-                      </div>
-                    ))}
-                </div>
-                <hr className="my-2" />
-              </>
-            )}
-            {Object.entries(selectedLayers).some(([key]) => key.startsWith('pkkprl')) && (
-              <>
-                <div className="flex max-h-28 flex-wrap gap-2">
-                  <b className="w-full text-sm">PKKPRL</b>
-
-                  {Object.entries(selectedLayers)
-                    .filter(([key]) => key.startsWith('pkkprl'))
-                    .map(([_, item]) => (
-                      <div key={item.id} className="inline-flex items-center gap-x-1">
-                        {item.meta.tipe_geometri === 'point' && (
-                          <>
-                            <img className="h-4 w-4" src={asset(item.meta.icon_titik)} />
-                            <small>{item.meta.nama}</small>
-                          </>
-                        )}
-
-                        {(item.meta.tipe_geometri === 'polyline' || item.meta.tipe_geometri === 'polygon') && (
-                          <>
-                            <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna }} />
-                            <small>{item.meta.nama}</small>
-                          </>
-                        )}
-                      </div>
-                    ))}
-                </div>
-                <hr className="my-2" />
-              </>
-            )}
-            {Object.entries(selectedLayers).some(([key]) => key.startsWith('batas')) && (
-              <>
-                <div className="flex max-h-28 flex-wrap gap-2">
-                  <b className="w-full text-sm">Batas Administrasi</b>
-
-                  {Object.entries(selectedLayers)
-                    .filter(([key]) => key.startsWith('batas'))
-                    .map(([_, item]) => (
-                      <div key={item.id} className="inline-flex items-center gap-x-1">
-                        <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna, opacity: 0.3 }} />
-                        <small>{item.meta.nama}</small>
-                      </div>
-                    ))}
-                </div>
-                <hr className="my-2" />
-              </>
-            )}
-          </div>
-        </div>
       </div>
 
       {/* Collapsible Sidebar - Responsive */}
