@@ -1,3 +1,4 @@
+import asset from '@/utils/asset';
 import Model from './Model';
 
 export interface IncomingApiData {
@@ -107,7 +108,7 @@ export default class StrukturRuangs extends Model {
       apiData.deskripsi,
       apiData.geojson_file,
       apiData.tipe_geometri,
-      apiData.icon_titik,
+      asset(apiData.icon_titik),
       apiData.tipe_garis,
       apiData.warna
     ) as ReturnType<T, IncomingApiData, StrukturRuangs>;

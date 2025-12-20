@@ -93,14 +93,11 @@ const BatasAdministrasi = () => {
                 onSubmit: async (values) => {
                   const payload = {
                     ...values,
+                    geometry_type: record.geometry_type,
                     _method: 'PUT'
                   };
 
                   delete payload.geojson_file;
-
-                  if (record.geometry_type !== 'polyline') {
-                    delete payload.line_type;
-                  }
 
                   let fileToSend = null;
                   if (hasNewUploadFile(values.geojson_file)) {

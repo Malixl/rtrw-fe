@@ -541,9 +541,19 @@ const Maps = () => {
                       const IconComponent = item.meta.icon_titik ? AntdIcons[item.meta.icon_titik] : null;
                       return (
                         <div key={item.id} className="inline-flex items-center gap-x-1">
-                          {IconComponent ? <IconComponent style={{ fontSize: 18, color: item.meta.warna }} /> : <div className="h-1 w-6" style={{ backgroundColor: item.meta.warna }} />}
+                          {item.meta.tipe_geometri === 'point' && (
+                            <>
+                              <img className="h-4 w-4" src={asset(item.meta.icon_titik)} />
+                              <small>{item.meta.nama}</small>
+                            </>
+                          )}
 
-                          <small>{item.meta.nama}</small>
+                          {(item.meta.tipe_geometri === 'polyline' || item.meta.tipe_geometri === 'polygon') && (
+                            <>
+                              <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna }} />
+                              <small>{item.meta.nama}</small>
+                            </>
+                          )}
                         </div>
                       );
                     })}
