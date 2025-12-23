@@ -83,7 +83,7 @@ const Maps = () => {
     }
   }, [isLoadingBatas, isBatasSuccess, batasMessage]);
 
-  const rtrws = getAllRtrws.data ?? [];
+  const rtrws = React.useMemo(() => getAllRtrws.data ?? [], [getAllRtrws.data]);
   const batasAdministrasi = batasData ?? [];
 
   const handleToggleLayer = async (pemetaan) => {
@@ -187,7 +187,7 @@ const Maps = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [batasAdministrasi]);
 
-  function mapPolaRuang(data) {
+  const mapPolaRuang = React.useCallback((data) => {
     return data.map((klasifikasi) => ({
       title: klasifikasi.nama,
       key: `pola-root-${klasifikasi.id}`,
@@ -201,9 +201,9 @@ const Maps = () => {
         isLeaf: true
       }))
     }));
-  }
+  }, []);
 
-  function mapStrukturRuang(data) {
+  const mapStrukturRuang = React.useCallback((data) => {
     return data.map((klasifikasi) => ({
       title: klasifikasi.nama,
       key: `struktur-root-${klasifikasi.id}`,
@@ -217,9 +217,9 @@ const Maps = () => {
         isLeaf: true
       }))
     }));
-  }
+  }, []);
 
-  function mapKetentuanKhusus(data) {
+  const mapKetentuanKhusus = React.useCallback((data) => {
     return data.map((klasifikasi) => ({
       title: klasifikasi.nama,
       key: `ketentuan_khusus-root-${klasifikasi.id}`,
@@ -233,9 +233,9 @@ const Maps = () => {
         isLeaf: true
       }))
     }));
-  }
+  }, []);
 
-  function mapPkkprl(data) {
+  const mapPkkprl = React.useCallback((data) => {
     return data.map((klasifikasi) => ({
       title: klasifikasi.nama,
       key: `pkkprl-root-${klasifikasi.id}`,
@@ -249,9 +249,9 @@ const Maps = () => {
         isLeaf: true
       }))
     }));
-  }
+  }, []);
 
-  function mapIndikasiProgram(data) {
+  const mapIndikasiProgram = React.useCallback((data) => {
     return data.map((klasifikasi) => ({
       title: klasifikasi.nama,
       key: `indikasi_program-root-${klasifikasi.id}`,
@@ -264,33 +264,113 @@ const Maps = () => {
         isLeaf: true
       }))
     }));
-  }
+  }, []);
 
-  const handleFetchKlasifikasi = async (values) => {
-    const { message, isSuccess, data } = await klasifikasisByRtrw.execute({
-      idRtrw: values.id_rtrw
-    });
+  // Load classifications for ALL RTRW and aggregate results
+  const [isLoadingKlasifikasiAll, setIsLoadingKlasifikasiAll] = React.useState(false);
+  const isLoadingKlasifikasiAllRef = React.useRef(false);
 
-    if (isSuccess) {
-      success('Berhasil', message);
-
-      const pola_ruang_list = data.klasifikasi_pola_ruang ?? [];
-      const struktur_ruang_list = data.klasifikasi_struktur_ruang ?? [];
-      const ketentuan_khusus_list = data.klasifikasi_ketentuan_khusus ?? [];
-      const pkkprl_list = data.klasifikasi_pkkprl ?? [];
-      const indikasi_program_list = data.klasifikasi_indikasi_program ?? [];
-
-      setTreePolaRuangData(mapPolaRuang(pola_ruang_list));
-      setTreeStrukturRuangData(mapStrukturRuang(struktur_ruang_list));
-      setTreeKetentuanKhususData(mapKetentuanKhusus(ketentuan_khusus_list));
-      setTreePkkprlData(mapPkkprl(pkkprl_list));
-      setTreeIndikasiProgramData(mapIndikasiProgram(indikasi_program_list));
-    } else {
-      error('Gagal', message);
+  // Utility: run promises in batches to avoid overloading server or triggering too many concurrent requests
+  const runInBatches = React.useCallback(async (items, worker, batchSize = 3) => {
+    const results = [];
+    for (let i = 0; i < items.length; i += batchSize) {
+      const batch = items.slice(i, i + batchSize);
+      // Execute batch in parallel
+      const res = await Promise.allSettled(batch.map((it) => worker(it)));
+      results.push(...res);
+      // small delay between batches to be gentle to server
+      await new Promise((resDelay) => setTimeout(resDelay, 150));
     }
+    return results;
+  }, []);
 
-    return isSuccess;
-  };
+  // Use stable execute function reference to avoid re-creating the callback when hook data changes
+  const { execute: fetchKlasifikasiByRtrw } = klasifikasisByRtrw;
+
+  const loadAllKlasifikasi = React.useCallback(async () => {
+    if (!rtrws || rtrws.length === 0) return;
+    // Avoid re-entry using ref (avoid dependency on state)
+    if (isLoadingKlasifikasiAllRef.current) return;
+    isLoadingKlasifikasiAllRef.current = true;
+    setIsLoadingKlasifikasiAll(true);
+
+    try {
+      const worker = async (r) => fetchKlasifikasiByRtrw({ idRtrw: r.id });
+      const results = await runInBatches(rtrws, worker, 3);
+
+      const polaAcc = [];
+      const strukturAcc = [];
+      const ketentuanAcc = [];
+      const pkkprlAcc = [];
+      const indikasiAcc = [];
+
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const res of results) {
+        if (res.status === 'fulfilled' && res.value) {
+          const val = res.value;
+          if (val.isSuccess && val.data) {
+            successCount += 1;
+            const data = val.data;
+            polaAcc.push(...(data.klasifikasi_pola_ruang ?? []));
+            strukturAcc.push(...(data.klasifikasi_struktur_ruang ?? []));
+            ketentuanAcc.push(...(data.klasifikasi_ketentuan_khusus ?? []));
+            pkkprlAcc.push(...(data.klasifikasi_pkkprl ?? []));
+            indikasiAcc.push(...(data.klasifikasi_indikasi_program ?? []));
+          } else {
+            failCount += 1;
+          }
+        } else {
+          failCount += 1;
+        }
+      }
+
+      const polaTree = mapPolaRuang(polaAcc);
+      const strukturTree = mapStrukturRuang(strukturAcc);
+      const ketentuanTree = mapKetentuanKhusus(ketentuanAcc);
+      const pkkprlTree = mapPkkprl(pkkprlAcc);
+      const indikasiTree = mapIndikasiProgram(indikasiAcc);
+
+      // Set tree state once to avoid extra renders
+      setTreePolaRuangData(polaTree);
+      setTreeStrukturRuangData(strukturTree);
+      setTreeKetentuanKhususData(ketentuanTree);
+      setTreePkkprlData(pkkprlTree);
+      setTreeIndikasiProgramData(indikasiTree);
+
+      // Debug in console: counts per category
+      console.debug('Loaded data counts', {
+        pola: polaAcc.length,
+        struktur: strukturAcc.length,
+        ketentuan: ketentuanAcc.length,
+        pkkprl: pkkprlAcc.length,
+        indikasi: indikasiAcc.length
+      });
+
+      // Single summary notification (label changed to Data RTRW)
+      const totalItems = polaAcc.length + strukturAcc.length + ketentuanAcc.length + pkkprlAcc.length + indikasiAcc.length;
+      if (successCount > 0 && failCount === 0) {
+        success(`Berhasil memuat Data RTRW (${successCount}/${rtrws.length}). Jumlah item: ${totalItems}`);
+      } else if (successCount > 0 && failCount > 0) {
+        error(`Sebagian Data RTRW dimuat: ${successCount}/${rtrws.length} berhasil, ${failCount} gagal — Jumlah item: ${totalItems}`);
+      } else {
+        error('Gagal memuat Data RTRW untuk semua RTRW. Coba muat ulang.');
+      }
+    } catch (err) {
+      console.error('Error loading klasifikasi:', err);
+      error('Gagal memuat Data RTRW');
+    } finally {
+      isLoadingKlasifikasiAllRef.current = false;
+      setIsLoadingKlasifikasiAll(false);
+    }
+  }, [rtrws, fetchKlasifikasiByRtrw, mapPolaRuang, mapStrukturRuang, mapKetentuanKhusus, mapPkkprl, mapIndikasiProgram, runInBatches, success, error]);
+
+  React.useEffect(() => {
+    if (rtrws && rtrws.length > 0) {
+      loadAllKlasifikasi();
+    }
+  }, [rtrws, loadAllKlasifikasi]);
 
   const getFeatureStyle = (feature) => {
     const props = feature.properties || {};
@@ -436,6 +516,9 @@ const Maps = () => {
       {/* Mobile Floating Button to Open Sidebar */}
       {isMobile && isSidebarCollapsed && <Button type="primary" icon={<MenuUnfoldOutlined />} onClick={() => setIsSidebarCollapsed(false)} className="absolute right-4 top-4 z-[1001] h-10 w-10 rounded-full shadow-lg" size="large" />}
 
+      {/* Floating user info (always mounted as portal) */}
+      <MapUserInfo />
+
       {/* Map Container - Full Width */}
       <div className="h-full w-full">
         <MapContainer center={[0.5412, 123.0595]} zoom={9} className="h-screen w-full">
@@ -458,13 +541,6 @@ const Maps = () => {
                 attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
                 url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
               />
-            </BaseLayer>
-            <BaseLayer name="Satelit dengan Label">
-              <TileLayer
-                attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
-                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-              />
-              <TileLayer url="https://stamen-tiles-{s}.a.ssl.fastly.net/toner-hybrid/{z}/{x}/{y}.png" attribution='Map tiles by <a href="http://stamen.com">Stamen Design</a>' />
             </BaseLayer>
             <BaseLayer name="Terrain">
               <TileLayer
@@ -565,6 +641,14 @@ const Maps = () => {
             </Popup>
           )}
         </MapContainer>
+
+        {/* Small map header (centered) */}
+        <div className="absolute left-1/2 top-4 z-[1002] -translate-x-1/2">
+          <div style={{ backgroundColor: 'rgba(255,255,255,0.65)' }} className="flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-2 shadow-md">
+            <img src="/image_asset/gorontalo-logo.png" alt="Lambang Provinsi Gorontalo" className="h-6 w-6 rounded object-contain" />
+            <div className="text-sm font-bold capitalize text-black">Peta Rencana Tata Ruang Wilayah Provinsi Gorontalo</div>
+          </div>
+        </div>
       </div>
 
       {/* Collapsible Sidebar - Responsive */}
@@ -581,9 +665,9 @@ const Maps = () => {
           loadingLayers={loadingLayers}
           isLoadingRtrws={getAllRtrws.isLoading}
           isLoadingBatas={isLoadingBatas}
-          isLoadingKlasifikasi={klasifikasisByRtrw.isLoading}
+          isLoadingKlasifikasi={isLoadingKlasifikasiAll}
           onToggleLayer={handleToggleLayer}
-          onFetchKlasifikasi={handleFetchKlasifikasi}
+          onReloadKlasifikasi={loadAllKlasifikasi}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
           isMobile={isMobile}
