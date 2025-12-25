@@ -112,9 +112,11 @@ const MapSidebar = ({
       key: `batas-${item.id}`,
       id: item.id,
       type: 'batas_administrasi',
-      nama: item.name,
-      warna: item.color || '#000000',
-      tipe_garis: 'solid', // Default untuk batas administrasi
+      nama: item.name || item.nama,
+      warna: item.color || item.warna || '#000000',
+      // Ambil tipe geometri dan tipe garis dari data API jika tersedia.
+      tipe_geometri: item.geometry_type || item.tipe_geometri || 'polyline',
+      tipe_garis: item.line_type || item.tipe_garis || 'solid',
       fill_opacity: 0.3
     }),
     []
@@ -380,7 +382,7 @@ const MapSidebar = ({
                           }
                         />
                         {/* Legend untuk batas administrasi */}
-                        <LegendItem tipe_geometri={pemetaan.tipe_geometri || 'polygon'} icon_titik={pemetaan.icon_titik} warna={pemetaan.warna} nama={pemetaan.nama} tipe_garis={pemetaan.tipe_garis} />
+                        <LegendItem tipe_geometri={pemetaan.tipe_geometri || 'polyline'} icon_titik={pemetaan.icon_titik} warna={pemetaan.warna} nama={pemetaan.nama} tipe_garis={pemetaan.tipe_garis} />
                       </div>
                     );
                   })}

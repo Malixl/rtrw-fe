@@ -140,7 +140,7 @@ const Klasifikasis = () => {
               modal.delete.default({
                 title: `Delete ${Modul.KLASIFIKASI}`,
                 data: record,
-                formFields: formFields,
+                formFields: formFields({ options: { rtrws: rtrws } }),
                 onSubmit: async () => {
                   const { isSuccess, message } = await deleteKlasifikasi.execute(record.id, token);
                   if (isSuccess) {

@@ -173,9 +173,10 @@ const Maps = () => {
           key: `batas-${item.id}`,
           id: item.id,
           type: 'batas_administrasi',
-          nama: item.name,
-          warna: item.color || '#000000', // Default color for boundaries
-          tipe_garis: 'solid',
+          nama: item.name || item.nama,
+          warna: item.color || item.warna || '#000000', // Default color for boundaries
+          tipe_geometri: item.geometry_type || item.tipe_geometri || 'polyline',
+          tipe_garis: item.line_type || item.tipe_garis || 'solid',
           fill_opacity: 0.3
         };
         // Only toggle if not already selected

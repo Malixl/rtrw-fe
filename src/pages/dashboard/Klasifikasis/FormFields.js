@@ -1,7 +1,7 @@
 import { InputType } from '@/constants';
 import Modul from '@/constants/Modul';
 
-export const formFields = ({ options }) => [
+export const formFields = ({ options = {} } = {}) => [
   {
     label: `Nama ${Modul.KLASIFIKASI}`,
     name: 'name',
@@ -37,7 +37,7 @@ export const formFields = ({ options }) => [
       }
     ],
     size: 'large',
-    options: options.rtrws.map((item) => ({
+    options: (options.rtrws || []).map((item) => ({
       label: item.name,
       value: item.id
     }))
