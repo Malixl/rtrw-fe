@@ -1,90 +1,32 @@
 /* eslint-disable no-unused-vars */
 /* eslint-disable react/prop-types */
-import { useAuth, useNotification, useService } from '@/hooks';
-import { RtrwsService, BatasAdministrasiService } from '@/services';
+import { useCrudModal, useNotification, useService } from '@/hooks';
+import { LayerGroupsService } from '@/services';
 import { BASE_URL } from '@/utils/api';
 import asset from '@/utils/asset';
-
-import { LockOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
-import { Button, Result, Skeleton, Tooltip } from 'antd';
-import React from 'react';
-import { MapContainer, TileLayer, GeoJSON, Popup, LayersControl } from 'react-leaflet';
+import { AimOutlined, InfoCircleOutlined, MenuOutlined } from '@ant-design/icons';
+import { Button, Checkbox, Collapse, Form, Select, Skeleton, Typography } from 'antd';
+import React, { useEffect } from 'react';
+import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet';
 import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
-import 'leaflet-draw';
-import 'leaflet-draw/dist/leaflet.draw.css';
+import { getLeafletIcon } from '@/utils/leafletIcon';
 import * as AntdIcons from '@ant-design/icons';
-import FeaturePopup from '@/components/Map/FeaturePopup';
-import MapUserInfo from '@/components/Map/MapUserInfo';
-import HomeControl from '@/components/Map/HomeControl';
-import CoordinateControl from '@/components/Map/CoordinateControl';
-import MapToolsControl from '@/components/Map/MapToolsControl';
-import MapSidebar from '@/components/Map/MapSidebar';
-
-const { BaseLayer } = LayersControl;
 
 const Maps = () => {
   const navigate = useNavigate();
   const { success, error } = useNotification();
-  const { canAccessMap, capabilities, isAuthenticated, isLoading: authLoading } = useAuth();
-  const { execute, ...getAllRtrws } = useService(RtrwsService.getAll);
-  const { execute: fetchBatas, data: batasData, isLoading: isLoadingBatas, isSuccess: isBatasSuccess, message: batasMessage } = useService(BatasAdministrasiService.getAll);
-  const klasifikasisByRtrw = useService(RtrwsService.getAllKlasifikasisByRtrw);
+  const modal = useCrudModal();
   const [selectedLayers, setSelectedLayers] = React.useState({});
+  const { execute, ...getAllLayerGroups } = useService(LayerGroupsService.layerGroupWithKlasifikasi);
   const [loadingLayers, setLoadingLayers] = React.useState({});
   const [treePolaRuangData, setTreePolaRuangData] = React.useState([]);
   const [treeStrukturRuangData, setTreeStrukturRuangData] = React.useState([]);
   const [treeKetentuanKhususData, setTreeKetentuanKhususData] = React.useState([]);
   const [treePkkprlData, setTreePkkprlData] = React.useState([]);
   const [treeIndikasiProgramData, setTreeIndikasiProgramData] = React.useState([]);
-  const [popupInfo, setPopupInfo] = React.useState(null);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(true); // Default collapsed on mobile
-  const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
-  const [isTablet, setIsTablet] = React.useState(window.innerWidth >= 768 && window.innerWidth < 1024);
 
-  // Handle window resize for responsive
-  React.useEffect(() => {
-    const handleResize = () => {
-      const width = window.innerWidth;
-      setIsMobile(width < 768);
-      setIsTablet(width >= 768 && width < 1024);
-      // Auto collapse sidebar on mobile
-      if (width < 768) {
-        setIsSidebarCollapsed(true);
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-    handleResize(); // Initial check
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // Check if user can access the map
-  const hasMapAccess = canAccessMap();
-  const showBlurMap = capabilities?.show_blur_map ?? !hasMapAccess;
-  const loginMessage = capabilities?.login_message || 'Silakan login untuk melihat peta interaktif';
-
-  const fetchRtrws = React.useCallback(() => {
-    if (hasMapAccess) {
-      execute({ page: 1, per_page: 100000 });
-    }
-  }, [execute, hasMapAccess]);
-
-  React.useEffect(() => {
-    if (hasMapAccess) {
-      fetchRtrws();
-      fetchBatas({ page: 1, per_page: 100000 });
-    }
-  }, [fetchRtrws, fetchBatas, hasMapAccess]);
-
-  React.useEffect(() => {
-    if (!isLoadingBatas && !isBatasSuccess && batasMessage) {
-      console.error('Gagal memuat Batas Administrasi:', batasMessage);
-    }
-  }, [isLoadingBatas, isBatasSuccess, batasMessage]);
-
-  const rtrws = getAllRtrws.data ?? [];
-  const batasAdministrasi = batasData ?? [];
+  const [layerGroupTrees, setLayerGroupTrees] = React.useState([]);
 
   const handleToggleLayer = async (pemetaan) => {
     const key = pemetaan.key;
@@ -106,46 +48,30 @@ const Maps = () => {
       else if (type === 'struktur') url = `${BASE_URL}/struktur_ruang/${id}/geojson`;
       else if (type === 'ketentuan_khusus') url = `${BASE_URL}/ketentuan_khusus/${id}/geojson`;
       else if (type === 'pkkprl') url = `${BASE_URL}/pkkprl/${id}/geojson`;
-      else if (type === 'batas_administrasi') url = `${BASE_URL}/batas_administrasi/${id}/geojson`;
 
       const res = await fetch(url);
       const json = await res.json();
       const warna = pemetaan.warna ?? null;
-      const iconImageUrl = asset(pemetaan.icon_titik) ?? null;
+      const iconName = pemetaan.icon_titik ?? null;
       const tipe_garis = pemetaan.tipe_garis ?? null;
-      const fillOpacity = pemetaan.fill_opacity ?? 0.8;
 
       const enhanced = {
         ...json,
         features: (json.features || []).map((feature) => {
           const props = { ...(feature.properties || {}) };
-
-          // warna
+          if (iconName) props.icon = iconName;
           if (warna) {
             props.stroke = warna;
-            props.fill = warna;
-            props['stroke-opacity'] = 1;
-            props['fill-opacity'] = fillOpacity;
-          }
+            props['stroke-width'] = props['stroke-width'] ?? 3;
+            props['stroke-opacity'] = props['stroke-opacity'] ?? 1;
 
-          // tipe garis
+            props.fill = props.fill ?? warna; // <-- FILL POLYGON
+            props['fill-opacity'] = props['fill-opacity'] ?? 0.8;
+          }
           if (tipe_garis === 'dashed') {
-            props.dashArray = '6 6';
-            props['stroke-width'] = 3;
-          }
-
-          if (tipe_garis === 'solid') {
+            props.dashArray = props.dashArray ?? '6 6';
+          } else if (tipe_garis === 'solid') {
             props.dashArray = null;
-            props['stroke-width'] = 3;
-          }
-
-          if (tipe_garis === 'bold') {
-            props.dashArray = null;
-            props['stroke-width'] = 6; // 🔥 LEBIH TEBAL
-          }
-
-          if (iconImageUrl) {
-            props.icon_image_url = iconImageUrl;
           }
 
           return {
@@ -166,28 +92,9 @@ const Maps = () => {
     }
   };
 
-  React.useEffect(() => {
-    if (batasAdministrasi.length > 0) {
-      batasAdministrasi.forEach((item) => {
-        const pemetaan = {
-          key: `batas-${item.id}`,
-          id: item.id,
-          type: 'batas_administrasi',
-          nama: item.name,
-          warna: item.color || '#000000', // Default color for boundaries
-          tipe_garis: 'solid',
-          fill_opacity: 0.3
-        };
-        // Only toggle if not already selected
-        if (!selectedLayers[pemetaan.key]) {
-          handleToggleLayer(pemetaan);
-        }
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [batasAdministrasi]);
-
   function mapPolaRuang(data) {
+    console.log(data);
+
     return data.map((klasifikasi) => ({
       title: klasifikasi.nama,
       key: `pola-root-${klasifikasi.id}`,
@@ -266,31 +173,49 @@ const Maps = () => {
     }));
   }
 
-  const handleFetchKlasifikasi = async (values) => {
-    const { message, isSuccess, data } = await klasifikasisByRtrw.execute({
-      idRtrw: values.id_rtrw
-    });
+  const fetchLayerGroups = React.useCallback(() => {
+    execute({ page: 1, per_page: 9999 });
+  }, [execute]);
 
-    if (isSuccess) {
-      success('Berhasil', message);
+  React.useEffect(() => {
+    fetchLayerGroups();
+  }, [fetchLayerGroups]);
 
-      const pola_ruang_list = data.klasifikasi_pola_ruang ?? [];
-      const struktur_ruang_list = data.klasifikasi_struktur_ruang ?? [];
-      const ketentuan_khusus_list = data.klasifikasi_ketentuan_khusus ?? [];
-      const pkkprl_list = data.klasifikasi_pkkprl ?? [];
-      const indikasi_program_list = data.klasifikasi_indikasi_program ?? [];
+  const layerGroupData = React.useMemo(() => getAllLayerGroups.data ?? [], [getAllLayerGroups.data]);
 
-      setTreePolaRuangData(mapPolaRuang(pola_ruang_list));
-      setTreeStrukturRuangData(mapStrukturRuang(struktur_ruang_list));
-      setTreeKetentuanKhususData(mapKetentuanKhusus(ketentuan_khusus_list));
-      setTreePkkprlData(mapPkkprl(pkkprl_list));
-      setTreeIndikasiProgramData(mapIndikasiProgram(indikasi_program_list));
-    } else {
-      error('Gagal', message);
+  React.useEffect(() => {
+    if (layerGroupData) {
+      const result = layerGroupData.map((group) => {
+        const klasifikasis = group.klasifikasis || {};
+
+        const pola_ruang_list = klasifikasis.klasifikasi_pola_ruang ?? [];
+        const struktur_ruang_list = klasifikasis.klasifikasi_struktur_ruang ?? [];
+        const ketentuan_khusus_list = klasifikasis.klasifikasi_ketentuan_khusus ?? [];
+        const pkkprl_list = klasifikasis.klasifikasi_pkkprl ?? [];
+        const indikasi_program_list = klasifikasis.klasifikasi_indikasi_program ?? [];
+
+        return {
+          id: group.id,
+          nama: group.layer_group_name,
+          deskripsi: group.deskripsi,
+          urutan: group.urutan_tampil,
+
+          // 🔥 HASIL TREEMAP LAMA KAMU
+          tree: {
+            pola: mapPolaRuang(pola_ruang_list),
+            struktur: mapStrukturRuang(struktur_ruang_list),
+            ketentuan: mapKetentuanKhusus(ketentuan_khusus_list),
+            pkkprl: mapPkkprl(pkkprl_list),
+            indikasi: mapIndikasiProgram(indikasi_program_list)
+          }
+        };
+      });
+
+      setLayerGroupTrees(result);
     }
+  }, [layerGroupData]);
 
-    return isSuccess;
-  };
+  console.log(layerGroupTrees);
 
   const getFeatureStyle = (feature) => {
     const props = feature.properties || {};
@@ -315,185 +240,35 @@ const Maps = () => {
     return style;
   };
 
-  // Show loading state while checking auth
-  if (authLoading) {
-    return (
-      <section className="flex h-screen w-full items-center justify-center">
-        <Skeleton active paragraph={{ rows: 6 }} />
-      </section>
-    );
-  }
-
-  // Show access denied overlay for users without map access
-  if (!hasMapAccess) {
-    return (
-      <section className="relative flex h-screen w-full">
-        {/* Blurred Map Background */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className={showBlurMap ? 'pointer-events-none blur-sm grayscale' : ''}>
-            <MapContainer center={[0.5412, 123.0595]} zoom={9} className="h-screen w-full" zoomControl={false} dragging={false} scrollWheelZoom={false}>
-              <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-            </MapContainer>
-          </div>
-        </div>
-
-        {/* Overlay with Login Prompt */}
-        <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="mx-4 max-w-md rounded-xl bg-white p-8 shadow-2xl">
-            <Result
-              icon={<LockOutlined className="text-6xl text-blue-500" />}
-              title="Akses Terbatas"
-              subTitle={loginMessage}
-              extra={
-                <div className="flex flex-col gap-3">
-                  <Button key="login" type="primary" size="large" onClick={() => navigate('/auth/login?redirect=/map')}>
-                    Login Sekarang
-                  </Button>
-                  <Button key="home" size="large" onClick={() => navigate('/')}>
-                    Kembali ke Beranda
-                  </Button>
-                </div>
-              }
-            />
-          </div>
-        </div>
-      </section>
-    );
-  }
-
   return (
-    <section className="relative h-screen w-full overflow-hidden">
-      {/* Dynamic styles for map controls based on sidebar state and screen size */}
-      <style>
-        {`
-          /* Desktop styles */
-          @media (min-width: 1024px) {
-            .leaflet-top.leaflet-right {
-              right: ${isSidebarCollapsed ? '10px' : '410px'};
-              transition: right 0.3s ease-in-out;
-            }
-          }
-          
-          /* Tablet styles */
-          @media (min-width: 768px) and (max-width: 1023px) {
-            .leaflet-top.leaflet-right {
-              right: ${isSidebarCollapsed ? '10px' : '320px'};
-              transition: right 0.3s ease-in-out;
-            }
-          }
-          
-          /* Mobile styles */
-          @media (max-width: 767px) {
-            .leaflet-top.leaflet-right {
-              right: 10px;
-              top: 10px;
-            }
-            .leaflet-control-zoom {
-              display: none;
-            }
-            .map-tools-control {
-              transform: scale(0.9);
-            }
-            .leaflet-bottom.leaflet-left,
-            .leaflet-bottom.leaflet-right {
-              bottom: 60px !important;
-            }
-          }
-        `}
-      </style>
-
-      {/* Mobile Floating Button to Open Sidebar */}
-      {isMobile && isSidebarCollapsed && <Button type="primary" icon={<MenuUnfoldOutlined />} onClick={() => setIsSidebarCollapsed(false)} className="absolute right-4 top-4 z-[1001] h-10 w-10 rounded-full shadow-lg" size="large" />}
-
-      {/* Map Container - Full Width */}
-      <div className="h-full w-full">
+    <section className="flex h-screen w-full">
+      <div className="relative h-full w-full flex-[3]">
         <MapContainer center={[0.5412, 123.0595]} zoom={9} className="h-screen w-full">
-          {/* Custom Home Control - positioned at topleft */}
-          <HomeControl />
-
-          {/* Map Tools Control - drawing, screenshot, etc */}
-          <MapToolsControl />
-
-          {/* Coordinate and Scale display - bottom center */}
-          <CoordinateControl />
-
-          {/* Base Layer Control - next to zoom buttons (topright) */}
-          <LayersControl position="topleft">
-            <BaseLayer checked name="OpenStreetMap">
-              <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-            </BaseLayer>
-            <BaseLayer name="Satelit (Esri)">
-              <TileLayer
-                attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
-                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-              />
-            </BaseLayer>
-            <BaseLayer name="Satelit dengan Label">
-              <TileLayer
-                attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
-                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-              />
-              <TileLayer url="https://stamen-tiles-{s}.a.ssl.fastly.net/toner-hybrid/{z}/{x}/{y}.png" attribution='Map tiles by <a href="http://stamen.com">Stamen Design</a>' />
-            </BaseLayer>
-            <BaseLayer name="Terrain">
-              <TileLayer
-                attribution='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
-                url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
-              />
-            </BaseLayer>
-          </LayersControl>
+          <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           {Object.values(selectedLayers).map((layer) => (
             <GeoJSON
               key={`${layer.type}-${layer.id}`}
               data={layer.data}
-              style={(feature) => {
-                // Custom style for Struktur Ruang: support stroke_width, custom color, etc.
-                const props = feature.properties || {};
-                let style = getFeatureStyle(feature);
-                // If this is a Struktur Ruang layer and has stroke_width, override weight
-                if (layer.type === 'struktur' && props['stroke-width']) {
-                  style = { ...style, weight: props['stroke-width'] };
-                }
-                return style;
-              }}
+              style={getFeatureStyle}
               pointToLayer={(feature, latlng) => {
-                const props = feature.properties || {};
-
-                if (props.icon_image_url) {
-                  const icon = L.icon({
-                    iconUrl: props.icon_image_url,
-                    iconSize: [32, 32],
-                    iconAnchor: [16, 32],
-                    className: 'custom-marker-image'
-                  });
-
-                  return L.marker(latlng, { icon });
-                }
-
+                const iconName = feature.properties?.icon;
+                const color = feature.properties?.stroke || feature.properties?.fill || '#1677ff';
+                const leafletIcon = iconName ? getLeafletIcon(iconName, color) : undefined;
+                if (leafletIcon) return L.marker(latlng, { icon: leafletIcon });
                 return L.marker(latlng);
               }}
               onEachFeature={(feature, layerGeo) => {
-                const props = feature.properties || {};
-
-                layerGeo.on('click', (e) => {
-                  L.DomEvent.stopPropagation(e);
-                  setPopupInfo({
-                    position: e.latlng,
-                    properties: props
-                  });
-                });
-
-                if (props.icon_image_url && feature.geometry && feature.geometry.type !== 'Point') {
+                const name = feature.properties?.nama || feature.properties?.title || '';
+                if (name) {
+                  layerGeo.bindPopup(`<strong>${name}</strong>`);
+                }
+                const iconName = feature.properties?.icon;
+                if (iconName && feature.geometry && feature.geometry.type !== 'Point') {
+                  const color = feature.properties?.stroke || '#1677ff';
+                  const leafletIcon = getLeafletIcon(iconName, color);
                   try {
-                    const center = layerGeo.getBounds().getCenter();
-
-                    const icon = L.icon({
-                      iconUrl: props.icon_image_url,
-                      iconSize: [32, 32],
-                      iconAnchor: [16, 32]
-                    });
-
-                    L.marker(center, { icon }).addTo(layerGeo._map);
+                    const latlng = layerGeo.getBounds().getCenter();
+                    L.marker(latlng, { icon: leafletIcon }).addTo(layerGeo._map);
                   } catch (err) {
                     console.warn(err);
                   }
@@ -501,21 +276,15 @@ const Maps = () => {
               }}
             />
           ))}
-          {popupInfo && (
-            <Popup position={popupInfo.position} onClose={() => setPopupInfo(null)}>
-              <FeaturePopup properties={popupInfo.properties} />
-            </Popup>
-          )}
         </MapContainer>
-        {/* Legend - Responsive */}
-        <div className={`absolute z-[1000] ${isMobile ? 'bottom-2 left-2 right-2' : 'bottom-4 left-4'}`}>
-          <div className={`rounded-lg bg-white p-3 shadow-lg ${isMobile ? 'max-h-32 w-full overflow-y-auto' : 'w-96 p-4'}`}>
-            <h4 className={`mb-2 font-semibold ${isMobile ? 'text-sm' : ''}`}>Legend</h4>
+        <div className="absolute bottom-4 left-4 z-[1000]">
+          <div className="w-96 rounded-lg bg-white p-4 shadow-lg">
+            <h4 className="mb-2 font-semibold">Legend</h4>
             {/* POLA RUANG */}
             {Object.entries(selectedLayers).some(([key]) => key.startsWith('pola')) && (
               <>
-                <div className={`flex flex-wrap gap-1 ${isMobile ? 'gap-1' : 'max-h-28 gap-2'}`}>
-                  <b className={`w-full ${isMobile ? 'text-xs' : 'text-sm'}`}>Pola Ruang</b>
+                <div className="flex max-h-28 flex-wrap gap-2">
+                  <b className="w-full text-sm">Pola Ruang</b>
 
                   {Object.entries(selectedLayers)
                     .filter(([key]) => key.startsWith('pola'))
@@ -541,19 +310,9 @@ const Maps = () => {
                       const IconComponent = item.meta.icon_titik ? AntdIcons[item.meta.icon_titik] : null;
                       return (
                         <div key={item.id} className="inline-flex items-center gap-x-1">
-                          {item.meta.tipe_geometri === 'point' && (
-                            <>
-                              <img className="h-4 w-4" src={asset(item.meta.icon_titik)} />
-                              <small>{item.meta.nama}</small>
-                            </>
-                          )}
+                          {IconComponent ? <IconComponent style={{ fontSize: 18, color: item.meta.warna }} /> : <div className="h-1 w-6" style={{ backgroundColor: item.meta.warna }} />}
 
-                          {(item.meta.tipe_geometri === 'polyline' || item.meta.tipe_geometri === 'polygon') && (
-                            <>
-                              <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna }} />
-                              <small>{item.meta.nama}</small>
-                            </>
-                          )}
+                          <small>{item.meta.nama}</small>
                         </div>
                       );
                     })}
@@ -570,19 +329,8 @@ const Maps = () => {
                     .filter(([key]) => key.startsWith('ketentuan_khusus'))
                     .map(([_, item]) => (
                       <div key={item.id} className="inline-flex items-center gap-x-1">
-                        {item.meta.tipe_geometri === 'point' && (
-                          <>
-                            <img className="h-4 w-4" src={asset(item.meta.icon_titik)} />
-                            <small>{item.meta.nama}</small>
-                          </>
-                        )}
-
-                        {(item.meta.tipe_geometri === 'polyline' || item.meta.tipe_geometri === 'polygon') && (
-                          <>
-                            <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna }} />
-                            <small>{item.meta.nama}</small>
-                          </>
-                        )}
+                        <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna }} />
+                        <small>{item.meta.nama}</small>
                       </div>
                     ))}
                 </div>
@@ -598,35 +346,7 @@ const Maps = () => {
                     .filter(([key]) => key.startsWith('pkkprl'))
                     .map(([_, item]) => (
                       <div key={item.id} className="inline-flex items-center gap-x-1">
-                        {item.meta.tipe_geometri === 'point' && (
-                          <>
-                            <img className="h-4 w-4" src={asset(item.meta.icon_titik)} />
-                            <small>{item.meta.nama}</small>
-                          </>
-                        )}
-
-                        {(item.meta.tipe_geometri === 'polyline' || item.meta.tipe_geometri === 'polygon') && (
-                          <>
-                            <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna }} />
-                            <small>{item.meta.nama}</small>
-                          </>
-                        )}
-                      </div>
-                    ))}
-                </div>
-                <hr className="my-2" />
-              </>
-            )}
-            {Object.entries(selectedLayers).some(([key]) => key.startsWith('batas')) && (
-              <>
-                <div className="flex max-h-28 flex-wrap gap-2">
-                  <b className="w-full text-sm">Batas Administrasi</b>
-
-                  {Object.entries(selectedLayers)
-                    .filter(([key]) => key.startsWith('batas'))
-                    .map(([_, item]) => (
-                      <div key={item.id} className="inline-flex items-center gap-x-1">
-                        <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna, opacity: 0.3 }} />
+                        <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna }} />
                         <small>{item.meta.nama}</small>
                       </div>
                     ))}
@@ -637,32 +357,333 @@ const Maps = () => {
           </div>
         </div>
       </div>
+      <div className="flex h-full w-full flex-[1] flex-col gap-y-4 overflow-y-auto bg-white p-8">
+        <div className="inline-flex items-center justify-between">
+          <div className="flex flex-col">
+            <Typography.Title level={5} style={{ margin: 0 }}>
+              Geospasial
+            </Typography.Title>
+            <p className="text-sm">Tampilan Map</p>
+          </div>
+          <Button variant="solid" color="primary" shape="round" onClick={() => navigate('/')}>
+            Ke Beranda
+          </Button>
+        </div>
 
-      {/* Collapsible Sidebar - Responsive */}
-      <div className={`absolute right-0 top-0 z-[1000] h-full transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-0' : isMobile ? 'w-full' : isTablet ? 'w-[320px]' : 'w-[400px]'}`}>
-        <MapSidebar
-          rtrws={rtrws}
-          batasAdministrasi={batasAdministrasi}
-          treePolaRuangData={treePolaRuangData}
-          treeStrukturRuangData={treeStrukturRuangData}
-          treeKetentuanKhususData={treeKetentuanKhususData}
-          treePkkprlData={treePkkprlData}
-          treeIndikasiProgramData={treeIndikasiProgramData}
-          selectedLayers={selectedLayers}
-          loadingLayers={loadingLayers}
-          isLoadingRtrws={getAllRtrws.isLoading}
-          isLoadingBatas={isLoadingBatas}
-          isLoadingKlasifikasi={klasifikasisByRtrw.isLoading}
-          onToggleLayer={handleToggleLayer}
-          onFetchKlasifikasi={handleFetchKlasifikasi}
-          isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
-          isMobile={isMobile}
-        />
+        {getAllLayerGroups.isLoading ? (
+          <div className="flex flex-col gap-y-8">
+            <div className="flex flex-col gap-y-2">
+              <div className="mt-4 flex flex-col gap-y-4">
+                <Collapse ghost expandIcon={() => ''}>
+                  <Collapse.Panel
+                    header={
+                      <div className="inline-flex w-full items-center justify-between">
+                        <div className="inline-flex w-full items-center gap-x-4">
+                          <div className="flex items-center justify-center rounded-md bg-blue-100 p-3">
+                            <AimOutlined className="text-blue-500" />
+                          </div>
+                          <Skeleton.Input size="small" active />
+                        </div>
+                        <MenuOutlined />
+                      </div>
+                    }
+                  >
+                    <div className="flex flex-col gap-y-2 px-4">
+                      <Checkbox>
+                        <Skeleton.Input size="small" active />
+                      </Checkbox>
+                      <Checkbox>
+                        <Skeleton.Input size="small" active />
+                      </Checkbox>
+                      <Checkbox>
+                        <Skeleton.Input size="small" active />
+                      </Checkbox>
+                      <Checkbox>
+                        <Skeleton.Input size="small" active />
+                      </Checkbox>
+                    </div>
+                  </Collapse.Panel>
+                </Collapse>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            {layerGroupTrees.map((layerGroupTree) => (
+              <>
+                <div className="flex flex-col">
+                  {layerGroupTree.tree.pola.map((item) => (
+                    <div key={item.key} className="flex flex-col gap-y-2">
+                      <div className="mt-2 flex flex-col gap-y-4">
+                        <Collapse ghost expandIcon={() => ''}>
+                          <Collapse.Panel
+                            header={
+                              <div className="inline-flex w-full items-center justify-between">
+                                <div className="inline-flex w-full items-center gap-x-4">
+                                  <div className="flex items-center justify-center rounded-md bg-blue-100 p-3">
+                                    <AimOutlined className="text-blue-500" />
+                                  </div>
+                                  {item.title} {`(${item.tipe === 'struktur_ruang' ? 'Struktur Ruang' : ''})`}
+                                </div>
+                                <MenuOutlined />
+                              </div>
+                            }
+                          >
+                            <div className="flex flex-col gap-y-2 px-4">
+                              {item.children.map((pemetaan) => (
+                                <Checkbox key={pemetaan.key} onChange={() => handleToggleLayer(pemetaan)}>
+                                  <span className="inline-flex items-center gap-x-2">
+                                    {pemetaan.title}
+
+                                    {loadingLayers[pemetaan.key] && <span className="h-3 w-3 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></span>}
+                                  </span>
+
+                                  <Button
+                                    icon={<InfoCircleOutlined />}
+                                    type="link"
+                                    onClick={() => {
+                                      modal.show.description({
+                                        title: pemetaan.nama,
+                                        data: [
+                                          {
+                                            key: 'name',
+                                            label: `Nama Struktur Ruang`,
+                                            children: pemetaan.nama
+                                          },
+                                          {
+                                            key: 'desc',
+                                            label: `Deskripsi`,
+                                            children: pemetaan.deskripsi
+                                          }
+                                        ]
+                                      });
+                                    }}
+                                  />
+                                </Checkbox>
+                              ))}
+                            </div>
+                          </Collapse.Panel>
+                        </Collapse>
+                      </div>
+                    </div>
+                  ))}
+                  {layerGroupTree.tree.struktur.map((item) => (
+                    <div key={item.key} className="flex flex-col gap-y-2">
+                      <div className="mt-2 flex flex-col gap-y-4">
+                        <Collapse ghost expandIcon={() => ''}>
+                          <Collapse.Panel
+                            header={
+                              <div className="inline-flex w-full items-center justify-between">
+                                <div className="inline-flex w-full items-center gap-x-4">
+                                  <div className="flex items-center justify-center rounded-md bg-blue-100 p-3">
+                                    <AimOutlined className="text-blue-500" />
+                                  </div>
+                                  {item.title} {`(${item.klasifikasi.tipe === 'struktur_ruang' ? 'Struktur Ruang' : ''})`}
+                                </div>
+                                <MenuOutlined />
+                              </div>
+                            }
+                          >
+                            <div className="flex flex-col gap-y-2 px-4">
+                              {item.children.map((pemetaan) => (
+                                <Checkbox key={pemetaan.key} onChange={() => handleToggleLayer(pemetaan)}>
+                                  <span className="inline-flex items-center gap-x-2">
+                                    {pemetaan.title}
+
+                                    {loadingLayers[pemetaan.key] && <span className="h-3 w-3 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></span>}
+                                  </span>
+
+                                  <Button
+                                    icon={<InfoCircleOutlined />}
+                                    type="link"
+                                    onClick={() => {
+                                      modal.show.description({
+                                        title: pemetaan.nama,
+                                        data: [
+                                          {
+                                            key: 'name',
+                                            label: `Nama Struktur Ruang`,
+                                            children: pemetaan.nama
+                                          },
+                                          {
+                                            key: 'desc',
+                                            label: `Deskripsi`,
+                                            children: pemetaan.deskripsi
+                                          }
+                                        ]
+                                      });
+                                    }}
+                                  />
+                                </Checkbox>
+                              ))}
+                            </div>
+                          </Collapse.Panel>
+                        </Collapse>
+                      </div>
+                    </div>
+                  ))}
+                  {layerGroupTree.tree.ketentuan.map((item) => (
+                    <div key={item.key} className="flex flex-col gap-y-2">
+                      <div className="mt-2 flex flex-col gap-y-4">
+                        <Collapse ghost expandIcon={() => ''}>
+                          <Collapse.Panel
+                            header={
+                              <div className="inline-flex w-full items-center justify-between">
+                                <div className="inline-flex w-full items-center gap-x-4">
+                                  <div className="flex items-center justify-center rounded-md bg-blue-100 p-3">
+                                    <AimOutlined className="text-blue-500" />
+                                  </div>
+                                  {item.title} {`(${item.tipe === 'ketentuan_khusus' ? 'Ketentuan Khusus' : ''})`}
+                                </div>
+                                <MenuOutlined />
+                              </div>
+                            }
+                          >
+                            <div className="flex flex-col gap-y-2 px-4">
+                              {item.children.map((pemetaan) => (
+                                <Checkbox key={pemetaan.key} onChange={() => handleToggleLayer(pemetaan)}>
+                                  <span className="inline-flex items-center gap-x-2">
+                                    {pemetaan.title}
+
+                                    {loadingLayers[pemetaan.key] && <span className="h-3 w-3 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></span>}
+                                  </span>
+
+                                  <Button
+                                    icon={<InfoCircleOutlined />}
+                                    type="link"
+                                    onClick={() => {
+                                      modal.show.description({
+                                        title: pemetaan.nama,
+                                        data: [
+                                          {
+                                            key: 'name',
+                                            label: `Nama Struktur Ruang`,
+                                            children: pemetaan.nama
+                                          },
+                                          {
+                                            key: 'desc',
+                                            label: `Deskripsi`,
+                                            children: pemetaan.deskripsi
+                                          }
+                                        ]
+                                      });
+                                    }}
+                                  />
+                                </Checkbox>
+                              ))}
+                            </div>
+                          </Collapse.Panel>
+                        </Collapse>
+                      </div>
+                    </div>
+                  ))}
+                  {layerGroupTree.tree.pkkprl.map((item) => (
+                    <div key={item.key} className="flex flex-col gap-y-2">
+                      <div className="mt-2 flex flex-col gap-y-4">
+                        <Collapse ghost expandIcon={() => ''}>
+                          <Collapse.Panel
+                            header={
+                              <div className="inline-flex w-full items-center justify-between">
+                                <div className="inline-flex w-full items-center gap-x-4">
+                                  <div className="flex items-center justify-center rounded-md bg-blue-100 p-3">
+                                    <AimOutlined className="text-blue-500" />
+                                  </div>
+                                  {item.title} {`(${item.tipe === 'pkkprl' ? 'PKKPRL' : ''})`}
+                                </div>
+                                <MenuOutlined />
+                              </div>
+                            }
+                          >
+                            <div className="flex flex-col gap-y-2 px-4">
+                              {item.children.map((pemetaan) => (
+                                <Checkbox key={pemetaan.key} onChange={() => handleToggleLayer(pemetaan)}>
+                                  <span className="inline-flex items-center gap-x-2">
+                                    {pemetaan.title}
+
+                                    {loadingLayers[pemetaan.key] && <span className="h-3 w-3 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></span>}
+                                  </span>
+
+                                  <Button
+                                    icon={<InfoCircleOutlined />}
+                                    type="link"
+                                    onClick={() => {
+                                      modal.show.description({
+                                        title: pemetaan.nama,
+                                        data: [
+                                          {
+                                            key: 'name',
+                                            label: `Nama Struktur Ruang`,
+                                            children: pemetaan.nama
+                                          },
+                                          {
+                                            key: 'desc',
+                                            label: `Deskripsi`,
+                                            children: pemetaan.deskripsi
+                                          }
+                                        ]
+                                      });
+                                    }}
+                                  />
+                                </Checkbox>
+                              ))}
+                            </div>
+                          </Collapse.Panel>
+                        </Collapse>
+                      </div>
+                    </div>
+                  ))}
+                  {layerGroupTree.tree.indikasi.map((item) => (
+                    <div key={item.key} className="flex flex-col gap-y-2">
+                      <div className="mt-2 flex flex-col gap-y-4">
+                        <Collapse ghost expandIcon={() => ''}>
+                          <Collapse.Panel
+                            header={
+                              <div className="inline-flex w-full items-center justify-between">
+                                <div className="inline-flex w-full items-center gap-x-4">
+                                  <div className="flex items-center justify-center rounded-md bg-blue-100 p-3">
+                                    <AimOutlined className="text-blue-500" />
+                                  </div>
+                                  {item.title} {`(${item.tipe === 'indikasi_program' ? 'Indikasi Program' : ''})`}
+                                </div>
+                                <MenuOutlined />
+                              </div>
+                            }
+                          >
+                            <div className="flex flex-col gap-y-2 px-4">
+                              {item.children.map((pemetaan) => (
+                                <div key={pemetaan.key} className="inline-flex w-full items-center gap-x-2">
+                                  <span>{pemetaan.title}</span>
+                                  <Button
+                                    icon={<InfoCircleOutlined />}
+                                    type="link"
+                                    onClick={() => {
+                                      modal.show.paragraph({
+                                        data: {
+                                          content: <iframe className="min-h-96 w-full" src={asset(pemetaan.file_dokumen)} />
+                                        }
+                                      });
+                                    }}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </Collapse.Panel>
+                        </Collapse>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ))}
+          </>
+        )}
+
+        {/* {getAllLayerGroups.isLoading ? (
+         
+        ) : (
+          
+        )} */}
       </div>
-
-      {/* Mobile overlay when sidebar is open */}
-      {isMobile && !isSidebarCollapsed && <div className="absolute inset-0 z-[999] bg-black/50" onClick={() => setIsSidebarCollapsed(true)} />}
     </section>
   );
 };

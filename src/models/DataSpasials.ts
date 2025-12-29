@@ -1,5 +1,5 @@
-import asset from '@/utils/asset';
 import Model from './Model';
+import asset from '@/utils/asset';
 
 export interface IncomingApiData {
   id: number;
@@ -48,7 +48,7 @@ interface FormValue {
 
 type ReturnType<S, From, To> = S extends From[] ? To[] : To;
 
-export default class Pkkprl extends Model {
+export default class DataSpasials extends Model {
   constructor(
     public id: number,
     public klasifikasi: {
@@ -72,9 +72,9 @@ export default class Pkkprl extends Model {
     super();
   }
 
-  public static fromApiData<T extends IncomingApiData | IncomingApiData[]>(apiData: T): ReturnType<T, IncomingApiData, Pkkprl> {
-    if (Array.isArray(apiData)) return apiData.map((object) => this.fromApiData(object)) as ReturnType<T, IncomingApiData, Pkkprl>;
-    return new Pkkprl(
+  public static fromApiData<T extends IncomingApiData | IncomingApiData[]>(apiData: T): ReturnType<T, IncomingApiData, DataSpasials> {
+    if (Array.isArray(apiData)) return apiData.map((object) => this.fromApiData(object)) as ReturnType<T, IncomingApiData, DataSpasials>;
+    return new DataSpasials(
       apiData.id,
       {
         id: apiData.klasifikasi.id,
@@ -93,27 +93,27 @@ export default class Pkkprl extends Model {
       apiData.tipe_geometri,
       asset(apiData.icon_titik),
       apiData.tipe_garis
-    ) as ReturnType<T, IncomingApiData, Pkkprl>;
+    ) as ReturnType<T, IncomingApiData, DataSpasials>;
   }
 
-  public static toApiData<T extends FormValue | FormValue[]>(pkkprl: T): ReturnType<T, FormValue, OutgoingApiData> {
-    if (Array.isArray(pkkprl)) return pkkprl.map((object) => this.toApiData(object)) as ReturnType<T, FormValue, OutgoingApiData>;
+  public static toApiData<T extends FormValue | FormValue[]>(dataSpasials: T): ReturnType<T, FormValue, OutgoingApiData> {
+    if (Array.isArray(dataSpasials)) return dataSpasials.map((object) => this.toApiData(object)) as ReturnType<T, FormValue, OutgoingApiData>;
     const apiData: OutgoingApiData = {
-      nama: pkkprl.name,
-      deskripsi: pkkprl.desc,
-      klasifikasi_id: pkkprl.id_klasifikasi,
-      tipe_geometri: pkkprl.geometry_type,
-      ...(pkkprl.point_icon ? { icon_titik: pkkprl.point_icon } : {}),
-      ...(pkkprl.line_type ? { tipe_garis: pkkprl.line_type } : {}),
-      ...(pkkprl.color ? { warna: pkkprl.color } : {})
+      nama: dataSpasials.name,
+      deskripsi: dataSpasials.desc,
+      klasifikasi_id: dataSpasials.id_klasifikasi,
+      tipe_geometri: dataSpasials.geometry_type,
+      ...(dataSpasials.point_icon ? { icon_titik: dataSpasials.point_icon } : {}),
+      ...(dataSpasials.line_type ? { tipe_garis: dataSpasials.line_type } : {}),
+      ...(dataSpasials.color ? { warna: dataSpasials.color } : {})
     };
 
-    if (typeof pkkprl.geojson_file === 'string') {
-      apiData.geojson_file = pkkprl.geojson_file;
+    if (typeof dataSpasials.geojson_file === 'string') {
+      apiData.geojson_file = dataSpasials.geojson_file;
     }
-
     return apiData as ReturnType<T, FormValue, OutgoingApiData>;
   }
 }
 
-Model.children.pkkprl = Pkkprl;
+// FIXME: you maybe want to change below line. If you don't want to then delete this FIXME line
+Model.children.data_spasial = DataSpasials;

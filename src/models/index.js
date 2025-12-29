@@ -1,13 +1,13 @@
 export { default as Permission } from './Permission';
 export { default as User } from './User';
 export { default as Model } from './Model';
-export { default as Rtrws } from './Rtrws';
 export { default as Klasifikasis } from './Klasifikasis';
 export { default as Polaruangs } from './Polaruangs';
-export { default as Periodes } from './Periodes';
 export { default as StrukturRuangs } from './StrukturRuangs';
 export { default as KetentuanKhusus } from './KetentuanKhusus';
 export { default as Pkkprl } from './Pkkprl';
 export { default as IndikasiProgram } from './IndikasiProgram';
 export { default as News } from './News';
 export { default as BatasAdministrasi } from './BatasAdministrasi';
+export { default as LayerGroups } from './LayerGroups';
+export { default as DataSpasials } from './DataSpasials';

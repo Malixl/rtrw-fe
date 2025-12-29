@@ -8,15 +8,9 @@ export interface IncomingApiData {
     nama: string;
     deskripsi: string;
     tipe: string;
-    rtrw: {
+    layer_group: {
       id: number;
-      nama: string;
-      periode: {
-        id: number;
-        tahun_mulai: string;
-        tahun_akhir: string;
-      };
-      deskripsi: string;
+      nama_layer_group: string;
     };
   };
   nama: string;
@@ -62,15 +56,9 @@ export default class StrukturRuangs extends Model {
       name: string;
       desc: string;
       type: string;
-      rtrw: {
+      layer_group: {
         id: number;
         name: string;
-        periode: {
-          id: number;
-          year_start: string;
-          year_end: string;
-        };
-        desc: string;
       };
     },
     public name: string,
@@ -93,15 +81,9 @@ export default class StrukturRuangs extends Model {
         name: apiData.klasifikasi.nama,
         desc: apiData.klasifikasi.deskripsi,
         type: apiData.klasifikasi.tipe,
-        rtrw: {
-          id: apiData.klasifikasi.rtrw.id,
-          name: apiData.klasifikasi.rtrw.nama,
-          periode: {
-            id: apiData.klasifikasi.rtrw.periode.id,
-            year_start: apiData.klasifikasi.rtrw.periode.tahun_mulai,
-            year_end: apiData.klasifikasi.rtrw.periode.tahun_akhir
-          },
-          desc: apiData.klasifikasi.rtrw.deskripsi
+        layer_group: {
+          id: apiData.klasifikasi.layer_group.id,
+          name: apiData.klasifikasi.layer_group.nama_layer_group
         }
       },
       apiData.nama,

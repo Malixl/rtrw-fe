@@ -2,15 +2,9 @@ import Model from './Model';
 
 export interface IncomingApiData {
   id: number;
-  rtrw: {
+  layer_group: {
     id: number;
-    nama: string;
-    periode: {
-      id: number;
-      tahun_mulai: string;
-      tahun_akhir: string;
-    };
-    deskripsi: string;
+    nama_layer_group: string;
   };
   nama: string;
   deskripsi: string;
@@ -20,14 +14,14 @@ export interface IncomingApiData {
 export interface OutgoingApiData {
   nama: string;
   deskripsi: string;
-  rtrw_id: number;
+  layer_group_id: number;
   tipe: 'pola_ruang' | 'struktur_ruang' | 'ketentuan_khusus' | 'pkkprl' | 'indikasi_program';
 }
 
 interface FormValue {
   name: string;
   desc: string;
-  rtrw_id: number;
+  layer_group_id: number;
   type: 'pola_ruang' | 'struktur_ruang' | 'ketentuan_khusus' | 'pkkprl' | 'indikasi_program';
 }
 
@@ -36,15 +30,9 @@ type ReturnType<S, From, To> = S extends From[] ? To[] : To;
 export default class Klasifikasis extends Model {
   constructor(
     public id: number,
-    public rtrw: {
+    public layer_group: {
       id: number;
       name: string;
-      periode: {
-        id: number;
-        year_start: string;
-        year_end: string;
-      };
-      desc: string;
     },
     public name: string,
     public desc: string,
@@ -58,14 +46,8 @@ export default class Klasifikasis extends Model {
     return new Klasifikasis(
       apiData.id,
       {
-        id: apiData.rtrw.id,
-        name: apiData.rtrw.nama,
-        periode: {
-          id: apiData.rtrw.periode.id,
-          year_start: apiData.rtrw.periode.tahun_mulai,
-          year_end: apiData.rtrw.periode.tahun_akhir
-        },
-        desc: apiData.rtrw.deskripsi
+        id: apiData.layer_group.id,
+        name: apiData.layer_group.nama_layer_group
       },
       apiData.nama,
       apiData.deskripsi,
@@ -78,7 +60,7 @@ export default class Klasifikasis extends Model {
     const apiData: OutgoingApiData = {
       nama: klasifikasis.name,
       deskripsi: klasifikasis.desc,
-      rtrw_id: klasifikasis.rtrw_id,
+      layer_group_id: klasifikasis.layer_group_id,
       tipe: klasifikasis.type
     };
 
