@@ -67,6 +67,7 @@ const Maps = () => {
     }
   }, [isLoadingBatas, isBatasSuccess, batasMessage]);
 
+  const rtrws = React.useMemo(() => getAllRtrws.data ?? [], [getAllRtrws.data]);
   const batasAdministrasi = batasData ?? [];
 
   const handleToggleLayer = async (pemetaan) => {
@@ -251,68 +252,111 @@ const Maps = () => {
     }));
   }, []);
 
-  const mapDataSpasial = React.useCallback((data) => {
-    return data.map((klasifikasi) => ({
-      title: klasifikasi.nama,
-      key: `data_spasial-root-${klasifikasi.id}`,
-      ...klasifikasi,
-      children: (klasifikasi.data_spasial || []).map((data_spasial) => ({
-        ...data_spasial,
-        type: 'data_spasial',
-        title: data_spasial.nama,
-        key: `data_spasial-${data_spasial.id}`,
-        geojson_file: asset(data_spasial.geojson_file),
-        isLeaf: true
-      }))
-    }));
+  // Load classifications for ALL RTRW and aggregate results
+  const [isLoadingKlasifikasiAll, setIsLoadingKlasifikasiAll] = React.useState(false);
+  const isLoadingKlasifikasiAllRef = React.useRef(false);
+
+  // Utility: run promises in batches to avoid overloading server or triggering too many concurrent requests
+  const runInBatches = React.useCallback(async (items, worker, batchSize = 3) => {
+    const results = [];
+    for (let i = 0; i < items.length; i += batchSize) {
+      const batch = items.slice(i, i + batchSize);
+      // Execute batch in parallel
+      const res = await Promise.allSettled(batch.map((it) => worker(it)));
+      results.push(...res);
+      // small delay between batches to be gentle to server
+      await new Promise((resDelay) => setTimeout(resDelay, 150));
+    }
+    return results;
   }, []);
 
   // Use stable execute function reference to avoid re-creating the callback when hook data changes
-  const { execute, ...getAllLayerGroups } = useService(LayerGroupsService.layerGroupWithKlasifikasi);
+  const { execute: fetchKlasifikasiByRtrw } = klasifikasisByRtrw;
 
-  const fetchLayerGroups = React.useCallback(() => {
-    execute({ page: 1, per_page: 9999 });
-  }, [execute]);
+  const loadAllKlasifikasi = React.useCallback(async () => {
+    if (!rtrws || rtrws.length === 0) return;
+    // Avoid re-entry using ref (avoid dependency on state)
+    if (isLoadingKlasifikasiAllRef.current) return;
+    isLoadingKlasifikasiAllRef.current = true;
+    setIsLoadingKlasifikasiAll(true);
 
-  React.useEffect(() => {
-    fetchLayerGroups();
-  }, [fetchLayerGroups]);
+    try {
+      const worker = async (r) => fetchKlasifikasiByRtrw({ idRtrw: r.id });
+      const results = await runInBatches(rtrws, worker, 3);
 
-  const layerGroupData = React.useMemo(() => getAllLayerGroups.data ?? [], [getAllLayerGroups.data]);
+      const polaAcc = [];
+      const strukturAcc = [];
+      const ketentuanAcc = [];
+      const pkkprlAcc = [];
+      const indikasiAcc = [];
 
-  React.useEffect(() => {
-    if (layerGroupData) {
-      const result = layerGroupData.map((group) => {
-        const klasifikasis = group.klasifikasis || {};
+      let successCount = 0;
+      let failCount = 0;
 
-        const pola_ruang_list = klasifikasis.klasifikasi_pola_ruang ?? [];
-        const struktur_ruang_list = klasifikasis.klasifikasi_struktur_ruang ?? [];
-        const ketentuan_khusus_list = klasifikasis.klasifikasi_ketentuan_khusus ?? [];
-        const pkkprl_list = klasifikasis.klasifikasi_pkkprl ?? [];
-        const data_spasial = klasifikasis.klasifikasi_data_spasial ?? [];
-        const indikasi_program_list = klasifikasis.klasifikasi_indikasi_program ?? [];
-
-        return {
-          id: group.id,
-          nama: group.layer_group_name,
-          deskripsi: group.deskripsi,
-          urutan: group.urutan_tampil,
-
-          // 🔥 HASIL TREEMAP LAMA KAMU
-          tree: {
-            pola: mapPolaRuang(pola_ruang_list),
-            struktur: mapStrukturRuang(struktur_ruang_list),
-            ketentuan: mapKetentuanKhusus(ketentuan_khusus_list),
-            pkkprl: mapPkkprl(pkkprl_list),
-            data_spasial: mapDataSpasial(data_spasial),
-            indikasi: mapIndikasiProgram(indikasi_program_list)
+      for (const res of results) {
+        if (res.status === 'fulfilled' && res.value) {
+          const val = res.value;
+          if (val.isSuccess && val.data) {
+            successCount += 1;
+            const data = val.data;
+            polaAcc.push(...(data.klasifikasi_pola_ruang ?? []));
+            strukturAcc.push(...(data.klasifikasi_struktur_ruang ?? []));
+            ketentuanAcc.push(...(data.klasifikasi_ketentuan_khusus ?? []));
+            pkkprlAcc.push(...(data.klasifikasi_pkkprl ?? []));
+            indikasiAcc.push(...(data.klasifikasi_indikasi_program ?? []));
+          } else {
+            failCount += 1;
           }
-        };
+        } else {
+          failCount += 1;
+        }
+      }
+
+      const polaTree = mapPolaRuang(polaAcc);
+      const strukturTree = mapStrukturRuang(strukturAcc);
+      const ketentuanTree = mapKetentuanKhusus(ketentuanAcc);
+      const pkkprlTree = mapPkkprl(pkkprlAcc);
+      const indikasiTree = mapIndikasiProgram(indikasiAcc);
+
+      // Set tree state once to avoid extra renders
+      setTreePolaRuangData(polaTree);
+      setTreeStrukturRuangData(strukturTree);
+      setTreeKetentuanKhususData(ketentuanTree);
+      setTreePkkprlData(pkkprlTree);
+      setTreeIndikasiProgramData(indikasiTree);
+
+      // Debug in console: counts per category
+      console.debug('Loaded data counts', {
+        pola: polaAcc.length,
+        struktur: strukturAcc.length,
+        ketentuan: ketentuanAcc.length,
+        pkkprl: pkkprlAcc.length,
+        indikasi: indikasiAcc.length
       });
 
-      setLayerGroupTrees(result);
+      // Single summary notification (label changed to Data RTRW)
+      const totalItems = polaAcc.length + strukturAcc.length + ketentuanAcc.length + pkkprlAcc.length + indikasiAcc.length;
+      if (successCount > 0 && failCount === 0) {
+        success(`Berhasil memuat Data RTRW (${successCount}/${rtrws.length}). Jumlah item: ${totalItems}`);
+      } else if (successCount > 0 && failCount > 0) {
+        error(`Sebagian Data RTRW dimuat: ${successCount}/${rtrws.length} berhasil, ${failCount} gagal — Jumlah item: ${totalItems}`);
+      } else {
+        error('Gagal memuat Data RTRW untuk semua RTRW. Coba muat ulang.');
+      }
+    } catch (err) {
+      console.error('Error loading klasifikasi:', err);
+      error('Gagal memuat Data RTRW');
+    } finally {
+      isLoadingKlasifikasiAllRef.current = false;
+      setIsLoadingKlasifikasiAll(false);
     }
-  }, [layerGroupData, mapDataSpasial, mapIndikasiProgram, mapKetentuanKhusus, mapPkkprl, mapPolaRuang, mapStrukturRuang]);
+  }, [rtrws, fetchKlasifikasiByRtrw, mapPolaRuang, mapStrukturRuang, mapKetentuanKhusus, mapPkkprl, mapIndikasiProgram, runInBatches, success, error]);
+
+  React.useEffect(() => {
+    if (rtrws && rtrws.length > 0) {
+      loadAllKlasifikasi();
+    }
+  }, [rtrws, loadAllKlasifikasi]);
 
   const getFeatureStyle = (feature) => {
     const props = feature.properties || {};
@@ -458,6 +502,9 @@ const Maps = () => {
       {/* Mobile Floating Button to Open Sidebar */}
       {isMobile && isSidebarCollapsed && <Button type="primary" icon={<MenuUnfoldOutlined />} onClick={() => setIsSidebarCollapsed(false)} className="absolute right-4 top-4 z-[1001] h-10 w-10 rounded-full shadow-lg" size="large" />}
 
+      {/* Floating user info (always mounted as portal) */}
+      <MapUserInfo />
+
       {/* Map Container - Full Width */}
       <div className="h-full w-full">
         <MapContainer center={[0.5412, 123.0595]} zoom={9} className="h-screen w-full">
@@ -581,158 +628,11 @@ const Maps = () => {
           )}
         </MapContainer>
 
-        <div className={`absolute z-[1000] ${isMobile ? 'bottom-2 left-2 right-2' : 'bottom-4 left-4'}`}>
-          <div className={`rounded-lg bg-white p-3 shadow-lg ${isMobile ? 'max-h-32 w-full overflow-y-auto' : 'w-96 p-4'}`}>
-            <h4 className={`mb-2 font-semibold ${isMobile ? 'text-sm' : ''}`}>Legend</h4>
-            {/* POLA RUANG */}
-            {Object.entries(selectedLayers).some(([key]) => key.startsWith('pola')) && (
-              <>
-                <div className={`flex flex-wrap gap-1 ${isMobile ? 'gap-1' : 'max-h-28 gap-2'}`}>
-                  <b className={`w-full ${isMobile ? 'text-xs' : 'text-sm'}`}>Pola Ruang</b>
-
-                  {Object.entries(selectedLayers)
-                    .filter(([key]) => key.startsWith('pola'))
-                    .map(([_, item]) => (
-                      <div key={item.id} className="inline-flex items-center gap-x-1">
-                        <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna }} />
-                        <small>{item.meta.nama}</small>
-                      </div>
-                    ))}
-                </div>
-                <hr className="my-2" />
-              </>
-            )}
-            {Object.entries(selectedLayers).some(([key]) => key.startsWith('struktur')) && (
-              <>
-                <div className="flex max-h-28 flex-wrap gap-2">
-                  <b className="w-full text-sm">Struktur Ruang</b>
-
-                  {Object.entries(selectedLayers)
-                    .filter(([key]) => key.startsWith('struktur'))
-                    .map(([_, item]) => {
-                      return (
-                        <div key={item.id} className="inline-flex items-center gap-x-1">
-                          {item.meta.tipe_geometri === 'point' && (
-                            <>
-                              <img className="h-4 w-4" src={asset(item.meta.icon_titik)} />
-                              <small>{item.meta.nama}</small>
-                            </>
-                          )}
-
-                          {(item.meta.tipe_geometri === 'polyline' || item.meta.tipe_geometri === 'polygon') && (
-                            <>
-                              <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna }} />
-                              <small>{item.meta.nama}</small>
-                            </>
-                          )}
-                        </div>
-                      );
-                    })}
-                </div>
-                <hr className="my-2" />
-              </>
-            )}
-            {Object.entries(selectedLayers).some(([key]) => key.startsWith('ketentuan_khusus')) && (
-              <>
-                <div className="flex max-h-28 flex-wrap gap-2">
-                  <b className="w-full text-sm">Ketentuan Khusus</b>
-
-                  {Object.entries(selectedLayers)
-                    .filter(([key]) => key.startsWith('ketentuan_khusus'))
-                    .map(([_, item]) => (
-                      <div key={item.id} className="inline-flex items-center gap-x-1">
-                        {item.meta.tipe_geometri === 'point' && (
-                          <>
-                            <img className="h-4 w-4" src={asset(item.meta.icon_titik)} />
-                            <small>{item.meta.nama}</small>
-                          </>
-                        )}
-
-                        {(item.meta.tipe_geometri === 'polyline' || item.meta.tipe_geometri === 'polygon') && (
-                          <>
-                            <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna }} />
-                            <small>{item.meta.nama}</small>
-                          </>
-                        )}
-                      </div>
-                    ))}
-                </div>
-                <hr className="my-2" />
-              </>
-            )}
-            {Object.entries(selectedLayers).some(([key]) => key.startsWith('pkkprl')) && (
-              <>
-                <div className="flex max-h-28 flex-wrap gap-2">
-                  <b className="w-full text-sm">PKKPRL</b>
-
-                  {Object.entries(selectedLayers)
-                    .filter(([key]) => key.startsWith('pkkprl'))
-                    .map(([_, item]) => (
-                      <div key={item.id} className="inline-flex items-center gap-x-1">
-                        {item.meta.tipe_geometri === 'point' && (
-                          <>
-                            <img className="h-4 w-4" src={asset(item.meta.icon_titik)} />
-                            <small>{item.meta.nama}</small>
-                          </>
-                        )}
-
-                        {(item.meta.tipe_geometri === 'polyline' || item.meta.tipe_geometri === 'polygon') && (
-                          <>
-                            <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna }} />
-                            <small>{item.meta.nama}</small>
-                          </>
-                        )}
-                      </div>
-                    ))}
-                </div>
-                <hr className="my-2" />
-              </>
-            )}
-            {Object.entries(selectedLayers).some(([key]) => key.startsWith('data_spasial')) && (
-              <>
-                <div className="flex max-h-28 flex-wrap gap-2">
-                  <b className="w-full text-sm">Data Spasial</b>
-
-                  {Object.entries(selectedLayers)
-                    .filter(([key]) => key.startsWith('data_spasial'))
-                    .map(([_, item]) => (
-                      <div key={item.id} className="inline-flex items-center gap-x-1">
-                        {item.meta.tipe_geometri === 'point' && (
-                          <>
-                            <img className="h-4 w-4" src={asset(item.meta.icon_titik)} />
-                            <small>{item.meta.nama}</small>
-                          </>
-                        )}
-
-                        {(item.meta.tipe_geometri === 'polyline' || item.meta.tipe_geometri === 'polygon') && (
-                          <>
-                            <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna }} />
-                            <small>{item.meta.nama}</small>
-                          </>
-                        )}
-                      </div>
-                    ))}
-                </div>
-                <hr className="my-2" />
-              </>
-            )}
-            {Object.entries(selectedLayers).some(([key]) => key.startsWith('batas')) && (
-              <>
-                <div className="flex max-h-28 flex-wrap gap-2">
-                  <b className="w-full text-sm">Batas Administrasi</b>
-
-                  {Object.entries(selectedLayers)
-                    .filter(([key]) => key.startsWith('batas'))
-                    .map(([_, item]) => (
-                      <div key={item.id} className="inline-flex items-center gap-x-1">
-                        <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna, opacity: 0.3 }} />
-                        <small>{item.meta.nama}</small>
-                      </div>
-                    ))}
-                </div>
-                <hr className="my-2" />
-              </>
-            )}
+        {/* Small map header (centered) */}
+        <div className="absolute left-1/2 top-4 z-[1002] -translate-x-1/2">
+          <div style={{ backgroundColor: 'rgba(255,255,255,0.65)' }} className="flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-2 shadow-md">
+            <img src="/image_asset/gorontalo-logo.png" alt="Lambang Provinsi Gorontalo" className="h-6 w-6 rounded object-contain" />
+            <div className="text-sm font-bold capitalize text-black">Peta Rencana Tata Ruang Wilayah Provinsi Gorontalo</div>
           </div>
         </div>
       </div>
@@ -752,8 +652,10 @@ const Maps = () => {
           loadingLayers={loadingLayers}
           isLoadingBatas={isLoadingBatas}
           isLoadingKlasifikasi={getAllLayerGroups.isLoading}
+          isLoadingKlasifikasi={isLoadingKlasifikasiAll}
           onToggleLayer={handleToggleLayer}
           // onReloadKlasifikasi={loadAllKlasifikasi}
+          onReloadKlasifikasi={loadAllKlasifikasi}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
           isMobile={isMobile}

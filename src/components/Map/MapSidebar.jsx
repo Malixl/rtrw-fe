@@ -1,20 +1,22 @@
 /* eslint-disable react/prop-types */
-import React, { useCallback } from 'react';
-import { Button, Checkbox, Collapse, Skeleton, Typography, Tooltip } from 'antd';
+import { useCallback, useState, useEffect, useRef } from 'react';
+import { highlightParts, filterTree as filterTreeUtil, filterList, fuzzyMatch } from './searchUtils';
+import LegendItem from './LegendItem';
+import { Button, Checkbox, Collapse, Skeleton, Typography, Tooltip, Input, Empty } from 'antd';
 import { AimOutlined, InfoCircleOutlined, MenuOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import { useCrudModal } from '@/hooks';
 import asset from '@/utils/asset';
-import MapUserInfo from './MapUserInfo';
+/* MapUserInfo moved out of the sidebar and positioned fixed on the viewport (bottom-left) */
 
 const { Panel } = Collapse;
 
 /**
  * LayerCheckbox - Reusable checkbox component for layer items
  */
-const LayerCheckbox = ({ pemetaan, isChecked, isLoading, onToggle, onInfoClick }) => (
+const LayerCheckbox = ({ pemetaan, isChecked, isLoading, onToggle, onInfoClick, label }) => (
   <Checkbox checked={isChecked} onChange={onToggle}>
     <span className="inline-flex items-center gap-x-2">
-      {pemetaan.title || pemetaan.nama}
+      {label ? label : pemetaan.title || pemetaan.nama}
       {isLoading && <span className="h-3 w-3 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />}
       {onInfoClick && <Button icon={<InfoCircleOutlined />} type="link" size="small" onClick={onInfoClick} />}
     </span>
@@ -40,7 +42,7 @@ const CollapsibleSection = ({ title, panelKey, children, defaultActiveKey }) => 
         </div>
       }
     >
-      <div className="flex flex-col gap-y-2 px-4">{children}</div>
+      <div className="flex flex-col px-4">{children}</div>
     </Panel>
   </Collapse>
 );
@@ -79,26 +81,26 @@ const LoadingSkeleton = () => (
  */
 const MapSidebar = ({
   // Data
-  // rtrws,
   batasAdministrasi,
-  // treePolaRuangData,
-  // treeStrukturRuangData,
-  // treeKetentuanKhususData,
-  // treePkkprlData,
-  // treeIndikasiProgramData,
+  treePolaRuangData = [],
+  treeStrukturRuangData = [],
+  treeKetentuanKhususData = [],
+  treePkkprlData = [],
+  treeIndikasiProgramData = [],
   selectedLayers,
   loadingLayers,
   // Loading states
   isLoadingBatas,
   isLoadingKlasifikasi,
+  isLoadingRtrws = false,
   // Handlers
   onToggleLayer,
+  onReloadKlasifikasi,
   // Collapse control
   isCollapsed,
   onToggleCollapse,
   // Responsive
-  isMobile = false,
-  treeLayerGroup
+  isMobile = false
 }) => {
   const modal = useCrudModal();
 
@@ -110,9 +112,11 @@ const MapSidebar = ({
       key: `batas-${item.id}`,
       id: item.id,
       type: 'batas_administrasi',
-      nama: item.name,
-      warna: item.color || '#000000',
-      tipe_garis: 'solid',
+      nama: item.name || item.nama,
+      warna: item.color || item.warna || '#000000',
+      // Ambil tipe geometri dan tipe garis dari data API jika tersedia.
+      tipe_geometri: item.geometry_type || item.tipe_geometri || 'polyline',
+      tipe_garis: item.line_type || item.tipe_garis || 'solid',
       fill_opacity: 0.3
     }),
     []
@@ -156,48 +160,109 @@ const MapSidebar = ({
     return labels[tipe] || '';
   }, []);
 
+  // Search state and debounced value
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search.trim().toLowerCase()), 200);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Use helpers from searchUtils module
+  const searchInputRef = useRef(null);
+
+  const highlightText = useCallback(
+    (text = '') => {
+      const parts = highlightParts(text, debouncedSearch);
+      return parts.map((p, i) =>
+        p.match ? (
+          <span key={i} className="rounded bg-yellow-200 px-0.5">
+            {p.text}
+          </span>
+        ) : (
+          <span key={i}>{p.text}</span>
+        )
+      );
+    },
+    [debouncedSearch]
+  );
+
+  // Keyboard shortcut: focus search input when user types '/'
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === '/' && document.activeElement && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        try {
+          searchInputRef.current?.focus?.();
+          // Place caret at end
+          const val = searchInputRef.current?.input?.value ?? searchInputRef.current?.value;
+          if (typeof val === 'string') {
+            const inputEl = searchInputRef.current?.input || searchInputRef.current;
+            if (inputEl.setSelectionRange) inputEl.setSelectionRange(val.length, val.length);
+          }
+        } catch (err) {
+          console.warn('Search focus error', err);
+        }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   /**
    * Render layer tree sections
    */
+  const filterTree = useCallback((treeData) => filterTreeUtil(treeData, debouncedSearch), [debouncedSearch]);
+
   const renderLayerTree = useCallback(
     (treeData, labelKey) => {
-      return treeData.map((item) => (
-        <div key={item.key} className="mt-2">
-          <CollapsibleSection title={`${item.title} (${getTypeLabel(item.tipe)})`} panelKey={item.key}>
-            {item.children.map((pemetaan) => {
-              if (pemetaan.type === 'indikasi_program') {
+      return treeData.map((item) => {
+        const itemMatches = debouncedSearch && (item.title || '').toLowerCase().includes(debouncedSearch);
+        const defaultOpen = !!debouncedSearch && (itemMatches || (item.children || []).some((c) => ((c.title || c.nama) + '').toLowerCase().includes(debouncedSearch)));
+
+        return (
+          <div key={item.key} className="mt-2">
+            <CollapsibleSection title={<>{highlightText(`${item.title} (${getTypeLabel(item.tipe)})`, debouncedSearch)}</>} panelKey={item.key} defaultActiveKey={defaultOpen ? [item.key] : undefined}>
+              {item.children.map((pemetaan) => {
+                if (pemetaan.type === 'indikasi_program') {
+                  return (
+                    <div key={pemetaan.key} className="inline-flex w-full items-center gap-x-2">
+                      <span>{highlightText(pemetaan.title, debouncedSearch)}</span>
+                      <Button icon={<InfoCircleOutlined />} type="link" size="small" onClick={() => showDokumenModal(pemetaan.file_dokumen)} />
+                    </div>
+                  );
+                }
+
+                // Fallback tipe_geometri jika tidak ada (default polygon)
+                const tipe_geometri = pemetaan.tipe_geometri || 'polygon';
                 return (
-                  <div key={pemetaan.key} className="inline-flex w-full items-center gap-x-2">
-                    <span>{pemetaan.title}</span>
-                    <Button icon={<InfoCircleOutlined />} type="link" size="small" onClick={() => showDokumenModal(pemetaan.file_dokumen)} />
+                  <div key={pemetaan.key} className="mb-2">
+                    <LayerCheckbox
+                      pemetaan={pemetaan}
+                      label={highlightText(pemetaan.title || pemetaan.nama, debouncedSearch)}
+                      isChecked={!!selectedLayers[pemetaan.key]}
+                      isLoading={loadingLayers[pemetaan.key]}
+                      onToggle={() => onToggleLayer(pemetaan)}
+                      onInfoClick={() =>
+                        showInfoModal(pemetaan.nama, [
+                          { key: 'name', label: `Nama ${labelKey}`, children: pemetaan.nama },
+                          { key: 'desc', label: 'Deskripsi', children: pemetaan.deskripsi }
+                        ])
+                      }
+                    />
+                    {/* Legend SELALU tampil di bawah checkbox, baik dicentang maupun tidak */}
+                    {/* PERBAIKAN: Kirim prop tipe_garis ke LegendItem */}
+                    <LegendItem tipe_geometri={tipe_geometri} icon_titik={pemetaan.icon_titik} warna={pemetaan.warna} nama={pemetaan.nama} tipe_garis={pemetaan.tipe_garis} />
                   </div>
                 );
-              }
-
-              return (
-                <LayerCheckbox
-                  key={pemetaan.key}
-                  pemetaan={pemetaan}
-                  isChecked={!!selectedLayers[pemetaan.key]}
-                  isLoading={loadingLayers[pemetaan.key]}
-                  onToggle={() => {
-                    console.log('CLICK:', pemetaan.key);
-                    onToggleLayer(pemetaan);
-                  }}
-                  onInfoClick={() =>
-                    showInfoModal(pemetaan.nama, [
-                      { key: 'name', label: `Nama ${labelKey}`, children: pemetaan.nama },
-                      { key: 'desc', label: 'Deskripsi', children: pemetaan.deskripsi }
-                    ])
-                  }
-                />
-              );
-            })}
-          </CollapsibleSection>
-        </div>
-      ));
+              })}
+            </CollapsibleSection>
+          </div>
+        );
+      });
     },
-    [selectedLayers, loadingLayers, onToggleLayer, showInfoModal, showDokumenModal, getTypeLabel]
+    [selectedLayers, loadingLayers, onToggleLayer, showInfoModal, showDokumenModal, getTypeLabel, debouncedSearch, highlightText]
   );
 
   return (
@@ -227,55 +292,103 @@ const MapSidebar = ({
           </div>
         )}
 
-        <div className={`flex flex-col gap-y-4 ${isMobile ? 'min-w-0' : 'min-w-[340px]'} ${isCollapsed ? 'invisible opacity-0' : 'visible opacity-100'}`}>
-          {/* User Info */}
-          <MapUserInfo />
-
+        <div className={`flex flex-col ${isMobile ? 'min-w-0' : 'min-w-[340px]'} ${isCollapsed ? 'invisible opacity-0' : 'visible opacity-100'}`}>
           {/* Header - hide on mobile since we have it above */}
           {!isMobile && (
             <div className="flex flex-col">
               <Typography.Title level={5} style={{ margin: 0 }}>
-                Geospasial
+                Legenda Geospasial
               </Typography.Title>
-              <p className="text-sm text-gray-500">Tampilan Map</p>
+              <p className="text-sm text-gray-500">Pencarian</p>
             </div>
           )}
 
+          {/* Search box */}
+          <div className="mt-2">
+            <Input
+              ref={searchInputRef}
+              placeholder="Cari legenda atau klasifikasi..."
+              allowClear
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              size="large"
+              aria-label="Cari legenda atau klasifikasi"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') e.preventDefault();
+              }}
+            />
+          </div>
+
+          {/* Klasifikasi akan dimuat otomatis saat halaman dibuka */}
+          <div>
+            {/* <div className={isMobile ? 'mt-2' : 'mt-4'}> */}
+            <Skeleton loading={isLoadingRtrws}>{/* <div className="text-sm text-gray-600">Semua data klasifikasi akan dimuat otomatis saat halaman dibuka.</div> */}</Skeleton>
+
+            {/* Jika tidak ada data klasifikasi setelah pemuatan, tampilkan tombol muat ulang */}
+            {!isLoadingKlasifikasi && treePolaRuangData.length === 0 && treeStrukturRuangData.length === 0 && treeKetentuanKhususData.length === 0 && treePkkprlData.length === 0 && treeIndikasiProgramData.length === 0 && !isLoadingRtrws && (
+              <div className="mt-3">
+                <div className="mb-2 text-sm text-gray-500">Tidak ada data klasifikasi. Coba muat ulang.</div>
+                <Button onClick={onReloadKlasifikasi}>Muat Ulang</Button>
+              </div>
+            )}
+          </div>
+
           {/* Batas Administrasi Section */}
           <div className="mt-2">
-            <CollapsibleSection title="Batas Administrasi" panelKey="batas" defaultActiveKey={['batas']}>
-              {isLoadingBatas && (
-                <>
-                  <Checkbox>
-                    <Skeleton.Input size="small" active />
-                  </Checkbox>
-                  <Checkbox>
-                    <Skeleton.Input size="small" active />
-                  </Checkbox>
-                </>
-              )}
+            {/* Batas Administrasi - searchable */}
+            {/* If searching, auto-open the panel and show filtered results */}
+            {(() => {
+              const parentLabel = 'Batas Administrasi';
+              let filteredBatas;
+              if (!debouncedSearch) filteredBatas = batasAdministrasi;
+              else if (fuzzyMatch(debouncedSearch, parentLabel)) {
+                // Query matches the parent label -> show all items
+                filteredBatas = batasAdministrasi;
+              } else {
+                filteredBatas = filterList(batasAdministrasi, debouncedSearch, ['name', 'nama']);
+              }
+              const batasOpen = Boolean(debouncedSearch && filteredBatas.length > 0);
 
-              {!isLoadingBatas && batasAdministrasi.length === 0 && <div className="text-sm italic text-gray-500">Tidak ada data batas administrasi.</div>}
+              return (
+                <CollapsibleSection title={<>{highlightText('Batas Administrasi')}</>} panelKey="batas" defaultActiveKey={batasOpen ? ['batas'] : ['batas']}>
+                  {isLoadingBatas && (
+                    <>
+                      <Checkbox>
+                        <Skeleton.Input size="small" active />
+                      </Checkbox>
+                      <Checkbox>
+                        <Skeleton.Input size="small" active />
+                      </Checkbox>
+                    </>
+                  )}
 
-              {batasAdministrasi.map((item) => {
-                const pemetaan = createBatasPemetaan(item);
-                return (
-                  <LayerCheckbox
-                    key={pemetaan.key}
-                    pemetaan={{ ...pemetaan, title: item.name }}
-                    isChecked={!!selectedLayers[pemetaan.key]}
-                    isLoading={loadingLayers[pemetaan.key]}
-                    onToggle={() => onToggleLayer(pemetaan)}
-                    onInfoClick={() =>
-                      showInfoModal(item.name, [
-                        { key: 'name', label: 'Nama Area', children: item.name },
-                        { key: 'desc', label: 'Deskripsi', children: item.desc }
-                      ])
-                    }
-                  />
-                );
-              })}
-            </CollapsibleSection>
+                  {!isLoadingBatas && filteredBatas.length === 0 && <div className="text-sm italic text-gray-500">Tidak ada data batas administrasi yang cocok.</div>}
+
+                  {filteredBatas.map((item) => {
+                    const pemetaan = createBatasPemetaan(item);
+                    return (
+                      <div key={pemetaan.key} className="mb-2">
+                        <LayerCheckbox
+                          pemetaan={{ ...pemetaan, title: item.name }}
+                          label={highlightText(item.name)}
+                          isChecked={!!selectedLayers[pemetaan.key]}
+                          isLoading={loadingLayers[pemetaan.key]}
+                          onToggle={() => onToggleLayer(pemetaan)}
+                          onInfoClick={() =>
+                            showInfoModal(item.name, [
+                              { key: 'name', label: 'Nama Area', children: item.name },
+                              { key: 'desc', label: 'Deskripsi', children: item.desc }
+                            ])
+                          }
+                        />
+                        {/* Legend untuk batas administrasi */}
+                        <LegendItem tipe_geometri={pemetaan.tipe_geometri || 'polyline'} icon_titik={pemetaan.icon_titik} warna={pemetaan.warna} nama={pemetaan.nama} tipe_garis={pemetaan.tipe_garis} />
+                      </div>
+                    );
+                  })}
+                </CollapsibleSection>
+              );
+            })()}
           </div>
 
           {/* Layer Tree Sections */}
@@ -285,20 +398,19 @@ const MapSidebar = ({
             </div>
           ) : (
             <div className="flex flex-col">
-              {treeLayerGroup.map((layer) => (
-                <React.Fragment key={layer.id || layer.key}>
-                  <Typography.Title level={5} style={{ margin: 0 }}>
-                    {layer.deskripsi}
-                  </Typography.Title>
-                  {renderLayerTree(layer.tree.pola, 'Pola Ruang')}
-                  {renderLayerTree(layer.tree.struktur, 'Struktur Ruang')}
-                  {renderLayerTree(layer.tree.ketentuan, 'Ketentuan Khusus')}
-                  {renderLayerTree(layer.tree.pkkprl, 'PKKPRL')}
-                  {renderLayerTree(layer.tree.indikasi, 'Indikasi Program')}
-                  {renderLayerTree(layer.tree.data_spasial, 'Data Spasial')}
-                  <hr className="mb-4" />
-                </React.Fragment>
-              ))}
+              {/* Filtered render based on search */}
+              {renderLayerTree(debouncedSearch ? filterTree(treePolaRuangData) : treePolaRuangData, 'Pola Ruang')}
+              {renderLayerTree(debouncedSearch ? filterTree(treeStrukturRuangData) : treeStrukturRuangData, 'Struktur Ruang')}
+              {renderLayerTree(debouncedSearch ? filterTree(treeKetentuanKhususData) : treeKetentuanKhususData, 'Ketentuan Khusus')}
+              {renderLayerTree(debouncedSearch ? filterTree(treePkkprlData) : treePkkprlData, 'PKKPRL')}
+              {renderLayerTree(debouncedSearch ? filterTree(treeIndikasiProgramData) : treeIndikasiProgramData, 'Indikasi Program')}
+
+              {/* If search yields no results, show empty state */}
+              {debouncedSearch && [...filterTree(treePolaRuangData), ...filterTree(treeStrukturRuangData), ...filterTree(treeKetentuanKhususData), ...filterTree(treePkkprlData), ...filterTree(treeIndikasiProgramData)].length === 0 && (
+                <div className="mt-4">
+                  <Empty description={`Tidak ditemukan: "${search}"`} />
+                </div>
+              )}
             </div>
           )}
         </div>

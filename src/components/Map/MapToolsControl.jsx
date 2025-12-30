@@ -12,6 +12,7 @@ const MapToolsControl = () => {
   const drawnItemsRef = useRef(null);
   const currentDrawRef = useRef(null);
   const controlRef = useRef(null);
+  const containerRef = useRef(null); // reference to the control container DOM
   const [isReady, setIsReady] = useState(false);
 
   // Wait for map to be ready
@@ -37,6 +38,8 @@ const MapToolsControl = () => {
 
       onAdd: function () {
         const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control map-tools-control');
+        // store container ref so we can toggle position when fullscreen changes
+        containerRef.current = container;
         container.style.cssText = `
           display: flex;
           flex-direction: column;
@@ -368,12 +371,48 @@ const MapToolsControl = () => {
     controlRef.current = control;
     map.addControl(control);
 
+    // Toggle position when fullscreen changes
+    const onFullscreenChange = () => {
+      try {
+        const fsElem = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+        const isFs = fsElem === map.getContainer();
+        const cont = containerRef.current;
+        if (!cont) return;
+        if (isFs) {
+          // move to left in fullscreen
+          cont.style.left = '10px';
+          cont.style.right = 'auto';
+          cont.style.boxShadow = '0 1px 8px rgba(0,0,0,0.6)';
+        } else {
+          // restore to default (right side handled by Leaflet container placement)
+          cont.style.left = '';
+          cont.style.right = '';
+          cont.style.boxShadow = '0 1px 5px rgba(0,0,0,0.4)';
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    // listen for various vendor events too
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+    document.addEventListener('mozfullscreenchange', onFullscreenChange);
+    document.addEventListener('MSFullscreenChange', onFullscreenChange);
+
+    // call once to ensure correct placement if already fullscreen
+    onFullscreenChange();
+
     // Cleanup
     return () => {
       map.off(L.Draw.Event.CREATED, onDrawCreated);
       if (controlRef.current) {
         map.removeControl(controlRef.current);
       }
+      document.removeEventListener('fullscreenchange', onFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', onFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', onFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', onFullscreenChange);
     };
   }, [map, isReady]);
 

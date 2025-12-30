@@ -68,8 +68,7 @@ export const formFields = ({ isEdit = false } = {}) => [
     rules: [{ required: true, message: 'Role harus dipilih' }],
     options: [
       { label: 'Admin', value: Role.ADMIN },
-      { label: 'OPD', value: Role.OPD },
-      { label: 'Guest', value: Role.GUEST }
+      { label: 'OPD', value: Role.OPD }
     ]
   }
 ];

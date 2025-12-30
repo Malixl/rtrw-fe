@@ -71,8 +71,7 @@ const Users = () => {
       },
       filters: [
         { text: 'Admin', value: Role.ADMIN },
-        { text: 'OPD', value: Role.OPD },
-        { text: 'Guest', value: Role.GUEST }
+        { text: 'OPD', value: Role.OPD }
       ],
       onFilter: (value, record) => {
         const roleName = typeof record.role === 'object' ? record.role?.name : record.role;
@@ -98,7 +97,7 @@ const Users = () => {
                   title: `Edit User: ${record.name}`,
                   data: {
                     ...record,
-                    role: roleName,
+                    role: roleName === Role.GUEST ? null : roleName,
                     password: '',
                     password_confirmation: ''
                   },
