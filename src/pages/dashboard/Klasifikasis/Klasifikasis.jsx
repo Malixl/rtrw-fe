@@ -53,14 +53,12 @@ const Klasifikasis = () => {
     },
     {
       title: 'Layer Group',
-      dataIndex: ['layer_group', 'name'],
-      sorter: (a, b) => a.layer_group.name.length - b.layer_group.name.length,
-      searchable: true
-    },
-    {
-      title: 'RTRW',
-      dataIndex: ['rtrw', 'name'],
-      sorter: (a, b) => a.rtrw.name.length - b.rtrw.name.length,
+      // Layer may be stored as object or id; render name from fetched layerGroups
+      render: (_, record) => {
+        const id = record.layer_group_id ?? record.layer_group?.id ?? record.layer_group;
+        const group = layerGroups.find((g) => g.id === id || g.layer_group_name === id || g.nama_layer_group === id || g.name === id || g.nama === id);
+        return group?.layer_group_name || group?.name || group?.nama || '-';
+      },
       searchable: true
     },
     {
@@ -82,7 +80,8 @@ const Klasifikasis = () => {
             onClick={() => {
               modal.edit({
                 title: `Edit ${Modul.KLASIFIKASI}`,
-                data: { ...record, rtrw_id: record.rtrw.id },
+                // normalize layer group id for the form
+                data: { ...record, layer_group_id: record.layer_group_id ?? record.layer_group?.id ?? record.layer_group },
                 formFields: formFields({ options: { layerGroups: layerGroups } }),
                 onSubmit: async (values) => {
                   const { message, isSuccess } = await updateKlasifikasi.execute(record.id, values, token);
@@ -101,6 +100,7 @@ const Klasifikasis = () => {
             title={`Detail ${Modul.KLASIFIKASI}`}
             model={KlasifikasiModel}
             onClick={() => {
+              const layer = layerGroups.find((g) => g.id === (record.layer_group_id ?? record.layer_group?.id ?? record.layer_group));
               modal.show.description({
                 title: record.name,
                 data: [
@@ -120,24 +120,9 @@ const Klasifikasis = () => {
                     children: record.type
                   },
                   {
-                    key: 'rtrw_name',
-                    label: `RTRW`,
-                    children: record.rtrw.name
-                  },
-                  {
-                    key: 'layer gorup',
-                    label: `Layer Gorup`,
-                    children: record.layer_group.name
-                  },
-                  {
-                    key: 'rtrw_start',
-                    label: `Tahun Mulai RTRW`,
-                    children: record.rtrw.periode.year_start
-                  },
-                  {
-                    key: 'rtrw_end',
-                    label: `Tahun Akhir RTRW`,
-                    children: record.rtrw.periode.year_end
+                    key: 'layer_group',
+                    label: `Layer Group`,
+                    children: layer ? layer.layer_group_name || layer.name || layer.nama : ' - '
                   }
                 ]
               });
@@ -151,7 +136,6 @@ const Klasifikasis = () => {
               modal.delete.default({
                 title: `Delete ${Modul.KLASIFIKASI}`,
                 data: record,
-                formFields: formFields,
                 onSubmit: async () => {
                   const { isSuccess, message } = await deleteKlasifikasi.execute(record.id, token);
                   if (isSuccess) {

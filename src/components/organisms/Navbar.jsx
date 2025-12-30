@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { EnvironmentOutlined, MenuOutlined, CloseOutlined } from '@ant-design/icons';
+import { MenuOutlined, CloseOutlined } from '@ant-design/icons';
 
 const navLinks = [
   { label: 'Beranda', to: '/' },
@@ -23,9 +23,7 @@ const Navbar = () => {
         <div className="flex items-center justify-between">
           {/* Brand */}
           <Link to="/" className="group inline-flex items-center gap-2">
-            <span className="rounded-lg border border-gray-200 bg-white p-2 text-primary-600 shadow-sm transition-transform group-hover:scale-110">
-              <EnvironmentOutlined className="text-xl" />
-            </span>
+            <img src="/image_asset/gorontalo-logo.png" alt="Lambang Provinsi Gorontalo" className="h-8 w-8 rounded bg-white object-contain p-1 shadow-sm" />
             <span className="font-display bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-base font-bold text-transparent md:text-xl">RTRW Provinsi Gorontalo</span>
           </Link>
 
@@ -68,12 +66,9 @@ const Navbar = () => {
               </a>
             ))}
           </nav>
-          <div className="mt-3 grid grid-cols-2 gap-3">
+          <div className="mt-3 grid grid-cols-1 gap-3">
             <Link to="/login" className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-center text-sm font-semibold hover:bg-gray-50">
               Masuk
-            </Link>
-            <Link to="/signup" className="rounded-lg bg-gradient-to-r from-primary-600 to-primary-700 px-3 py-2 text-center text-sm font-semibold text-white">
-              Daftar
             </Link>
           </div>
         </div>

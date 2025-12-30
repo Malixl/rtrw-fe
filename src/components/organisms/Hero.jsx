@@ -1,24 +1,129 @@
 import PropTypes from 'prop-types';
+import { useEffect, useState } from 'react';
 import { Layout } from 'antd';
 import { EnvironmentOutlined, ArrowDownOutlined } from '@ant-design/icons';
 
 const { Header: AntHeader } = Layout;
 
+// Image sources: local files downloaded from Wikimedia Commons (preferred). Remote fallbacks point to the original Wikimedia file URLs.
+const IMAGE_SOURCES = [
+  {
+    local: '/image_asset/gorontalo-1.jpg',
+    remote: 'https://upload.wikimedia.org/wikipedia/commons/3/38/Pulau_Saronde.jpg',
+    author: 'Marwan Mohamad',
+    license: 'CC BY-SA 4.0',
+    page: 'https://commons.wikimedia.org/wiki/File:Pulau_Saronde.jpg'
+  },
+  {
+    local: '/image_asset/gorontalo-2.jpg',
+    remote: 'https://upload.wikimedia.org/wikipedia/commons/1/13/Kapal_Phinisi_berlabuh_di_perairan_lepas_pantai_Biluhu.jpg',
+    author: 'Marwan Mohamad',
+    license: 'CC BY-SA 4.0',
+    page: 'https://commons.wikimedia.org/wiki/File:Kapal_Phinisi_berlabuh_di_perairan_lepas_pantai_Biluhu.jpg'
+  },
+  {
+    local: '/image_asset/gorontalo-3.jpg',
+    remote: 'https://upload.wikimedia.org/wikipedia/commons/1/1f/Gunung_Tilongkabila.jpg',
+    author: 'Marwan Mohamad',
+    license: 'CC BY-SA 4.0',
+    page: 'https://commons.wikimedia.org/wiki/File:Gunung_Tilongkabila.jpg'
+  },
+  {
+    local: '/image_asset/gorontalo-4.jpg',
+    remote: 'https://upload.wikimedia.org/wikipedia/commons/d/dc/Sunrise_in_Gorontalo.jpg',
+    author: 'Nurul Iin Pratiwi',
+    license: 'CC BY-SA 4.0',
+    page: 'https://commons.wikimedia.org/wiki/File:Sunrise_in_Gorontalo.jpg'
+  },
+  {
+    local: '/image_asset/gorontalo-5.jpg',
+    remote: 'https://upload.wikimedia.org/wikipedia/commons/b/b7/Pantai_Rabua%2C_Gorontalo_Utara.jpg',
+    author: 'Nurul Istiqamah Kadekoh',
+    license: 'CC BY 4.0',
+    page: 'https://commons.wikimedia.org/wiki/File:Pantai_Rabua,_Gorontalo_Utara.jpg'
+  }
+];
+
 const Hero = ({ title, subtitle, description }) => {
+  const imageSources = IMAGE_SOURCES;
+
+  const [current, setCurrent] = useState(0);
+  const [finalUrls, setFinalUrls] = useState([]);
+  const DISPLAY_MS = 6000; // time each image is visible in ms
+
+  useEffect(() => {
+    let active = true;
+
+    async function resolve() {
+      const resolved = await Promise.all(
+        IMAGE_SOURCES.map(async ({ local, remote }) => {
+          try {
+            // Try to HEAD the local file; if available, use it. If not, fallback to remote.
+            const res = await fetch(local, { method: 'HEAD' });
+            if (res && res.ok) return local;
+          } catch {
+            // network error - fallback
+          }
+          return remote;
+        })
+      );
+
+      if (!active) return;
+      setFinalUrls(resolved);
+
+      // Preload resolved images
+      resolved.forEach((src) => {
+        const img = new Image();
+        img.src = src;
+      });
+    }
+
+    resolve();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!finalUrls || !finalUrls.length) return;
+    const id = setInterval(() => setCurrent((s) => (s + 1) % finalUrls.length), DISPLAY_MS);
+    return () => clearInterval(id);
+  }, [finalUrls]);
+
+  // Controls removed: autoplay-only slideshow (prev/next/buttons were removed per request)
+
   return (
     <AntHeader className="relative h-auto overflow-hidden p-0">
-      {/* Background Image with Overlay */}
+      {/* Background Image with Overlay - Crossfading slideshow */}
       <div className="absolute inset-0 z-0">
-        <div
-          className="absolute inset-0 scale-105 bg-cover bg-center bg-no-repeat"
-          style={{
-            backgroundImage: `url('https://images.bisnis.com/posts/2020/03/30/1219652/antarafoto-upaya-pencegahan-covid-19-gorontalo-260320-aws-8-1-min.jpg')`,
-            filter: 'blur(1.5px)'
-          }}
-        ></div>
+        {/* Render layers using resolved finalUrls with graceful fallback to remote sources */}
+        {(finalUrls && finalUrls.length ? finalUrls : imageSources.map((s) => s.remote)).map((src, i) => {
+          const isActive = i === current;
+          return (
+            <div
+              key={src}
+              className={`absolute inset-0 scale-105 bg-cover bg-center bg-no-repeat transition-opacity duration-1000 ease-in-out`}
+              style={{
+                backgroundImage: `url('${src}')`,
+                filter: 'blur(1.5px)',
+                opacity: isActive ? 1 : 0
+              }}
+              aria-hidden="true"
+            />
+          );
+        })}
 
         <div className="from-primary-900/92 via-primary-800/88 to-primary-900/92 absolute inset-0 bg-gradient-to-br"></div>
         <div className="absolute inset-0 bg-black/50"></div>
+
+        {/* Visible attribution credit (bottom-left) */}
+        <div className="pointer-events-auto absolute bottom-4 left-4 z-30">
+          {IMAGE_SOURCES[current] && (
+            <a href={IMAGE_SOURCES[current].page} target="_blank" rel="noreferrer noopener" className="text-xs text-white/80 hover:text-white">
+              Photo: {IMAGE_SOURCES[current].author} · {IMAGE_SOURCES[current].license}
+            </a>
+          )}
+        </div>
       </div>
 
       {/* Decorative elements - Hidden on mobile */}

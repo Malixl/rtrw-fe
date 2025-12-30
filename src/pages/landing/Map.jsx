@@ -18,6 +18,7 @@ import HomeControl from '@/components/Map/HomeControl';
 import CoordinateControl from '@/components/Map/CoordinateControl';
 import MapToolsControl from '@/components/Map/MapToolsControl';
 import MapSidebar from '@/components/Map/MapSidebar';
+import MapUserInfo from '@/components/Map/MapUserInfo';
 
 const { BaseLayer } = LayersControl;
 
@@ -462,6 +463,9 @@ const Maps = () => {
       {/* Mobile Floating Button to Open Sidebar */}
       {isMobile && isSidebarCollapsed && <Button type="primary" icon={<MenuUnfoldOutlined />} onClick={() => setIsSidebarCollapsed(false)} className="absolute right-4 top-4 z-[1001] h-10 w-10 rounded-full shadow-lg" size="large" />}
 
+      {/* Floating user info (always mounted as portal) */}
+      <MapUserInfo />
+
       {/* Map Container - Full Width */}
       <div className="h-full w-full">
         <MapContainer center={[0.5412, 123.0595]} zoom={9} className="h-screen w-full">
@@ -585,160 +589,7 @@ const Maps = () => {
           )}
         </MapContainer>
 
-        <div className={`absolute z-[1000] ${isMobile ? 'bottom-2 left-2 right-2' : 'bottom-4 left-4'}`}>
-          <div className={`rounded-lg bg-white p-3 shadow-lg ${isMobile ? 'max-h-32 w-full overflow-y-auto' : 'w-96 p-4'}`}>
-            <h4 className={`mb-2 font-semibold ${isMobile ? 'text-sm' : ''}`}>Legend</h4>
-            {/* POLA RUANG */}
-            {Object.entries(selectedLayers).some(([key]) => key.startsWith('pola')) && (
-              <>
-                <div className={`flex flex-wrap gap-1 ${isMobile ? 'gap-1' : 'max-h-28 gap-2'}`}>
-                  <b className={`w-full ${isMobile ? 'text-xs' : 'text-sm'}`}>Pola Ruang</b>
-
-                  {Object.entries(selectedLayers)
-                    .filter(([key]) => key.startsWith('pola'))
-                    .map(([_, item]) => (
-                      <div key={item.id} className="inline-flex items-center gap-x-1">
-                        <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna }} />
-                        <small>{item.meta.nama}</small>
-                      </div>
-                    ))}
-                </div>
-                <hr className="my-2" />
-              </>
-            )}
-            {Object.entries(selectedLayers).some(([key]) => key.startsWith('struktur')) && (
-              <>
-                <div className="flex max-h-28 flex-wrap gap-2">
-                  <b className="w-full text-sm">Struktur Ruang</b>
-
-                  {Object.entries(selectedLayers)
-                    .filter(([key]) => key.startsWith('struktur'))
-                    .map(([_, item]) => {
-                      return (
-                        <div key={item.id} className="inline-flex items-center gap-x-1">
-                          {item.meta.tipe_geometri === 'point' && (
-                            <>
-                              <img className="h-4 w-4" src={asset(item.meta.icon_titik)} />
-                              <small>{item.meta.nama}</small>
-                            </>
-                          )}
-
-                          {(item.meta.tipe_geometri === 'polyline' || item.meta.tipe_geometri === 'polygon') && (
-                            <>
-                              <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna }} />
-                              <small>{item.meta.nama}</small>
-                            </>
-                          )}
-                        </div>
-                      );
-                    })}
-                </div>
-                <hr className="my-2" />
-              </>
-            )}
-            {Object.entries(selectedLayers).some(([key]) => key.startsWith('ketentuan_khusus')) && (
-              <>
-                <div className="flex max-h-28 flex-wrap gap-2">
-                  <b className="w-full text-sm">Ketentuan Khusus</b>
-
-                  {Object.entries(selectedLayers)
-                    .filter(([key]) => key.startsWith('ketentuan_khusus'))
-                    .map(([_, item]) => (
-                      <div key={item.id} className="inline-flex items-center gap-x-1">
-                        {item.meta.tipe_geometri === 'point' && (
-                          <>
-                            <img className="h-4 w-4" src={asset(item.meta.icon_titik)} />
-                            <small>{item.meta.nama}</small>
-                          </>
-                        )}
-
-                        {(item.meta.tipe_geometri === 'polyline' || item.meta.tipe_geometri === 'polygon') && (
-                          <>
-                            <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna }} />
-                            <small>{item.meta.nama}</small>
-                          </>
-                        )}
-                      </div>
-                    ))}
-                </div>
-                <hr className="my-2" />
-              </>
-            )}
-            {Object.entries(selectedLayers).some(([key]) => key.startsWith('pkkprl')) && (
-              <>
-                <div className="flex max-h-28 flex-wrap gap-2">
-                  <b className="w-full text-sm">PKKPRL</b>
-
-                  {Object.entries(selectedLayers)
-                    .filter(([key]) => key.startsWith('pkkprl'))
-                    .map(([_, item]) => (
-                      <div key={item.id} className="inline-flex items-center gap-x-1">
-                        {item.meta.tipe_geometri === 'point' && (
-                          <>
-                            <img className="h-4 w-4" src={asset(item.meta.icon_titik)} />
-                            <small>{item.meta.nama}</small>
-                          </>
-                        )}
-
-                        {(item.meta.tipe_geometri === 'polyline' || item.meta.tipe_geometri === 'polygon') && (
-                          <>
-                            <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna }} />
-                            <small>{item.meta.nama}</small>
-                          </>
-                        )}
-                      </div>
-                    ))}
-                </div>
-                <hr className="my-2" />
-              </>
-            )}
-            {Object.entries(selectedLayers).some(([key]) => key.startsWith('data_spasial')) && (
-              <>
-                <div className="flex max-h-28 flex-wrap gap-2">
-                  <b className="w-full text-sm">Data Spasial</b>
-
-                  {Object.entries(selectedLayers)
-                    .filter(([key]) => key.startsWith('data_spasial'))
-                    .map(([_, item]) => (
-                      <div key={item.id} className="inline-flex items-center gap-x-1">
-                        {item.meta.tipe_geometri === 'point' && (
-                          <>
-                            <img className="h-4 w-4" src={asset(item.meta.icon_titik)} />
-                            <small>{item.meta.nama}</small>
-                          </>
-                        )}
-
-                        {(item.meta.tipe_geometri === 'polyline' || item.meta.tipe_geometri === 'polygon') && (
-                          <>
-                            <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna }} />
-                            <small>{item.meta.nama}</small>
-                          </>
-                        )}
-                      </div>
-                    ))}
-                </div>
-                <hr className="my-2" />
-              </>
-            )}
-            {Object.entries(selectedLayers).some(([key]) => key.startsWith('batas')) && (
-              <>
-                <div className="flex max-h-28 flex-wrap gap-2">
-                  <b className="w-full text-sm">Batas Administrasi</b>
-
-                  {Object.entries(selectedLayers)
-                    .filter(([key]) => key.startsWith('batas'))
-                    .map(([_, item]) => (
-                      <div key={item.id} className="inline-flex items-center gap-x-1">
-                        <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna, opacity: 0.3 }} />
-                        <small>{item.meta.nama}</small>
-                      </div>
-                    ))}
-                </div>
-                <hr className="my-2" />
-              </>
-            )}
-          </div>
-        </div>
+        {/* Legend removed - MapUserInfo only */}
       </div>
 
       {/* Collapsible Sidebar - Responsive */}

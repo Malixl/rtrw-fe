@@ -1,7 +1,7 @@
 import { InputType } from '@/constants';
 import Modul from '@/constants/Modul';
 
-export const formFields = ({ options }) => [
+export const formFields = ({ options = {} } = {}) => [
   {
     label: `Nama ${Modul.KLASIFIKASI}`,
     name: 'name',
