@@ -336,7 +336,7 @@ const Maps = () => {
       if (typeof window !== 'undefined' && window.__DEBUG_MAPLAYERS__) console.debug('Mapped layer groups:', result);
       setLayerGroupTrees(result);
     }
-  }, [layerGroupData, mapDataSpasial, mapIndikasiProgram, mapKetentuanKhusus, mapPkkprl, mapPolaRuang, mapStrukturRuang]);
+  }, [layerGroupData, mapDataSpasial, mapIndikasiProgram, mapKetentuanKhusus, mapPkkprl, mapPolaRuang, mapStrukturRuang, mapBatasAdministrasi]);
 
   const getFeatureStyle = (feature) => {
     const props = feature.properties || {};
