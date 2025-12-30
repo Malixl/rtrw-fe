@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 /* eslint-disable react/prop-types */
 import { useAuth, useNotification, useService } from '@/hooks';
-import { BatasAdministrasiService, LayerGroupsService } from '@/services';
+import { BatasAdministrasiService, LayerGroupsService, KlasifikasisService } from '@/services';
 import { BASE_URL } from '@/utils/api';
 import asset from '@/utils/asset';
 
@@ -18,13 +18,19 @@ import HomeControl from '@/components/Map/HomeControl';
 import CoordinateControl from '@/components/Map/CoordinateControl';
 import MapToolsControl from '@/components/Map/MapToolsControl';
 import MapSidebar from '@/components/Map/MapSidebar';
+import MapUserInfo from '@/components/Map/MapUserInfo';
 
 const { BaseLayer } = LayersControl;
 
 const Maps = () => {
   const navigate = useNavigate();
   const { canAccessMap, capabilities, isLoading: authLoading } = useAuth();
+  const { success, error } = useNotification();
   const { execute: fetchBatas, data: batasData, isLoading: isLoadingBatas, isSuccess: isBatasSuccess, message: batasMessage } = useService(BatasAdministrasiService.getAll);
+  // NOTE: `getAllRtrws` used to be provided by a useService call (e.g. useService(RtrwsService.getAll)).
+  // During a merge the service call was removed which caused `getAllRtrws` to be undefined and crashed the Map page.
+  // For now we provide a safe fallback so /map does not crash. Proper fix: re-introduce the service call that fetches RTRW list.
+  const getAllRtrws = { data: [] };
   const [selectedLayers, setSelectedLayers] = React.useState({});
   const [loadingLayers, setLoadingLayers] = React.useState({});
   const [popupInfo, setPopupInfo] = React.useState(null);
@@ -33,6 +39,77 @@ const Maps = () => {
   const [isTablet, setIsTablet] = React.useState(window.innerWidth >= 768 && window.innerWidth < 1024);
 
   const [layerGroupTrees, setLayerGroupTrees] = React.useState([]);
+  const [treePolaRuangData, setTreePolaRuangData] = React.useState([]);
+  const [treeStrukturRuangData, setTreeStrukturRuangData] = React.useState([]);
+  const [treeKetentuanKhususData, setTreeKetentuanKhususData] = React.useState([]);
+  const [treePkkprlData, setTreePkkprlData] = React.useState([]);
+  const [treeIndikasiProgramData, setTreeIndikasiProgramData] = React.useState([]);
+
+  // Load layer groups with nested klasifikasi so MapSidebar can display grouped classifications
+  const { execute: fetchLayerGroupsWithKlasifikasi } = useService(LayerGroupsService.layerGroupWithKlasifikasi);
+
+  React.useEffect(() => {
+    let mounted = true;
+
+    const normalizeGroup = (group) => {
+      const title = group.nama_layer_group || group.name || group.title || `Group ${group.id}`;
+      const children = [];
+
+      const pushFrom = (maybeArray, childKey, type) => {
+        if (!maybeArray) return;
+        // maybeArray can be either an array of children (pola_ruang[]) OR an array of klasifikasi objects that each contain child arrays
+        if (Array.isArray(maybeArray) && maybeArray.length > 0) {
+          // detect items that are leaf arrays or klasifikasi containers
+          if (maybeArray[0] && maybeArray[0][childKey]) {
+            maybeArray.forEach((klas) => {
+              const arr = klas[childKey] || [];
+              arr.forEach((item) => {
+                children.push({ ...item, type, title: item.nama, key: `${type}-${item.id}`, geojson_file: asset(item.geojson_file), isLeaf: true });
+              });
+            });
+          } else {
+            // assume it's already leaf items
+            maybeArray.forEach((item) => children.push({ ...item, type, title: item.nama || item.title || item.name, key: `${type}-${item.id || Math.random()}`, geojson_file: asset(item.geojson_file), isLeaf: true }));
+          }
+        }
+      };
+
+      // pola
+      pushFrom(group.pola_ruang || group.klasifikasi_pola_ruang, 'pola_ruang', 'pola');
+      // struktur
+      pushFrom(group.struktur_ruang || group.klasifikasi_struktur_ruang, 'struktur_ruang', 'struktur');
+      // ketentuan khusus
+      pushFrom(group.ketentuan_khusus || group.klasifikasi_ketentuan_khusus, 'ketentuan_khusus', 'ketentuan_khusus');
+      // pkkprl
+      pushFrom(group.pkkprl || group.klasifikasi_pkkprl, 'pkkprl', 'pkkprl');
+      // indikasi program
+      pushFrom(group.indikasi_program || group.klasifikasi_indikasi_program, 'indikasi_program', 'indikasi_program');
+
+      return { title, key: `layer-group-${group.id}`, ...group, children };
+    };
+
+    const load = async () => {
+      try {
+        const res = await fetchLayerGroupsWithKlasifikasi();
+        if (!mounted) return;
+        if (res && res.isSuccess && Array.isArray(res.data)) {
+          const trees = res.data.map(normalizeGroup);
+          setLayerGroupTrees(trees);
+        } else if (res && res.data && Array.isArray(res.data)) {
+          const trees = res.data.map(normalizeGroup);
+          setLayerGroupTrees(trees);
+        }
+      } catch (err) {
+        console.error('Gagal memuat layer group dengan klasifikasi:', err);
+      }
+    };
+
+    load();
+
+    return () => {
+      mounted = false;
+    };
+  }, [fetchLayerGroupsWithKlasifikasi]);
 
   // Handle window resize for responsive
   React.useEffect(() => {
@@ -270,6 +347,8 @@ const Maps = () => {
     return results;
   }, []);
 
+  // Provide service for fetching klasifikasi per RTRW. The original implementation used a dedicated endpoint; we use getAll with filters here.
+  const klasifikasisByRtrw = useService(KlasifikasisService.getAll);
   // Use stable execute function reference to avoid re-creating the callback when hook data changes
   const { execute: fetchKlasifikasiByRtrw } = klasifikasisByRtrw;
 
@@ -651,7 +730,6 @@ const Maps = () => {
           selectedLayers={selectedLayers}
           loadingLayers={loadingLayers}
           isLoadingBatas={isLoadingBatas}
-          isLoadingKlasifikasi={getAllLayerGroups.isLoading}
           isLoadingKlasifikasi={isLoadingKlasifikasiAll}
           onToggleLayer={handleToggleLayer}
           // onReloadKlasifikasi={loadAllKlasifikasi}

@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import { useCallback, useState, useEffect, useRef } from 'react';
+import { useCallback, useState, useEffect, useRef, useMemo } from 'react';
 import { highlightParts, filterTree as filterTreeUtil, filterList, fuzzyMatch } from './searchUtils';
 import LegendItem from './LegendItem';
 import { Button, Checkbox, Collapse, Skeleton, Typography, Tooltip, Input, Empty } from 'antd';
@@ -82,6 +82,7 @@ const LoadingSkeleton = () => (
 const MapSidebar = ({
   // Data
   batasAdministrasi,
+  treeLayerGroup = [],
   treePolaRuangData = [],
   treeStrukturRuangData = [],
   treeKetentuanKhususData = [],
@@ -210,6 +211,45 @@ const MapSidebar = ({
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  // Derive category-specific tree arrays from `treeLayerGroup` when provided. This keeps compatibility with
+  // both the older individual `tree*` props and the newer grouped payload from the parent.
+  const derivedTrees = useMemo(() => {
+    const out = {
+      pola: [],
+      struktur: [],
+      ketentuan: [],
+      pkkprl: [],
+      indikasi: []
+    };
+
+    if (!Array.isArray(treeLayerGroup) || treeLayerGroup.length === 0) return out;
+
+    treeLayerGroup.forEach((grp) => {
+      const label = ((grp.tipe || grp.type || grp.key || grp.slug || grp.title || grp.name) + '').toLowerCase();
+      if (label.includes('pola')) out.pola.push(grp);
+      else if (label.includes('struktur')) out.struktur.push(grp);
+      else if (label.includes('ketentuan')) out.ketentuan.push(grp);
+      else if (label.includes('pkkprl')) out.pkkprl.push(grp);
+      else if (label.includes('indikasi')) out.indikasi.push(grp);
+      else {
+        const firstChildType = ((grp.children && grp.children[0] && (grp.children[0].type || grp.children[0].tipe)) || '') + '';
+        if (firstChildType.includes('pola')) out.pola.push(grp);
+        else if (firstChildType.includes('struktur')) out.struktur.push(grp);
+        else if (firstChildType.includes('ketentuan')) out.ketentuan.push(grp);
+        else if (firstChildType.includes('pkkprl')) out.pkkprl.push(grp);
+        else if (firstChildType.includes('indikasi')) out.indikasi.push(grp);
+      }
+    });
+
+    return out;
+  }, [treeLayerGroup]);
+
+  const polaTreeData = treePolaRuangData.length ? treePolaRuangData : derivedTrees.pola;
+  const strukturTreeData = treeStrukturRuangData.length ? treeStrukturRuangData : derivedTrees.struktur;
+  const ketentuanTreeData = treeKetentuanKhususData.length ? treeKetentuanKhususData : derivedTrees.ketentuan;
+  const pkkprlTreeData = treePkkprlData.length ? treePkkprlData : derivedTrees.pkkprl;
+  const indikasiTreeData = treeIndikasiProgramData.length ? treeIndikasiProgramData : derivedTrees.indikasi;
+
   /**
    * Render layer tree sections
    */
@@ -325,7 +365,7 @@ const MapSidebar = ({
             <Skeleton loading={isLoadingRtrws}>{/* <div className="text-sm text-gray-600">Semua data klasifikasi akan dimuat otomatis saat halaman dibuka.</div> */}</Skeleton>
 
             {/* Jika tidak ada data klasifikasi setelah pemuatan, tampilkan tombol muat ulang */}
-            {!isLoadingKlasifikasi && treePolaRuangData.length === 0 && treeStrukturRuangData.length === 0 && treeKetentuanKhususData.length === 0 && treePkkprlData.length === 0 && treeIndikasiProgramData.length === 0 && !isLoadingRtrws && (
+            {!isLoadingKlasifikasi && polaTreeData.length === 0 && strukturTreeData.length === 0 && ketentuanTreeData.length === 0 && pkkprlTreeData.length === 0 && indikasiTreeData.length === 0 && !isLoadingRtrws && (
               <div className="mt-3">
                 <div className="mb-2 text-sm text-gray-500">Tidak ada data klasifikasi. Coba muat ulang.</div>
                 <Button onClick={onReloadKlasifikasi}>Muat Ulang</Button>
@@ -399,14 +439,14 @@ const MapSidebar = ({
           ) : (
             <div className="flex flex-col">
               {/* Filtered render based on search */}
-              {renderLayerTree(debouncedSearch ? filterTree(treePolaRuangData) : treePolaRuangData, 'Pola Ruang')}
-              {renderLayerTree(debouncedSearch ? filterTree(treeStrukturRuangData) : treeStrukturRuangData, 'Struktur Ruang')}
-              {renderLayerTree(debouncedSearch ? filterTree(treeKetentuanKhususData) : treeKetentuanKhususData, 'Ketentuan Khusus')}
-              {renderLayerTree(debouncedSearch ? filterTree(treePkkprlData) : treePkkprlData, 'PKKPRL')}
-              {renderLayerTree(debouncedSearch ? filterTree(treeIndikasiProgramData) : treeIndikasiProgramData, 'Indikasi Program')}
+              {renderLayerTree(debouncedSearch ? filterTree(polaTreeData) : polaTreeData, 'Pola Ruang')}
+              {renderLayerTree(debouncedSearch ? filterTree(strukturTreeData) : strukturTreeData, 'Struktur Ruang')}
+              {renderLayerTree(debouncedSearch ? filterTree(ketentuanTreeData) : ketentuanTreeData, 'Ketentuan Khusus')}
+              {renderLayerTree(debouncedSearch ? filterTree(pkkprlTreeData) : pkkprlTreeData, 'PKKPRL')}
+              {renderLayerTree(debouncedSearch ? filterTree(indikasiTreeData) : indikasiTreeData, 'Indikasi Program')}
 
               {/* If search yields no results, show empty state */}
-              {debouncedSearch && [...filterTree(treePolaRuangData), ...filterTree(treeStrukturRuangData), ...filterTree(treeKetentuanKhususData), ...filterTree(treePkkprlData), ...filterTree(treeIndikasiProgramData)].length === 0 && (
+              {debouncedSearch && [...filterTree(polaTreeData), ...filterTree(strukturTreeData), ...filterTree(ketentuanTreeData), ...filterTree(pkkprlTreeData), ...filterTree(indikasiTreeData)].length === 0 && (
                 <div className="mt-4">
                   <Empty description={`Tidak ditemukan: "${search}"`} />
                 </div>
