@@ -294,7 +294,10 @@ const Maps = () => {
 
         return {
           id: group.id,
-          nama: group.layer_group_name,
+          // Normalize server keys to make UI mapping explicit and robust
+          layer_group_name: group.layer_group_name ?? group.nama_layer_group,
+          nama: group.layer_group_name ?? group.nama_layer_group,
+          name: group.layer_group_name ?? group.nama_layer_group,
           deskripsi: group.deskripsi,
           urutan: group.urutan_tampil,
 
@@ -310,6 +313,7 @@ const Maps = () => {
         };
       });
 
+      if (typeof window !== 'undefined' && window.__DEBUG_MAPLAYERS__) console.debug('Mapped layer groups:', result);
       setLayerGroupTrees(result);
     }
   }, [layerGroupData, mapDataSpasial, mapIndikasiProgram, mapKetentuanKhusus, mapPkkprl, mapPolaRuang, mapStrukturRuang]);

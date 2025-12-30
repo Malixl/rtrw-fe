@@ -287,8 +287,10 @@ const MapSidebar = ({
             <div className="flex flex-col">
               {treeLayerGroup.map((layer) => (
                 <React.Fragment key={layer.id || layer.key}>
+                  {/* Debug log to inspect runtime object when troubleshooting */}
+                  {typeof window !== 'undefined' && window.__DEBUG_MAPSIDEBAR__ && console.debug('MapSidebar layer:', layer)}
                   <Typography.Title level={5} style={{ margin: 0 }}>
-                    {layer.deskripsi}
+                    {layer.layer_group_name || layer.nama || layer.name || layer.title || layer.deskripsi}
                   </Typography.Title>
                   {renderLayerTree(layer.tree.pola, 'Pola Ruang')}
                   {renderLayerTree(layer.tree.struktur, 'Struktur Ruang')}
