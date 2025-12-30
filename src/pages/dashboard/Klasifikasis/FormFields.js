@@ -77,6 +77,10 @@ export const formFields = ({ options = {} } = {}) => [
       {
         label: 'Data Spasial',
         value: 'data_spasial'
+      },
+      {
+        label: 'Batas Administrasi',
+        value: 'batas_administrasi'
       }
     ]
   }

@@ -95,7 +95,7 @@ const MapSidebar = ({
   isLoadingKlasifikasi,
   // Handlers
   onToggleLayer,
-  onReloadKlasifikasi,
+  // onReloadKlasifikasi,
   // Collapse control
   isCollapsed,
   onToggleCollapse,
@@ -156,7 +156,8 @@ const MapSidebar = ({
       struktur_ruang: 'Struktur Ruang',
       ketentuan_khusus: 'Ketentuan Khusus',
       pkkprl: 'PKKPRL',
-      indikasi_program: 'Indikasi Program'
+      indikasi_program: 'Indikasi Program',
+      batas_administrasi: 'Batas Administrasi'
     };
     return labels[tipe] || '';
   }, []);
@@ -306,7 +307,7 @@ const MapSidebar = ({
           )}
 
           {/* Search box */}
-          <div className="mt-2">
+          <div className="my-5">
             <Input
               ref={searchInputRef}
               placeholder="Cari legenda atau klasifikasi..."
@@ -321,94 +322,70 @@ const MapSidebar = ({
             />
           </div>
 
-          {/* Klasifikasi akan dimuat otomatis saat halaman dibuka */}
-          <div>
-            {/* Show reload when there are no classifications in any group */}
-            {(() => {
-              const hasAnyClassification =
-                Array.isArray(treeLayerGroup) &&
-                treeLayerGroup.some((layer) => {
-                  const t = layer.tree || {};
+          {(() => {
+            // If any layer group already contains batas entries, do not show the separate top-level section
+            const hasBatasInGroups = Array.isArray(treeLayerGroup) && treeLayerGroup.some((layer) => (layer.tree || {}).batas && (layer.tree || {}).batas.length > 0);
+            if (hasBatasInGroups) return null;
+
+            return (
+              <div className="mt-2">
+                {/* Batas Administrasi - searchable */}
+                {(() => {
+                  const parentLabel = 'Batas Administrasi';
+                  let filteredBatas;
+                  if (!debouncedSearch) filteredBatas = batasAdministrasi;
+                  else if (fuzzyMatch(debouncedSearch, parentLabel)) {
+                    // Query matches the parent label -> show all items
+                    filteredBatas = batasAdministrasi;
+                  } else {
+                    filteredBatas = filterList(batasAdministrasi, debouncedSearch, ['name', 'nama']);
+                  }
+
+                  const batasOpen = Boolean(debouncedSearch && filteredBatas.length > 0);
+
                   return (
-                    (t.pola && t.pola.length > 0) ||
-                    (t.struktur && t.struktur.length > 0) ||
-                    (t.ketentuan && t.ketentuan.length > 0) ||
-                    (t.pkkprl && t.pkkprl.length > 0) ||
-                    (t.indikasi && t.indikasi.length > 0) ||
-                    (t.data_spasial && t.data_spasial.length > 0)
+                    <CollapsibleSection title={<>{highlightText('Batas Administrasi')}</>} panelKey="batas" defaultActiveKey={batasOpen ? ['batas'] : ['batas']}>
+                      {isLoadingBatas && (
+                        <>
+                          <Checkbox>
+                            <Skeleton.Input size="small" active />
+                          </Checkbox>
+                          <Checkbox>
+                            <Skeleton.Input size="small" active />
+                          </Checkbox>
+                        </>
+                      )}
+
+                      {!isLoadingBatas && filteredBatas.length === 0 && <div className="text-sm italic text-gray-500">Tidak ada data batas administrasi yang cocok.</div>}
+
+                      {filteredBatas.map((item) => {
+                        const pemetaan = createBatasPemetaan(item);
+                        return (
+                          <div key={pemetaan.key} className="mb-2">
+                            <LayerCheckbox
+                              pemetaan={{ ...pemetaan, title: item.name }}
+                              label={highlightText(item.name)}
+                              isChecked={!!selectedLayers[pemetaan.key]}
+                              isLoading={loadingLayers[pemetaan.key]}
+                              onToggle={() => onToggleLayer(pemetaan)}
+                              onInfoClick={() =>
+                                showInfoModal(item.name, [
+                                  { key: 'name', label: 'Nama Area', children: item.name },
+                                  { key: 'desc', label: 'Deskripsi', children: item.desc }
+                                ])
+                              }
+                            />
+                            {/* Legend untuk batas administrasi */}
+                            <LegendItem tipe_geometri={pemetaan.tipe_geometri || 'polyline'} icon_titik={pemetaan.icon_titik} warna={pemetaan.warna} nama={pemetaan.nama} tipe_garis={pemetaan.tipe_garis} />
+                          </div>
+                        );
+                      })}
+                    </CollapsibleSection>
                   );
-                });
-
-              if (!isLoadingKlasifikasi && !hasAnyClassification) {
-                return (
-                  <div className="mt-3">
-                    <div className="mb-2 text-sm text-gray-500">Tidak ada data klasifikasi. Coba muat ulang.</div>
-                    {typeof onReloadKlasifikasi === 'function' ? <Button onClick={onReloadKlasifikasi}>Muat Ulang</Button> : <Button disabled>Muat Ulang</Button>}
-                  </div>
-                );
-              }
-
-              return null;
-            })()}
-          </div>
-
-          {/* Batas Administrasi Section */}
-          <div className="mt-2">
-            {/* Batas Administrasi - searchable */}
-            {(() => {
-              const parentLabel = 'Batas Administrasi';
-              let filteredBatas;
-              if (!debouncedSearch) filteredBatas = batasAdministrasi;
-              else if (fuzzyMatch(debouncedSearch, parentLabel)) {
-                // Query matches the parent label -> show all items
-                filteredBatas = batasAdministrasi;
-              } else {
-                filteredBatas = filterList(batasAdministrasi, debouncedSearch, ['name', 'nama']);
-              }
-
-              const batasOpen = Boolean(debouncedSearch && filteredBatas.length > 0);
-
-              return (
-                <CollapsibleSection title={<>{highlightText('Batas Administrasi')}</>} panelKey="batas" defaultActiveKey={batasOpen ? ['batas'] : ['batas']}>
-                  {isLoadingBatas && (
-                    <>
-                      <Checkbox>
-                        <Skeleton.Input size="small" active />
-                      </Checkbox>
-                      <Checkbox>
-                        <Skeleton.Input size="small" active />
-                      </Checkbox>
-                    </>
-                  )}
-
-                  {!isLoadingBatas && filteredBatas.length === 0 && <div className="text-sm italic text-gray-500">Tidak ada data batas administrasi yang cocok.</div>}
-
-                  {filteredBatas.map((item) => {
-                    const pemetaan = createBatasPemetaan(item);
-                    return (
-                      <div key={pemetaan.key} className="mb-2">
-                        <LayerCheckbox
-                          pemetaan={{ ...pemetaan, title: item.name }}
-                          label={highlightText(item.name)}
-                          isChecked={!!selectedLayers[pemetaan.key]}
-                          isLoading={loadingLayers[pemetaan.key]}
-                          onToggle={() => onToggleLayer(pemetaan)}
-                          onInfoClick={() =>
-                            showInfoModal(item.name, [
-                              { key: 'name', label: 'Nama Area', children: item.name },
-                              { key: 'desc', label: 'Deskripsi', children: item.desc }
-                            ])
-                          }
-                        />
-                        {/* Legend untuk batas administrasi */}
-                        <LegendItem tipe_geometri={pemetaan.tipe_geometri || 'polyline'} icon_titik={pemetaan.icon_titik} warna={pemetaan.warna} nama={pemetaan.nama} tipe_garis={pemetaan.tipe_garis} />
-                      </div>
-                    );
-                  })}
-                </CollapsibleSection>
-              );
-            })()}
-          </div>
+                })()}
+              </div>
+            );
+          })()}
 
           {/* Layer Tree Sections */}
           {isLoadingKlasifikasi ? (
@@ -428,7 +405,8 @@ const MapSidebar = ({
                       filterTree(t.ketentuan || []).length > 0 ||
                       filterTree(t.pkkprl || []).length > 0 ||
                       filterTree(t.indikasi || []).length > 0 ||
-                      filterTree(t.data_spasial || []).length > 0
+                      filterTree(t.data_spasial || []).length > 0 ||
+                      filterTree(t.batas || []).length > 0
                     );
                   });
 

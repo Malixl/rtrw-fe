@@ -268,6 +268,22 @@ const Maps = () => {
     }));
   }, []);
 
+  const mapBatasAdministrasi = React.useCallback((data) => {
+    return data.map((klasifikasi) => ({
+      title: klasifikasi.nama,
+      key: `batas-root-${klasifikasi.id}`,
+      ...klasifikasi,
+      children: (klasifikasi.batas_administrasi || []).map((batas) => ({
+        ...batas,
+        type: 'batas_administrasi',
+        title: batas.nama,
+        key: `batas-${batas.id}`,
+        geojson_file: asset(batas.geojson_file),
+        isLeaf: true
+      }))
+    }));
+  }, []);
+
   // Use stable execute function reference to avoid re-creating the callback when hook data changes
   const { execute, ...getAllLayerGroups } = useService(LayerGroupsService.layerGroupWithKlasifikasi);
 
@@ -292,6 +308,8 @@ const Maps = () => {
         const pkkprl_list = klasifikasis.klasifikasi_pkkprl ?? [];
         const data_spasial = klasifikasis.klasifikasi_data_spasial ?? [];
         const indikasi_program_list = klasifikasis.klasifikasi_indikasi_program ?? [];
+        // For backwards compatibility if backend stores batas_administrasi under data_spasial
+        const batas_list = klasifikasis.klasifikasi_batas_administrasi ?? klasifikasis.klasifikasi_data_spasial ?? [];
 
         return {
           id: group.id,
@@ -309,7 +327,8 @@ const Maps = () => {
             ketentuan: mapKetentuanKhusus(ketentuan_khusus_list),
             pkkprl: mapPkkprl(pkkprl_list),
             data_spasial: mapDataSpasial(data_spasial),
-            indikasi: mapIndikasiProgram(indikasi_program_list)
+            indikasi: mapIndikasiProgram(indikasi_program_list),
+            batas: mapBatasAdministrasi(batas_list)
           }
         };
       });
