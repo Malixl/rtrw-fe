@@ -66,7 +66,10 @@ const IndikasiPrograms = () => {
             onClick={() => {
               modal.edit({
                 title: `Edit ${Modul.INDIKASI_PROGRAM}`,
-                data: { ...record, id_klasifikasi: record.klasifikasi.id },
+                data: {
+                  ...record,
+                  id_klasifikasi: record.klasifikasi_id
+                },
                 formFields: formFields({ options: { klasifikasi: klasifikasis } }),
 
                 onSubmit: async (values) => {

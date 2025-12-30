@@ -1,4 +1,4 @@
-type ModelKeys = 'rtrw' | 'klasifikasi' | 'polaruang' | 'periode' | 'struktur_ruang' | 'ketentuan_khusus' | 'pkkprl' | 'indikasi_program' | 'berita' | 'batas_administrasi';
+type ModelKeys = 'rtrw' | 'klasifikasi' | 'polaruang' | 'periode' | 'struktur_ruang' | 'ketentuan_khusus' | 'pkkprl' | 'indikasi_program' | 'berita' | 'batas_administrasi' | 'data_spasial' | 'layer_group';
 
 export default abstract class Model {
   static children: { [key in ModelKeys]?: ModelChildren | ModelChildren[] } = {
@@ -11,7 +11,9 @@ export default abstract class Model {
     pkkprl: undefined,
     indikasi_program: undefined,
     berita: undefined,
-    batas_administrasi: undefined
+    batas_administrasi: undefined,
+    data_spasial: undefined,
+    layer_group: undefined
   };
 }
 

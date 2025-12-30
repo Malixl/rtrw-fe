@@ -2,22 +2,7 @@ import Model from './Model';
 
 export interface IncomingApiData {
   id: number;
-  klasifikasi: {
-    id: number;
-    nama: string;
-    deskripsi: string;
-    tipe: string;
-    rtrw: {
-      id: number;
-      nama: string;
-      periode: {
-        id: number;
-        tahun_mulai: string;
-        tahun_akhir: string;
-      };
-      deskripsi: string;
-    };
-  };
+  klasifikasi_id: number;
   nama: string;
   warna: string;
   deskripsi: string;
@@ -47,22 +32,8 @@ type ReturnType<S, From, To> = S extends From[] ? To[] : To;
 export default class Polaruangs extends Model {
   constructor(
     public id: number,
-    public klasifikasi: {
-      id: number;
-      name: string;
-      desc: string;
-      type: string;
-      rtrw: {
-        id: number;
-        name: string;
-        periode: {
-          id: number;
-          year_start: string;
-          year_end: string;
-        };
-        desc: string;
-      };
-    },
+    public klasifikasi_id: number,
+
     public name: string,
     public color: string,
     public desc: string,
@@ -73,29 +44,7 @@ export default class Polaruangs extends Model {
 
   public static fromApiData<T extends IncomingApiData | IncomingApiData[]>(apiData: T): ReturnType<T, IncomingApiData, Polaruangs> {
     if (Array.isArray(apiData)) return apiData.map((object) => this.fromApiData(object)) as ReturnType<T, IncomingApiData, Polaruangs>;
-    return new Polaruangs(
-      apiData.id,
-      {
-        id: apiData.klasifikasi.id,
-        name: apiData.klasifikasi.nama,
-        desc: apiData.klasifikasi.deskripsi,
-        type: apiData.klasifikasi.tipe,
-        rtrw: {
-          id: apiData.klasifikasi.rtrw.id,
-          name: apiData.klasifikasi.rtrw.nama,
-          periode: {
-            id: apiData.klasifikasi.rtrw.periode.id,
-            year_start: apiData.klasifikasi.rtrw.periode.tahun_mulai,
-            year_end: apiData.klasifikasi.rtrw.periode.tahun_akhir
-          },
-          desc: apiData.klasifikasi.rtrw.deskripsi
-        }
-      },
-      apiData.nama,
-      apiData.warna,
-      apiData.deskripsi,
-      apiData.geojson_file
-    ) as ReturnType<T, IncomingApiData, Polaruangs>;
+    return new Polaruangs(apiData.id, apiData.klasifikasi_id, apiData.nama, apiData.warna, apiData.deskripsi, apiData.geojson_file) as ReturnType<T, IncomingApiData, Polaruangs>;
   }
 
   public static toApiData<T extends FormValue | FormValue[]>(polaruang: T): ReturnType<T, FormValue, OutgoingApiData> {

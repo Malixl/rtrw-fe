@@ -3,18 +3,13 @@ import * as Model from '@/models';
 import * as Auth from '@/pages/auth';
 import * as Dashboard from '@/pages/dashboard';
 import * as Landing from '@/pages/landing';
-import { DashboardOutlined, FileDoneOutlined, DatabaseOutlined, UserOutlined } from '@ant-design/icons';
+import { DashboardOutlined, DatabaseOutlined, UserOutlined } from '@ant-design/icons';
 
 export const landingLink = [
   {
     label: 'Beranda',
     key: '/',
     element: Landing.Home
-  },
-  {
-    label: 'Periode',
-    key: '/periode',
-    element: Landing.Periode
   },
   {
     label: 'Map',
@@ -66,26 +61,6 @@ export const dashboardLink = [
     ]
   },
   {
-    label: 'Data RTRW',
-    icon: FileDoneOutlined,
-    children: [
-      {
-        path: '/dashboard/periode',
-        label: 'Periode',
-        element: Dashboard.Periode,
-        permissions: [[Action.READ, Model.Rtrws]],
-        capability: 'can_crud_map'
-      },
-      {
-        path: '/dashboard/rtrw',
-        label: 'RTRW',
-        element: Dashboard.Rtrws,
-        permissions: [[Action.READ, Model.Rtrws]],
-        capability: 'can_crud_map'
-      }
-    ]
-  },
-  {
     label: 'Master Data',
     icon: DatabaseOutlined,
     children: [
@@ -94,6 +69,13 @@ export const dashboardLink = [
         label: 'Klasifikasi',
         element: Dashboard.Klasifikasi,
         permissions: [[Action.READ, Model.Klasifikasis]],
+        capability: 'can_crud_map'
+      },
+      {
+        path: '/dashboard/layer_group',
+        label: 'Layer Group',
+        element: Dashboard.LayerGroups,
+        permissions: [[Action.READ, Model.LayerGroups]],
         capability: 'can_crud_map'
       },
       {
@@ -131,6 +113,12 @@ export const dashboardLink = [
         path: '/dashboard/batas_administrasi',
         label: 'Batas Administrasi',
         element: Dashboard.BatasAdministrasi,
+        capability: 'can_crud_map'
+      },
+      {
+        path: '/dashboard/data_spasial',
+        label: 'Data Spasial',
+        element: Dashboard.DataSpasials,
         capability: 'can_crud_map'
       },
       {

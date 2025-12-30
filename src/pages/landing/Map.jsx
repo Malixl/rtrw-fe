@@ -1,11 +1,11 @@
 /* eslint-disable no-unused-vars */
 /* eslint-disable react/prop-types */
 import { useAuth, useNotification, useService } from '@/hooks';
-import { RtrwsService, BatasAdministrasiService } from '@/services';
+import { BatasAdministrasiService, LayerGroupsService } from '@/services';
 import { BASE_URL } from '@/utils/api';
 import asset from '@/utils/asset';
 
-import { LockOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
+import { LockOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import { Button, Result, Skeleton, Tooltip } from 'antd';
 import React from 'react';
 import { MapContainer, TileLayer, GeoJSON, Popup, LayersControl } from 'react-leaflet';
@@ -13,34 +13,27 @@ import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
 import 'leaflet-draw';
 import 'leaflet-draw/dist/leaflet.draw.css';
-import * as AntdIcons from '@ant-design/icons';
 import FeaturePopup from '@/components/Map/FeaturePopup';
-import MapUserInfo from '@/components/Map/MapUserInfo';
 import HomeControl from '@/components/Map/HomeControl';
 import CoordinateControl from '@/components/Map/CoordinateControl';
 import MapToolsControl from '@/components/Map/MapToolsControl';
 import MapSidebar from '@/components/Map/MapSidebar';
+import MapUserInfo from '@/components/Map/MapUserInfo';
 
 const { BaseLayer } = LayersControl;
 
 const Maps = () => {
   const navigate = useNavigate();
-  const { success, error } = useNotification();
-  const { canAccessMap, capabilities, isAuthenticated, isLoading: authLoading } = useAuth();
-  const { execute, ...getAllRtrws } = useService(RtrwsService.getAll);
+  const { canAccessMap, capabilities, isLoading: authLoading } = useAuth();
   const { execute: fetchBatas, data: batasData, isLoading: isLoadingBatas, isSuccess: isBatasSuccess, message: batasMessage } = useService(BatasAdministrasiService.getAll);
-  const klasifikasisByRtrw = useService(RtrwsService.getAllKlasifikasisByRtrw);
   const [selectedLayers, setSelectedLayers] = React.useState({});
   const [loadingLayers, setLoadingLayers] = React.useState({});
-  const [treePolaRuangData, setTreePolaRuangData] = React.useState([]);
-  const [treeStrukturRuangData, setTreeStrukturRuangData] = React.useState([]);
-  const [treeKetentuanKhususData, setTreeKetentuanKhususData] = React.useState([]);
-  const [treePkkprlData, setTreePkkprlData] = React.useState([]);
-  const [treeIndikasiProgramData, setTreeIndikasiProgramData] = React.useState([]);
   const [popupInfo, setPopupInfo] = React.useState(null);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(true); // Default collapsed on mobile
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(true);
   const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
   const [isTablet, setIsTablet] = React.useState(window.innerWidth >= 768 && window.innerWidth < 1024);
+
+  const [layerGroupTrees, setLayerGroupTrees] = React.useState([]);
 
   // Handle window resize for responsive
   React.useEffect(() => {
@@ -55,27 +48,19 @@ const Maps = () => {
     };
 
     window.addEventListener('resize', handleResize);
-    handleResize(); // Initial check
+    handleResize();
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Check if user can access the map
   const hasMapAccess = canAccessMap();
   const showBlurMap = capabilities?.show_blur_map ?? !hasMapAccess;
   const loginMessage = capabilities?.login_message || 'Silakan login untuk melihat peta interaktif';
 
-  const fetchRtrws = React.useCallback(() => {
-    if (hasMapAccess) {
-      execute({ page: 1, per_page: 100000 });
-    }
-  }, [execute, hasMapAccess]);
-
   React.useEffect(() => {
     if (hasMapAccess) {
-      fetchRtrws();
       fetchBatas({ page: 1, per_page: 100000 });
     }
-  }, [fetchRtrws, fetchBatas, hasMapAccess]);
+  }, [fetchBatas, hasMapAccess]);
 
   React.useEffect(() => {
     if (!isLoadingBatas && !isBatasSuccess && batasMessage) {
@@ -83,7 +68,6 @@ const Maps = () => {
     }
   }, [isLoadingBatas, isBatasSuccess, batasMessage]);
 
-  const rtrws = React.useMemo(() => getAllRtrws.data ?? [], [getAllRtrws.data]);
   const batasAdministrasi = batasData ?? [];
 
   const handleToggleLayer = async (pemetaan) => {
@@ -106,6 +90,7 @@ const Maps = () => {
       else if (type === 'struktur') url = `${BASE_URL}/struktur_ruang/${id}/geojson`;
       else if (type === 'ketentuan_khusus') url = `${BASE_URL}/ketentuan_khusus/${id}/geojson`;
       else if (type === 'pkkprl') url = `${BASE_URL}/pkkprl/${id}/geojson`;
+      else if (type === 'data_spasial') url = `${BASE_URL}/data_spasial/${id}/geojson`;
       else if (type === 'batas_administrasi') url = `${BASE_URL}/batas_administrasi/${id}/geojson`;
 
       const res = await fetch(url);
@@ -267,111 +252,72 @@ const Maps = () => {
     }));
   }, []);
 
-  // Load classifications for ALL RTRW and aggregate results
-  const [isLoadingKlasifikasiAll, setIsLoadingKlasifikasiAll] = React.useState(false);
-  const isLoadingKlasifikasiAllRef = React.useRef(false);
-
-  // Utility: run promises in batches to avoid overloading server or triggering too many concurrent requests
-  const runInBatches = React.useCallback(async (items, worker, batchSize = 3) => {
-    const results = [];
-    for (let i = 0; i < items.length; i += batchSize) {
-      const batch = items.slice(i, i + batchSize);
-      // Execute batch in parallel
-      const res = await Promise.allSettled(batch.map((it) => worker(it)));
-      results.push(...res);
-      // small delay between batches to be gentle to server
-      await new Promise((resDelay) => setTimeout(resDelay, 150));
-    }
-    return results;
+  const mapDataSpasial = React.useCallback((data) => {
+    return data.map((klasifikasi) => ({
+      title: klasifikasi.nama,
+      key: `data_spasial-root-${klasifikasi.id}`,
+      ...klasifikasi,
+      children: (klasifikasi.data_spasial || []).map((data_spasial) => ({
+        ...data_spasial,
+        type: 'data_spasial',
+        title: data_spasial.nama,
+        key: `data_spasial-${data_spasial.id}`,
+        geojson_file: asset(data_spasial.geojson_file),
+        isLeaf: true
+      }))
+    }));
   }, []);
 
   // Use stable execute function reference to avoid re-creating the callback when hook data changes
-  const { execute: fetchKlasifikasiByRtrw } = klasifikasisByRtrw;
+  const { execute, ...getAllLayerGroups } = useService(LayerGroupsService.layerGroupWithKlasifikasi);
 
-  const loadAllKlasifikasi = React.useCallback(async () => {
-    if (!rtrws || rtrws.length === 0) return;
-    // Avoid re-entry using ref (avoid dependency on state)
-    if (isLoadingKlasifikasiAllRef.current) return;
-    isLoadingKlasifikasiAllRef.current = true;
-    setIsLoadingKlasifikasiAll(true);
-
-    try {
-      const worker = async (r) => fetchKlasifikasiByRtrw({ idRtrw: r.id });
-      const results = await runInBatches(rtrws, worker, 3);
-
-      const polaAcc = [];
-      const strukturAcc = [];
-      const ketentuanAcc = [];
-      const pkkprlAcc = [];
-      const indikasiAcc = [];
-
-      let successCount = 0;
-      let failCount = 0;
-
-      for (const res of results) {
-        if (res.status === 'fulfilled' && res.value) {
-          const val = res.value;
-          if (val.isSuccess && val.data) {
-            successCount += 1;
-            const data = val.data;
-            polaAcc.push(...(data.klasifikasi_pola_ruang ?? []));
-            strukturAcc.push(...(data.klasifikasi_struktur_ruang ?? []));
-            ketentuanAcc.push(...(data.klasifikasi_ketentuan_khusus ?? []));
-            pkkprlAcc.push(...(data.klasifikasi_pkkprl ?? []));
-            indikasiAcc.push(...(data.klasifikasi_indikasi_program ?? []));
-          } else {
-            failCount += 1;
-          }
-        } else {
-          failCount += 1;
-        }
-      }
-
-      const polaTree = mapPolaRuang(polaAcc);
-      const strukturTree = mapStrukturRuang(strukturAcc);
-      const ketentuanTree = mapKetentuanKhusus(ketentuanAcc);
-      const pkkprlTree = mapPkkprl(pkkprlAcc);
-      const indikasiTree = mapIndikasiProgram(indikasiAcc);
-
-      // Set tree state once to avoid extra renders
-      setTreePolaRuangData(polaTree);
-      setTreeStrukturRuangData(strukturTree);
-      setTreeKetentuanKhususData(ketentuanTree);
-      setTreePkkprlData(pkkprlTree);
-      setTreeIndikasiProgramData(indikasiTree);
-
-      // Debug in console: counts per category
-      console.debug('Loaded data counts', {
-        pola: polaAcc.length,
-        struktur: strukturAcc.length,
-        ketentuan: ketentuanAcc.length,
-        pkkprl: pkkprlAcc.length,
-        indikasi: indikasiAcc.length
-      });
-
-      // Single summary notification (label changed to Data RTRW)
-      const totalItems = polaAcc.length + strukturAcc.length + ketentuanAcc.length + pkkprlAcc.length + indikasiAcc.length;
-      if (successCount > 0 && failCount === 0) {
-        success(`Berhasil memuat Data RTRW (${successCount}/${rtrws.length}). Jumlah item: ${totalItems}`);
-      } else if (successCount > 0 && failCount > 0) {
-        error(`Sebagian Data RTRW dimuat: ${successCount}/${rtrws.length} berhasil, ${failCount} gagal — Jumlah item: ${totalItems}`);
-      } else {
-        error('Gagal memuat Data RTRW untuk semua RTRW. Coba muat ulang.');
-      }
-    } catch (err) {
-      console.error('Error loading klasifikasi:', err);
-      error('Gagal memuat Data RTRW');
-    } finally {
-      isLoadingKlasifikasiAllRef.current = false;
-      setIsLoadingKlasifikasiAll(false);
-    }
-  }, [rtrws, fetchKlasifikasiByRtrw, mapPolaRuang, mapStrukturRuang, mapKetentuanKhusus, mapPkkprl, mapIndikasiProgram, runInBatches, success, error]);
+  const fetchLayerGroups = React.useCallback(() => {
+    execute({ page: 1, per_page: 9999 });
+  }, [execute]);
 
   React.useEffect(() => {
-    if (rtrws && rtrws.length > 0) {
-      loadAllKlasifikasi();
+    fetchLayerGroups();
+  }, [fetchLayerGroups]);
+
+  const layerGroupData = React.useMemo(() => getAllLayerGroups.data ?? [], [getAllLayerGroups.data]);
+
+  React.useEffect(() => {
+    if (layerGroupData) {
+      const result = layerGroupData.map((group) => {
+        const klasifikasis = group.klasifikasis || {};
+
+        const pola_ruang_list = klasifikasis.klasifikasi_pola_ruang ?? [];
+        const struktur_ruang_list = klasifikasis.klasifikasi_struktur_ruang ?? [];
+        const ketentuan_khusus_list = klasifikasis.klasifikasi_ketentuan_khusus ?? [];
+        const pkkprl_list = klasifikasis.klasifikasi_pkkprl ?? [];
+        const data_spasial = klasifikasis.klasifikasi_data_spasial ?? [];
+        const indikasi_program_list = klasifikasis.klasifikasi_indikasi_program ?? [];
+
+        return {
+          id: group.id,
+          // Normalize server keys to make UI mapping explicit and robust
+          layer_group_name: group.layer_group_name ?? group.nama_layer_group,
+          nama: group.layer_group_name ?? group.nama_layer_group,
+          name: group.layer_group_name ?? group.nama_layer_group,
+          deskripsi: group.deskripsi,
+          urutan: group.urutan_tampil,
+
+          // 🔥 HASIL TREEMAP LAMA KAMU
+          tree: {
+            pola: mapPolaRuang(pola_ruang_list),
+            struktur: mapStrukturRuang(struktur_ruang_list),
+            ketentuan: mapKetentuanKhusus(ketentuan_khusus_list),
+            pkkprl: mapPkkprl(pkkprl_list),
+            data_spasial: mapDataSpasial(data_spasial),
+            indikasi: mapIndikasiProgram(indikasi_program_list)
+          }
+        };
+      });
+
+      if (typeof window !== 'undefined' && window.__DEBUG_MAPLAYERS__) console.debug('Mapped layer groups:', result);
+      setLayerGroupTrees(result);
     }
-  }, [rtrws, loadAllKlasifikasi]);
+  }, [layerGroupData, mapDataSpasial, mapIndikasiProgram, mapKetentuanKhusus, mapPkkprl, mapPolaRuang, mapStrukturRuang]);
 
   const getFeatureStyle = (feature) => {
     const props = feature.properties || {};
@@ -643,32 +589,26 @@ const Maps = () => {
           )}
         </MapContainer>
 
-        {/* Small map header (centered) */}
-        <div className="absolute left-1/2 top-4 z-[1002] -translate-x-1/2">
-          <div style={{ backgroundColor: 'rgba(255,255,255,0.65)' }} className="flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-2 shadow-md">
-            <img src="/image_asset/gorontalo-logo.png" alt="Lambang Provinsi Gorontalo" className="h-6 w-6 rounded object-contain" />
-            <div className="text-sm font-bold capitalize text-black">Peta Rencana Tata Ruang Wilayah Provinsi Gorontalo</div>
-          </div>
-        </div>
+        {/* Legend removed - MapUserInfo only */}
       </div>
 
       {/* Collapsible Sidebar - Responsive */}
       <div className={`absolute right-0 top-0 z-[1000] h-full transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-0' : isMobile ? 'w-full' : isTablet ? 'w-[320px]' : 'w-[400px]'}`}>
         <MapSidebar
-          rtrws={rtrws}
+          // rtrws={rtrws}
           batasAdministrasi={batasAdministrasi}
-          treePolaRuangData={treePolaRuangData}
-          treeStrukturRuangData={treeStrukturRuangData}
-          treeKetentuanKhususData={treeKetentuanKhususData}
-          treePkkprlData={treePkkprlData}
-          treeIndikasiProgramData={treeIndikasiProgramData}
+          // treePolaRuangData={treePolaRuangData}
+          // treeStrukturRuangData={treeStrukturRuangData}
+          // treeKetentuanKhususData={treeKetentuanKhususData}
+          // treePkkprlData={treePkkprlData}
+          // treeIndikasiProgramData={treeIndikasiProgramData}
+          treeLayerGroup={layerGroupTrees}
           selectedLayers={selectedLayers}
           loadingLayers={loadingLayers}
-          isLoadingRtrws={getAllRtrws.isLoading}
           isLoadingBatas={isLoadingBatas}
-          isLoadingKlasifikasi={isLoadingKlasifikasiAll}
+          isLoadingKlasifikasi={getAllLayerGroups.isLoading}
           onToggleLayer={handleToggleLayer}
-          onReloadKlasifikasi={loadAllKlasifikasi}
+          // onReloadKlasifikasi={loadAllKlasifikasi}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
           isMobile={isMobile}

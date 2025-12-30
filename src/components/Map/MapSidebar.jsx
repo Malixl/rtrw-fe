@@ -1,8 +1,8 @@
 /* eslint-disable react/prop-types */
-import { useCallback, useState, useEffect, useRef } from 'react';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
+import { Button, Checkbox, Collapse, Skeleton, Typography, Tooltip, Input, Empty } from 'antd';
 import { highlightParts, filterTree as filterTreeUtil, filterList, fuzzyMatch } from './searchUtils';
 import LegendItem from './LegendItem';
-import { Button, Checkbox, Collapse, Skeleton, Typography, Tooltip, Input, Empty } from 'antd';
 import { AimOutlined, InfoCircleOutlined, MenuOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import { useCrudModal } from '@/hooks';
 import asset from '@/utils/asset';
@@ -81,16 +81,16 @@ const LoadingSkeleton = () => (
  */
 const MapSidebar = ({
   // Data
+  // rtrws,
   batasAdministrasi,
-  treePolaRuangData,
-  treeStrukturRuangData,
-  treeKetentuanKhususData,
-  treePkkprlData,
-  treeIndikasiProgramData,
+  // treePolaRuangData,
+  // treeStrukturRuangData,
+  // treeKetentuanKhususData,
+  // treePkkprlData,
+  // treeIndikasiProgramData,
   selectedLayers,
   loadingLayers,
   // Loading states
-  isLoadingRtrws,
   isLoadingBatas,
   isLoadingKlasifikasi,
   // Handlers
@@ -100,7 +100,8 @@ const MapSidebar = ({
   isCollapsed,
   onToggleCollapse,
   // Responsive
-  isMobile = false
+  isMobile = false,
+  treeLayerGroup
 }) => {
   const modal = useCrudModal();
 
@@ -217,6 +218,7 @@ const MapSidebar = ({
 
   const renderLayerTree = useCallback(
     (treeData, labelKey) => {
+      if (!Array.isArray(treeData)) return null;
       return treeData.map((item) => {
         const itemMatches = debouncedSearch && (item.title || '').toLowerCase().includes(debouncedSearch);
         const defaultOpen = !!debouncedSearch && (itemMatches || (item.children || []).some((c) => ((c.title || c.nama) + '').toLowerCase().includes(debouncedSearch)));
@@ -224,7 +226,7 @@ const MapSidebar = ({
         return (
           <div key={item.key} className="mt-2">
             <CollapsibleSection title={<>{highlightText(`${item.title} (${getTypeLabel(item.tipe)})`, debouncedSearch)}</>} panelKey={item.key} defaultActiveKey={defaultOpen ? [item.key] : undefined}>
-              {item.children.map((pemetaan) => {
+              {(item.children || []).map((pemetaan) => {
                 if (pemetaan.type === 'indikasi_program') {
                   return (
                     <div key={pemetaan.key} className="inline-flex w-full items-center gap-x-2">
@@ -321,22 +323,38 @@ const MapSidebar = ({
 
           {/* Klasifikasi akan dimuat otomatis saat halaman dibuka */}
           <div>
-            {/* <div className={isMobile ? 'mt-2' : 'mt-4'}> */}
-            <Skeleton loading={isLoadingRtrws}>{/* <div className="text-sm text-gray-600">Semua data klasifikasi akan dimuat otomatis saat halaman dibuka.</div> */}</Skeleton>
+            {/* Show reload when there are no classifications in any group */}
+            {(() => {
+              const hasAnyClassification =
+                Array.isArray(treeLayerGroup) &&
+                treeLayerGroup.some((layer) => {
+                  const t = layer.tree || {};
+                  return (
+                    (t.pola && t.pola.length > 0) ||
+                    (t.struktur && t.struktur.length > 0) ||
+                    (t.ketentuan && t.ketentuan.length > 0) ||
+                    (t.pkkprl && t.pkkprl.length > 0) ||
+                    (t.indikasi && t.indikasi.length > 0) ||
+                    (t.data_spasial && t.data_spasial.length > 0)
+                  );
+                });
 
-            {/* Jika tidak ada data klasifikasi setelah pemuatan, tampilkan tombol muat ulang */}
-            {!isLoadingKlasifikasi && treePolaRuangData.length === 0 && treeStrukturRuangData.length === 0 && treeKetentuanKhususData.length === 0 && treePkkprlData.length === 0 && treeIndikasiProgramData.length === 0 && !isLoadingRtrws && (
-              <div className="mt-3">
-                <div className="mb-2 text-sm text-gray-500">Tidak ada data klasifikasi. Coba muat ulang.</div>
-                <Button onClick={onReloadKlasifikasi}>Muat Ulang</Button>
-              </div>
-            )}
+              if (!isLoadingKlasifikasi && !hasAnyClassification) {
+                return (
+                  <div className="mt-3">
+                    <div className="mb-2 text-sm text-gray-500">Tidak ada data klasifikasi. Coba muat ulang.</div>
+                    {typeof onReloadKlasifikasi === 'function' ? <Button onClick={onReloadKlasifikasi}>Muat Ulang</Button> : <Button disabled>Muat Ulang</Button>}
+                  </div>
+                );
+              }
+
+              return null;
+            })()}
           </div>
 
           {/* Batas Administrasi Section */}
           <div className="mt-2">
             {/* Batas Administrasi - searchable */}
-            {/* If searching, auto-open the panel and show filtered results */}
             {(() => {
               const parentLabel = 'Batas Administrasi';
               let filteredBatas;
@@ -347,6 +365,7 @@ const MapSidebar = ({
               } else {
                 filteredBatas = filterList(batasAdministrasi, debouncedSearch, ['name', 'nama']);
               }
+
               const batasOpen = Boolean(debouncedSearch && filteredBatas.length > 0);
 
               return (
@@ -398,19 +417,50 @@ const MapSidebar = ({
             </div>
           ) : (
             <div className="flex flex-col">
-              {/* Filtered render based on search */}
-              {renderLayerTree(debouncedSearch ? filterTree(treePolaRuangData) : treePolaRuangData, 'Pola Ruang')}
-              {renderLayerTree(debouncedSearch ? filterTree(treeStrukturRuangData) : treeStrukturRuangData, 'Struktur Ruang')}
-              {renderLayerTree(debouncedSearch ? filterTree(treeKetentuanKhususData) : treeKetentuanKhususData, 'Ketentuan Khusus')}
-              {renderLayerTree(debouncedSearch ? filterTree(treePkkprlData) : treePkkprlData, 'PKKPRL')}
-              {renderLayerTree(debouncedSearch ? filterTree(treeIndikasiProgramData) : treeIndikasiProgramData, 'Indikasi Program')}
+              {/* If searching, compute whether any group has matches and show Empty if none */}
+              {(() => {
+                if (debouncedSearch) {
+                  const anyMatch = treeLayerGroup.some((layer) => {
+                    const t = layer.tree || {};
+                    return (
+                      filterTree(t.pola || []).length > 0 ||
+                      filterTree(t.struktur || []).length > 0 ||
+                      filterTree(t.ketentuan || []).length > 0 ||
+                      filterTree(t.pkkprl || []).length > 0 ||
+                      filterTree(t.indikasi || []).length > 0 ||
+                      filterTree(t.data_spasial || []).length > 0
+                    );
+                  });
 
-              {/* If search yields no results, show empty state */}
-              {debouncedSearch && [...filterTree(treePolaRuangData), ...filterTree(treeStrukturRuangData), ...filterTree(treeKetentuanKhususData), ...filterTree(treePkkprlData), ...filterTree(treeIndikasiProgramData)].length === 0 && (
-                <div className="mt-4">
-                  <Empty description={`Tidak ditemukan: "${search}"`} />
-                </div>
-              )}
+                  if (!anyMatch) {
+                    return (
+                      <div className="mt-4">
+                        <Empty description={`Tidak ditemukan: "${search}"`} />
+                      </div>
+                    );
+                  }
+                }
+
+                return treeLayerGroup.map((layer) => (
+                  <React.Fragment key={layer.id || layer.key}>
+                    {/* Debug log to inspect runtime object when troubleshooting */}
+                    {typeof window !== 'undefined' && window.__DEBUG_MAPSIDEBAR__ && console.debug('MapSidebar layer:', layer)}
+                    <Typography.Title level={5} style={{ margin: 0 }}>
+                      {layer.layer_group_name || layer.nama || layer.name || layer.title || layer.deskripsi}
+                    </Typography.Title>
+
+                    {renderLayerTree(debouncedSearch ? filterTree(layer.tree.pola || []) : layer.tree.pola || [], 'Pola Ruang')}
+                    {renderLayerTree(debouncedSearch ? filterTree(layer.tree.struktur || []) : layer.tree.struktur || [], 'Struktur Ruang')}
+                    {renderLayerTree(debouncedSearch ? filterTree(layer.tree.ketentuan || []) : layer.tree.ketentuan || [], 'Ketentuan Khusus')}
+                    {renderLayerTree(debouncedSearch ? filterTree(layer.tree.pkkprl || []) : layer.tree.pkkprl || [], 'PKKPRL')}
+                    {renderLayerTree(debouncedSearch ? filterTree(layer.tree.indikasi || []) : layer.tree.indikasi || [], 'Indikasi Program')}
+                    {renderLayerTree(debouncedSearch ? filterTree(layer.tree.data_spasial || []) : layer.tree.data_spasial || [], 'Data Spasial')}
+                    {renderLayerTree(debouncedSearch ? filterTree(layer.tree.batas || []) : layer.tree.batas || [], 'Batas Administrasi')}
+
+                    <hr className="mb-4" />
+                  </React.Fragment>
+                ));
+              })()}
             </div>
           )}
         </div>

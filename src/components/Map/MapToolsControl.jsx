@@ -51,7 +51,7 @@ const MapToolsControl = () => {
         // Tool definitions
         const tools = [
           { id: 'fullscreen', icon: 'fullscreen', title: 'Layar Penuh' },
-          { id: 'screenshot', icon: 'screenshot', title: 'Screenshot Peta' },
+          // { id: 'screenshot', icon: 'screenshot', title: 'Screenshot Peta' },
           { id: 'location', icon: 'location', title: 'Lokasi Saya' },
           { id: 'target', icon: 'target', title: 'Cari di Peta' },
           { id: 'search', icon: 'search', title: 'Zoom ke Pencarian' },
@@ -69,7 +69,7 @@ const MapToolsControl = () => {
         // SVG Icons
         const icons = {
           fullscreen: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>`,
-          screenshot: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`,
+          // screenshot: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`,
           location: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4m10-10h-4M6 12H2"/></svg>`,
           target: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>`,
           search: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/><path d="M11 8v6m-3-3h6"/></svg>`,
@@ -151,9 +151,9 @@ const MapToolsControl = () => {
         case 'fullscreen':
           toggleFullscreen();
           break;
-        case 'screenshot':
-          takeScreenshot();
-          break;
+        // case 'screenshot':
+        //   takeScreenshot();
+        //   break;
         case 'location':
           goToMyLocation();
           break;
@@ -199,24 +199,24 @@ const MapToolsControl = () => {
     };
 
     // Take screenshot
-    const takeScreenshot = async () => {
-      message.loading('Mengambil screenshot...', 1);
-      try {
-        const { default: html2canvas } = await import('html2canvas');
-        const canvas = await html2canvas(map.getContainer(), {
-          useCORS: true,
-          allowTaint: true
-        });
-        const link = document.createElement('a');
-        link.download = `peta-rtrw-${Date.now()}.png`;
-        link.href = canvas.toDataURL();
-        link.click();
-        message.success('Screenshot berhasil disimpan!');
-      } catch (err) {
-        message.error('Gagal mengambil screenshot. Pastikan html2canvas terinstall.');
-        console.error(err);
-      }
-    };
+    // const takeScreenshot = async () => {
+    //   message.loading('Mengambil screenshot...', 1);
+    //   try {
+    //     const { default: html2canvas } = await import('html2canvas');
+    //     const canvas = await html2canvas(map.getContainer(), {
+    //       useCORS: true,
+    //       allowTaint: true
+    //     });
+    //     const link = document.createElement('a');
+    //     link.download = `peta-rtrw-${Date.now()}.png`;
+    //     link.href = canvas.toDataURL();
+    //     link.click();
+    //     message.success('Screenshot berhasil disimpan!');
+    //   } catch (err) {
+    //     message.error('Gagal mengambil screenshot. Pastikan html2canvas terinstall.');
+    //     console.error(err);
+    //   }
+    // };
 
     // Go to user location
     const goToMyLocation = () => {

@@ -3,22 +3,8 @@ import Model from './Model';
 
 export interface IncomingApiData {
   id: number;
-  klasifikasi: {
-    id: number;
-    nama: string;
-    deskripsi: string;
-    tipe: string;
-    rtrw: {
-      id: number;
-      nama: string;
-      periode: {
-        id: number;
-        tahun_mulai: string;
-        tahun_akhir: string;
-      };
-      deskripsi: string;
-    };
-  };
+  klasifikasi_id: number;
+
   nama: string;
   deskripsi: string;
   geojson_file: string;
@@ -57,22 +43,8 @@ type ReturnType<S, From, To> = S extends From[] ? To[] : To;
 export default class StrukturRuangs extends Model {
   constructor(
     public id: number,
-    public klasifikasi: {
-      id: number;
-      name: string;
-      desc: string;
-      type: string;
-      rtrw: {
-        id: number;
-        name: string;
-        periode: {
-          id: number;
-          year_start: string;
-          year_end: string;
-        };
-        desc: string;
-      };
-    },
+    public klasifikasi_id: number,
+
     public name: string,
     public desc: string,
     public geojson_file: string,
@@ -86,32 +58,11 @@ export default class StrukturRuangs extends Model {
 
   public static fromApiData<T extends IncomingApiData | IncomingApiData[]>(apiData: T): ReturnType<T, IncomingApiData, StrukturRuangs> {
     if (Array.isArray(apiData)) return apiData.map((object) => this.fromApiData(object)) as ReturnType<T, IncomingApiData, StrukturRuangs>;
-    return new StrukturRuangs(
-      apiData.id,
-      {
-        id: apiData.klasifikasi.id,
-        name: apiData.klasifikasi.nama,
-        desc: apiData.klasifikasi.deskripsi,
-        type: apiData.klasifikasi.tipe,
-        rtrw: {
-          id: apiData.klasifikasi.rtrw.id,
-          name: apiData.klasifikasi.rtrw.nama,
-          periode: {
-            id: apiData.klasifikasi.rtrw.periode.id,
-            year_start: apiData.klasifikasi.rtrw.periode.tahun_mulai,
-            year_end: apiData.klasifikasi.rtrw.periode.tahun_akhir
-          },
-          desc: apiData.klasifikasi.rtrw.deskripsi
-        }
-      },
-      apiData.nama,
-      apiData.deskripsi,
-      apiData.geojson_file,
-      apiData.tipe_geometri,
-      asset(apiData.icon_titik),
-      apiData.tipe_garis,
-      apiData.warna
-    ) as ReturnType<T, IncomingApiData, StrukturRuangs>;
+    return new StrukturRuangs(apiData.id, apiData.klasifikasi_id, apiData.nama, apiData.deskripsi, apiData.geojson_file, apiData.tipe_geometri, asset(apiData.icon_titik), apiData.tipe_garis, apiData.warna) as ReturnType<
+      T,
+      IncomingApiData,
+      StrukturRuangs
+    >;
   }
 
   public static toApiData<T extends FormValue | FormValue[]>(strukturRuangs: T): ReturnType<T, FormValue, OutgoingApiData> {

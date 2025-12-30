@@ -27,17 +27,17 @@ export const formFields = ({ options = {} } = {}) => [
     size: 'large'
   },
   {
-    label: `RTRW ${Modul.KLASIFIKASI}`,
-    name: 'rtrw_id',
+    label: `Layer Group ${Modul.KLASIFIKASI}`,
+    name: 'layer_group_id',
     type: InputType.SELECT,
     rules: [
       {
         required: true,
-        message: `RTRW ${Modul.KLASIFIKASI} harus diisi`
+        message: `Layer Group ${Modul.KLASIFIKASI} harus diisi`
       }
     ],
     size: 'large',
-    options: (options.rtrws || []).map((item) => ({
+    options: options.layerGroups.map((item) => ({
       label: item.name,
       value: item.id
     }))
@@ -73,6 +73,10 @@ export const formFields = ({ options = {} } = {}) => [
       {
         label: 'PKKPRL',
         value: 'pkkprl'
+      },
+      {
+        label: 'Data Spasial',
+        value: 'data_spasial'
       }
     ]
   }

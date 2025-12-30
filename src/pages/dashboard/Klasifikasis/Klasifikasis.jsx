@@ -1,7 +1,7 @@
 import { DataTable, DataTableHeader } from '@/components';
 import { Action } from '@/constants';
 import { useAuth, useCrudModal, useNotification, usePagination, useService } from '@/hooks';
-import { KlasifikasisService, RtrwsService } from '@/services';
+import { KlasifikasisService, LayerGroupsService } from '@/services';
 import { Card, Skeleton, Space } from 'antd';
 import { Klasifikasis as KlasifikasiModel } from '@/models';
 import React from 'react';
@@ -16,7 +16,7 @@ const Klasifikasis = () => {
   const modal = useCrudModal();
   const { success, error } = useNotification();
   const { execute, ...getAllKlasifikasis } = useService(KlasifikasisService.getAll);
-  const { execute: fetchRtrws, ...getAllRtrws } = useService(RtrwsService.getAll);
+  const { execute: fetchLayerGroups, ...getAllLayerGroups } = useService(LayerGroupsService.getAll);
   const storeKlasifikasi = useService(KlasifikasisService.store);
   const updateKlasifikasi = useService(KlasifikasisService.update);
   const deleteKlasifikasi = useService(KlasifikasisService.delete);
@@ -38,11 +38,11 @@ const Klasifikasis = () => {
 
   React.useEffect(() => {
     fetchKlasifikasis();
-    fetchRtrws({ token: token });
-  }, [fetchRtrws, fetchKlasifikasis, pagination.page, pagination.per_page, token]);
+    fetchLayerGroups({ token: token });
+  }, [fetchKlasifikasis, pagination.page, pagination.per_page, token, fetchLayerGroups]);
 
   const klasifikasis = getAllKlasifikasis.data ?? [];
-  const rtrws = getAllRtrws.data ?? [];
+  const layerGroups = getAllLayerGroups.data ?? [];
 
   const column = [
     {
@@ -52,9 +52,13 @@ const Klasifikasis = () => {
       searchable: true
     },
     {
-      title: 'RTRW',
-      dataIndex: ['rtrw', 'name'],
-      sorter: (a, b) => a.rtrw.name.length - b.rtrw.name.length,
+      title: 'Layer Group',
+      // Layer may be stored as object or id; render name from fetched layerGroups
+      render: (_, record) => {
+        const id = record.layer_group_id ?? record.layer_group?.id ?? record.layer_group;
+        const group = layerGroups.find((g) => g.id === id || g.layer_group_name === id || g.nama_layer_group === id || g.name === id || g.nama === id);
+        return group?.layer_group_name || group?.name || group?.nama || '-';
+      },
       searchable: true
     },
     {
@@ -76,8 +80,9 @@ const Klasifikasis = () => {
             onClick={() => {
               modal.edit({
                 title: `Edit ${Modul.KLASIFIKASI}`,
-                data: { ...record, rtrw_id: record.rtrw.id },
-                formFields: formFields({ options: { rtrws: rtrws } }),
+                // normalize layer group id for the form
+                data: { ...record, layer_group_id: record.layer_group_id ?? record.layer_group?.id ?? record.layer_group },
+                formFields: formFields({ options: { layerGroups: layerGroups } }),
                 onSubmit: async (values) => {
                   const { message, isSuccess } = await updateKlasifikasi.execute(record.id, values, token);
                   if (isSuccess) {
@@ -95,6 +100,7 @@ const Klasifikasis = () => {
             title={`Detail ${Modul.KLASIFIKASI}`}
             model={KlasifikasiModel}
             onClick={() => {
+              const layer = layerGroups.find((g) => g.id === (record.layer_group_id ?? record.layer_group?.id ?? record.layer_group));
               modal.show.description({
                 title: record.name,
                 data: [
@@ -114,19 +120,9 @@ const Klasifikasis = () => {
                     children: record.type
                   },
                   {
-                    key: 'rtrw_name',
-                    label: `RTRW`,
-                    children: record.rtrw.name
-                  },
-                  {
-                    key: 'rtrw_start',
-                    label: `Tahun Mulai RTRW`,
-                    children: record.rtrw.periode.year_start
-                  },
-                  {
-                    key: 'rtrw_end',
-                    label: `Tahun Akhir RTRW`,
-                    children: record.rtrw.periode.year_end
+                    key: 'layer_group',
+                    label: `Layer Group`,
+                    children: layer ? layer.layer_group_name || layer.name || layer.nama : ' - '
                   }
                 ]
               });
@@ -140,7 +136,6 @@ const Klasifikasis = () => {
               modal.delete.default({
                 title: `Delete ${Modul.KLASIFIKASI}`,
                 data: record,
-                formFields: formFields({ options: { rtrws: rtrws } }),
                 onSubmit: async () => {
                   const { isSuccess, message } = await deleteKlasifikasi.execute(record.id, token);
                   if (isSuccess) {
@@ -154,25 +149,6 @@ const Klasifikasis = () => {
               });
             }}
           />
-
-          {/* <Button
-            icon={<DatabaseOutlined />}
-            variant="outlined"
-            color="primary"
-            onClick={() => {
-              if (record.type === 'pola_ruang') {
-                navigate('/dashboard/polaruang/' + record.id);
-              } else if (record.type === 'struktur_ruang') {
-                navigate('/dashboard/struktur_ruang/' + record.id);
-              } else if (record.type === 'ketentuan_khusus') {
-                navigate('/dashboard/ketentuan_khusus/' + record.id);
-              } else if (record.type === 'pkkprl') {
-                navigate('/dashboard/ketentuan_khusus/' + record.id);
-              } else if (record.type === 'indikasi_program') {
-                navigate('/dashboard/indikasi_program/' + record.id);
-              }
-            }}
-          /> */}
         </Space>
       )
     });
@@ -181,7 +157,7 @@ const Klasifikasis = () => {
   const onCreate = () => {
     modal.create({
       title: `Tambah ${Modul.KLASIFIKASI}`,
-      formFields: formFields({ options: { rtrws: rtrws } }),
+      formFields: formFields({ options: { layerGroups: layerGroups } }),
       onSubmit: async (values) => {
         const { message, isSuccess } = await storeKlasifikasi.execute(values, token);
         if (isSuccess) {
@@ -203,7 +179,6 @@ const Klasifikasis = () => {
         const { message, isSuccess } = await deleteBatchKlasifikasis.execute(ids, token);
         if (isSuccess) {
           success('Berhasil', message);
-          fetchRtrws(token, pagination.page, pagination.per_page);
           setSelectedKlasifikasis([]);
         } else {
           error('Gagal', message);

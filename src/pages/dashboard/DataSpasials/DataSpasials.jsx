@@ -1,13 +1,13 @@
 import { DataTable, DataTableHeader } from '@/components';
 import { Action, InputType } from '@/constants';
 import { useAuth, useCrudModal, useNotification, usePagination, useService } from '@/hooks';
-import { KlasifikasisService, PkkprlService } from '@/services';
+import { KlasifikasisService, DataSpasialsService } from '@/services';
 import { Card, ColorPicker, Skeleton, Space } from 'antd';
 import React from 'react';
 import { Delete, Detail, Edit } from '@/components/dashboard/button';
 import Modul from '@/constants/Modul';
 import { formFields } from './FormFields';
-import { Pkkprl as PkkprlModel } from '@/models';
+import { DataSpasials as DataSpasialModel } from '@/models';
 import { useParams } from 'react-router-dom';
 import { extractUploadFile, hasNewUploadFile, normalizeColorValue } from '@/utils/formData';
 import { EnvironmentOutlined, ExpandAltOutlined, ExpandOutlined } from '@ant-design/icons';
@@ -19,7 +19,7 @@ const buildEditFieldsByGeometry = (record, klasifikasis) => {
 
   if (record.geometry_type === 'point') {
     fields.push({
-      label: `Gambar Icon ${Modul.PKKPRL}`,
+      label: `Gambar Icon ${Modul.DATA_SPASIAL}`,
       name: 'icon',
       type: InputType.UPLOAD,
       max: 1,
@@ -59,13 +59,13 @@ const buildEditFieldsByGeometry = (record, klasifikasis) => {
         ]
       },
       {
-        label: `Warna ${Modul.PKKPRL}`,
+        label: `Warna ${Modul.DATA_SPASIAL}`,
         name: 'color',
         type: InputType.COLOR,
         rules: [
           {
             required: true,
-            message: `Warna ${Modul.PKKPRL} harus diisi`
+            message: `Warna ${Modul.DATA_SPASIAL} harus diisi`
           }
         ],
         size: 'large'
@@ -75,13 +75,13 @@ const buildEditFieldsByGeometry = (record, klasifikasis) => {
 
   if (record.geometry_type === 'plygon') {
     fields.push({
-      label: `Warna ${Modul.PKKPRL}`,
+      label: `Warna ${Modul.DATA_SPASIAL}`,
       name: 'color',
       type: InputType.COLOR,
       rules: [
         {
           required: true,
-          message: `Warna ${Modul.PKKPRL} harus diisi`
+          message: `Warna ${Modul.DATA_SPASIAL} harus diisi`
         }
       ],
       size: 'large'
@@ -91,24 +91,24 @@ const buildEditFieldsByGeometry = (record, klasifikasis) => {
   return fields;
 };
 
-const Pkkprls = () => {
+const DataSpasials = () => {
   const { token, user } = useAuth();
   const params = useParams();
   const modal = useCrudModal();
   const { success, error } = useNotification();
-  const { execute, ...getAllPkkprls } = useService(PkkprlService.getAll);
+  const { execute, ...getAllDataSpasials } = useService(DataSpasialsService.getAll);
   const { execute: fetchKlasifikasis, ...getAllKlasifikasis } = useService(KlasifikasisService.getAll);
-  const storePkkprl = useService(PkkprlService.store);
-  const updatePkkprl = useService(PkkprlService.update);
-  const deletePkkprl = useService(PkkprlService.delete);
-  const deleteBatchPkkprl = useService(PkkprlService.deleteBatch);
+  const storeDataSpasials = useService(DataSpasialsService.store);
+  const updateDataSpasials = useService(DataSpasialsService.update);
+  const deleteDataSpasials = useService(DataSpasialsService.delete);
+  const deleteBatchDataSpasials = useService(DataSpasialsService.deleteBatch);
   const [filterValues, setFilterValues] = React.useState({ search: '' });
 
-  const pagination = usePagination({ totalData: getAllPkkprls.totalData });
+  const pagination = usePagination({ totalData: getAllDataSpasials.totalData });
 
-  const [selectedPkkprl, setSelectedPkkprl] = React.useState([]);
+  const [selectedDataSpasials, setSelectedDataSpasials] = React.useState([]);
 
-  const fetchPkkprl = React.useCallback(() => {
+  const fetchDataSpasials = React.useCallback(() => {
     execute({
       token: token,
       page: pagination.page,
@@ -119,24 +119,18 @@ const Pkkprls = () => {
   }, [execute, filterValues.search, pagination.page, pagination.per_page, params.klasifikasi_id, token]);
 
   React.useEffect(() => {
-    fetchPkkprl();
-    fetchKlasifikasis({ token: token, tipe: 'pkkprl' });
-  }, [fetchKlasifikasis, fetchPkkprl, pagination.page, pagination.per_page, token]);
+    fetchDataSpasials();
+    fetchKlasifikasis({ token: token, tipe: 'data_spasial' });
+  }, [fetchKlasifikasis, fetchDataSpasials, pagination.page, pagination.per_page, token]);
 
-  const pkkprl = getAllPkkprls.data ?? [];
+  const dataSpasials = getAllDataSpasials.data ?? [];
   const klasifikasis = getAllKlasifikasis.data ?? [];
 
   const column = [
     {
-      title: 'Nama Pkkprl',
+      title: 'Nama Data Spasial',
       dataIndex: 'name',
       sorter: (a, b) => a.name.length - b.name.length,
-      searchable: true
-    },
-    {
-      title: 'Klasifikasi',
-      dataIndex: ['klasifikasi', 'name'],
-      sorter: (a, b) => a.klasifikasi.name.length - b.klasifikasi.name.length,
       searchable: true
     },
     {
@@ -148,17 +142,17 @@ const Pkkprls = () => {
     }
   ];
 
-  if (user && user.eitherCan([UPDATE, PkkprlModel], [DELETE, PkkprlModel], [READ, PkkprlModel])) {
+  if (user && user.eitherCan([UPDATE, DataSpasialModel], [DELETE, DataSpasialModel], [READ, DataSpasialModel])) {
     column.push({
       title: 'Aksi',
       render: (_, record) => (
         <Space size="small">
           <Edit
-            title={`Edit ${Modul.PKKPRL}`}
-            model={PkkprlModel}
+            title={`Edit ${Modul.DATA_SPASIAL}`}
+            model={DataSpasialModel}
             onClick={() => {
               modal.edit({
-                title: `Edit ${Modul.PKKPRL}`,
+                title: `Edit ${Modul.DATA_SPASIAL}`,
                 data: {
                   ...record,
                   id_klasifikasi: record.klasifikasi_id,
@@ -189,11 +183,11 @@ const Pkkprls = () => {
 
                   const fileToSend = Object.keys(files).length ? files : null;
 
-                  const { message, isSuccess } = await updatePkkprl.execute(record.id, payload, token, fileToSend);
+                  const { message, isSuccess } = await updateDataSpasials.execute(record.id, payload, token, fileToSend);
 
                   if (isSuccess) {
                     success('Berhasil', message);
-                    fetchPkkprl();
+                    fetchDataSpasials();
                   } else {
                     error('Gagal', message);
                   }
@@ -205,15 +199,15 @@ const Pkkprls = () => {
           />
 
           <Detail
-            title={`Detail ${Modul.PKKPRL}`}
-            model={PkkprlModel}
+            title={`Detail ${Modul.DATA_SPASIAL}`}
+            model={DataSpasialModel}
             onClick={() => {
               modal.show.description({
                 title: record.name,
                 data: [
                   {
                     key: 'name',
-                    label: `Nama PKKPRL`,
+                    label: `Nama Data Spasial`,
                     children: record.name
                   },
                   {
@@ -241,17 +235,17 @@ const Pkkprls = () => {
             }}
           />
           <Delete
-            title={`Delete ${Modul.PKKPRL}`}
-            model={PkkprlModel}
+            title={`Delete ${Modul.DATA_SPASIAL}`}
+            model={DataSpasialModel}
             onClick={() => {
               modal.delete.default({
-                title: `Delete ${Modul.PKKPRL}`,
+                title: `Delete ${Modul.DATA_SPASIAL}`,
                 data: record,
                 onSubmit: async () => {
-                  const { isSuccess, message } = await deletePkkprl.execute(record.id, token);
+                  const { isSuccess, message } = await deleteDataSpasials.execute(record.id, token);
                   if (isSuccess) {
                     success('Berhasil', message);
-                    fetchPkkprl();
+                    fetchDataSpasials();
                   } else {
                     error('Gagal', message);
                   }
@@ -270,7 +264,7 @@ const Pkkprls = () => {
 
     if (type === 'point') {
       fields.push({
-        label: `Gambar Icon ${Modul.PKKPRL}`,
+        label: `Gambar Icon ${Modul.DATA_SPASIAL}`,
         name: 'icon',
         type: InputType.UPLOAD,
         max: 1,
@@ -289,7 +283,7 @@ const Pkkprls = () => {
         rules: [
           {
             required: true,
-            message: `Icon ${Modul.PKKPRL} harus diisi`
+            message: `Icon ${Modul.DATA_SPASIAL} harus diisi`
           }
         ]
       });
@@ -321,13 +315,13 @@ const Pkkprls = () => {
           ]
         },
         {
-          label: `Warna ${Modul.PKKPRL}`,
+          label: `Warna ${Modul.DATA_SPASIAL}`,
           name: 'color',
           type: InputType.COLOR,
           rules: [
             {
               required: true,
-              message: `Warna ${Modul.PKKPRL} harus diisi`
+              message: `Warna ${Modul.DATA_SPASIAL} harus diisi`
             }
           ],
           size: 'large'
@@ -335,13 +329,13 @@ const Pkkprls = () => {
       );
     } else if (type === 'polygon') {
       fields.push({
-        label: `Warna ${Modul.PKKPRL}`,
+        label: `Warna ${Modul.DATA_SPASIAL}`,
         name: 'color',
         type: InputType.COLOR,
         rules: [
           {
             required: true,
-            message: `Warna ${Modul.PKKPRL} harus diisi`
+            message: `Warna ${Modul.DATA_SPASIAL} harus diisi`
           }
         ],
         size: 'large'
@@ -349,7 +343,7 @@ const Pkkprls = () => {
     }
 
     modal.create({
-      title: `Tambah ${Modul.PKKPRL}`,
+      title: `Tambah ${Modul.DATA_SPASIAL}`,
       formFields: fields,
       onSubmit: async (values) => {
         const payload = {
@@ -369,11 +363,11 @@ const Pkkprls = () => {
           icon_titik: iconFile?.icon ?? iconFile
         };
 
-        const { message, isSuccess } = await storePkkprl.execute(payload, token, fileToSend);
+        const { message, isSuccess } = await storeDataSpasials.execute(payload, token, fileToSend);
 
         if (isSuccess) {
           success('Berhasil', message);
-          fetchPkkprl();
+          fetchDataSpasials();
         } else {
           error('Gagal', message);
         }
@@ -435,14 +429,14 @@ const Pkkprls = () => {
 
   const onDeleteBatch = () => {
     modal.delete.batch({
-      title: `Hapus ${selectedPkkprl.length} ${Modul.PKKPRL} Yang Dipilih ? `,
+      title: `Hapus ${selectedDataSpasials.length} ${Modul.DATA_SPASIAL} Yang Dipilih ? `,
       onSubmit: async () => {
-        const ids = selectedPkkprl.map((item) => item.id);
-        const { message, isSuccess } = await deleteBatchPkkprl.execute(ids, token);
+        const ids = selectedDataSpasials.map((item) => item.id);
+        const { message, isSuccess } = await deleteBatchDataSpasials.execute(ids, token);
         if (isSuccess) {
           success('Berhasil', message);
           fetchKlasifikasis(token, pagination.page, pagination.per_page);
-          setSelectedPkkprl([]);
+          setSelectedDataSpasials([]);
         } else {
           error('Gagal', message);
         }
@@ -453,14 +447,21 @@ const Pkkprls = () => {
 
   return (
     <Card>
-      <Skeleton loading={getAllPkkprls.isLoading}>
-        <DataTableHeader onStore={onCreate} modul={Modul.PKKPRL} onDeleteBatch={onDeleteBatch} selectedData={selectedPkkprl} onSearch={(values) => setFilterValues({ search: values })} model={PkkprlModel} />
+      <Skeleton loading={getAllDataSpasials.isLoading}>
+        <DataTableHeader onStore={onCreate} modul={Modul.DATA_SPASIAL} onDeleteBatch={onDeleteBatch} selectedData={selectedDataSpasials} onSearch={(values) => setFilterValues({ search: values })} model={DataSpasialModel} />
         <div className="w-full max-w-full overflow-x-auto">
-          <DataTable data={pkkprl} columns={column} loading={getAllPkkprls.isLoading} map={(registrant) => ({ key: registrant.id, ...registrant })} pagination={pagination} handleSelectedData={(_, selectedRows) => setSelectedPkkprl(selectedRows)} />
+          <DataTable
+            data={dataSpasials}
+            columns={column}
+            loading={getAllDataSpasials.isLoading}
+            map={(registrant) => ({ key: registrant.id, ...registrant })}
+            pagination={pagination}
+            handleSelectedData={(_, selectedRows) => setSelectedDataSpasials(selectedRows)}
+          />
         </div>
       </Skeleton>
     </Card>
   );
 };
 
-export default Pkkprls;
+export default DataSpasials;

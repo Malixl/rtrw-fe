@@ -161,7 +161,8 @@ const KetentuanKhusus = () => {
                 title: `Edit ${Modul.KETENTUAN_KHUSUS}`,
                 data: {
                   ...record,
-                  id_klasifikasi: record.klasifikasi.id,
+                  ...record,
+                  id_klasifikasi: record.klasifikasi_id,
                   icon: record.point_icon ?? null
                 },
                 formFields: buildEditFieldsByGeometry(record, klasifikasis),
