@@ -1,6 +1,6 @@
 /* eslint-disable react/prop-types */
-import { useCallback } from 'react';
-import { Button, Checkbox, Collapse, Form, Select, Skeleton, Typography, Tooltip } from 'antd';
+import React, { useCallback } from 'react';
+import { Button, Checkbox, Collapse, Skeleton, Typography, Tooltip } from 'antd';
 import { AimOutlined, InfoCircleOutlined, MenuOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import { useCrudModal } from '@/hooks';
 import asset from '@/utils/asset';
@@ -79,27 +79,26 @@ const LoadingSkeleton = () => (
  */
 const MapSidebar = ({
   // Data
-  rtrws,
+  // rtrws,
   batasAdministrasi,
-  treePolaRuangData,
-  treeStrukturRuangData,
-  treeKetentuanKhususData,
-  treePkkprlData,
-  treeIndikasiProgramData,
+  // treePolaRuangData,
+  // treeStrukturRuangData,
+  // treeKetentuanKhususData,
+  // treePkkprlData,
+  // treeIndikasiProgramData,
   selectedLayers,
   loadingLayers,
   // Loading states
-  isLoadingRtrws,
   isLoadingBatas,
   isLoadingKlasifikasi,
   // Handlers
   onToggleLayer,
-  onFetchKlasifikasi,
   // Collapse control
   isCollapsed,
   onToggleCollapse,
   // Responsive
-  isMobile = false
+  isMobile = false,
+  treeLayerGroup
 }) => {
   const modal = useCrudModal();
 
@@ -181,7 +180,10 @@ const MapSidebar = ({
                   pemetaan={pemetaan}
                   isChecked={!!selectedLayers[pemetaan.key]}
                   isLoading={loadingLayers[pemetaan.key]}
-                  onToggle={() => onToggleLayer(pemetaan)}
+                  onToggle={() => {
+                    console.log('CLICK:', pemetaan.key);
+                    onToggleLayer(pemetaan);
+                  }}
                   onInfoClick={() =>
                     showInfoModal(pemetaan.nama, [
                       { key: 'name', label: `Nama ${labelKey}`, children: pemetaan.nama },
@@ -239,28 +241,6 @@ const MapSidebar = ({
             </div>
           )}
 
-          {/* RTRW Selection Form */}
-          <div className={isMobile ? 'mt-2' : 'mt-4'}>
-            <Skeleton loading={isLoadingRtrws}>
-              <Form className="flex items-center gap-x-2" onFinish={onFetchKlasifikasi}>
-                <Form.Item name="id_rtrw" style={{ margin: 0 }} className="w-full">
-                  <Select size="large" placeholder="Pilih Data RTRW" className="w-full">
-                    {rtrws.map((item) => (
-                      <Select.Option key={item.id} value={item.id}>
-                        {item.name}
-                      </Select.Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-                <Form.Item style={{ margin: 0 }}>
-                  <Button size="large" type="primary" htmlType="submit" loading={isLoadingKlasifikasi}>
-                    Kirim
-                  </Button>
-                </Form.Item>
-              </Form>
-            </Skeleton>
-          </div>
-
           {/* Batas Administrasi Section */}
           <div className="mt-2">
             <CollapsibleSection title="Batas Administrasi" panelKey="batas" defaultActiveKey={['batas']}>
@@ -305,11 +285,20 @@ const MapSidebar = ({
             </div>
           ) : (
             <div className="flex flex-col">
-              {renderLayerTree(treePolaRuangData, 'Pola Ruang')}
-              {renderLayerTree(treeStrukturRuangData, 'Struktur Ruang')}
-              {renderLayerTree(treeKetentuanKhususData, 'Ketentuan Khusus')}
-              {renderLayerTree(treePkkprlData, 'PKKPRL')}
-              {renderLayerTree(treeIndikasiProgramData, 'Indikasi Program')}
+              {treeLayerGroup.map((layer) => (
+                <React.Fragment key={layer.id || layer.key}>
+                  <Typography.Title level={5} style={{ margin: 0 }}>
+                    {layer.deskripsi}
+                  </Typography.Title>
+                  {renderLayerTree(layer.tree.pola, 'Pola Ruang')}
+                  {renderLayerTree(layer.tree.struktur, 'Struktur Ruang')}
+                  {renderLayerTree(layer.tree.ketentuan, 'Ketentuan Khusus')}
+                  {renderLayerTree(layer.tree.pkkprl, 'PKKPRL')}
+                  {renderLayerTree(layer.tree.indikasi, 'Indikasi Program')}
+                  {renderLayerTree(layer.tree.data_spasial, 'Data Spasial')}
+                  <hr className="mb-4" />
+                </React.Fragment>
+              ))}
             </div>
           )}
         </div>

@@ -14,7 +14,7 @@ export default class DataSpasialsService {
    * */
   static async getAll({ token, ...filters }) {
     const params = Object.fromEntries(Object.entries(filters).filter(([_, value]) => value !== null && value !== undefined && value !== ''));
-    const response = await api.get('/data_spasial', { token });
+    const response = await api.get('/data_spasial', { token, params });
     if (!response.data) return response;
     return { ...response, data: DataSpasials.fromApiData(response.data) };
   }
@@ -90,7 +90,7 @@ export default class DataSpasialsService {
    * }>}
    */
   static async delete(id, token) {
-    return await api.delete(`/data_spasial/delete/${id}`, { token });
+    return await api.delete(`/data_spasial/${id}`, { token });
   }
 
   /**

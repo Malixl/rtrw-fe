@@ -3,16 +3,8 @@ import Model from './Model';
 
 export interface IncomingApiData {
   id: number;
-  klasifikasi: {
-    id: number;
-    nama: string;
-    deskripsi: string;
-    tipe: string;
-    layer_group: {
-      id: number;
-      nama_layer_group: string;
-    };
-  };
+  klasifikasi_id: number;
+
   nama: string;
   deskripsi: string;
   geojson_file: string;
@@ -51,16 +43,8 @@ type ReturnType<S, From, To> = S extends From[] ? To[] : To;
 export default class StrukturRuangs extends Model {
   constructor(
     public id: number,
-    public klasifikasi: {
-      id: number;
-      name: string;
-      desc: string;
-      type: string;
-      layer_group: {
-        id: number;
-        name: string;
-      };
-    },
+    public klasifikasi_id: number,
+
     public name: string,
     public desc: string,
     public geojson_file: string,
@@ -74,26 +58,11 @@ export default class StrukturRuangs extends Model {
 
   public static fromApiData<T extends IncomingApiData | IncomingApiData[]>(apiData: T): ReturnType<T, IncomingApiData, StrukturRuangs> {
     if (Array.isArray(apiData)) return apiData.map((object) => this.fromApiData(object)) as ReturnType<T, IncomingApiData, StrukturRuangs>;
-    return new StrukturRuangs(
-      apiData.id,
-      {
-        id: apiData.klasifikasi.id,
-        name: apiData.klasifikasi.nama,
-        desc: apiData.klasifikasi.deskripsi,
-        type: apiData.klasifikasi.tipe,
-        layer_group: {
-          id: apiData.klasifikasi.layer_group.id,
-          name: apiData.klasifikasi.layer_group.nama_layer_group
-        }
-      },
-      apiData.nama,
-      apiData.deskripsi,
-      apiData.geojson_file,
-      apiData.tipe_geometri,
-      asset(apiData.icon_titik),
-      apiData.tipe_garis,
-      apiData.warna
-    ) as ReturnType<T, IncomingApiData, StrukturRuangs>;
+    return new StrukturRuangs(apiData.id, apiData.klasifikasi_id, apiData.nama, apiData.deskripsi, apiData.geojson_file, apiData.tipe_geometri, asset(apiData.icon_titik), apiData.tipe_garis, apiData.warna) as ReturnType<
+      T,
+      IncomingApiData,
+      StrukturRuangs
+    >;
   }
 
   public static toApiData<T extends FormValue | FormValue[]>(strukturRuangs: T): ReturnType<T, FormValue, OutgoingApiData> {

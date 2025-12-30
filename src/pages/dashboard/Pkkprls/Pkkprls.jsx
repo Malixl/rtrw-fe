@@ -161,7 +161,7 @@ const Pkkprls = () => {
                 title: `Edit ${Modul.PKKPRL}`,
                 data: {
                   ...record,
-                  id_klasifikasi: record.klasifikasi.id,
+                  id_klasifikasi: record.klasifikasi_id,
                   icon: record.point_icon ?? null
                 },
                 formFields: buildEditFieldsByGeometry(record, klasifikasis),

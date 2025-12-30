@@ -81,7 +81,10 @@ const Polaruangs = () => {
             onClick={() => {
               modal.edit({
                 title: `Edit ${Modul.POLARUANG}`,
-                data: { ...record, id_klasifikasi: record.klasifikasi.id },
+                data: {
+                  ...record,
+                  id_klasifikasi: record.klasifikasi_id
+                },
                 formFields: formFields({ options: { klasifikasi: klasifikasis } }),
                 onSubmit: async (values) => {
                   const isFileUpdated = hasNewUploadFile(values.geojson_file);

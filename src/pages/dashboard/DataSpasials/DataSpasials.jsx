@@ -134,12 +134,6 @@ const DataSpasials = () => {
       searchable: true
     },
     {
-      title: 'Klasifikasi',
-      dataIndex: ['klasifikasi', 'name'],
-      sorter: (a, b) => a.klasifikasi.name.length - b.klasifikasi.name.length,
-      searchable: true
-    },
-    {
       title: 'Warna',
       dataIndex: 'color',
       sorter: (a, b) => a.color.length - b.color.length,
@@ -161,7 +155,7 @@ const DataSpasials = () => {
                 title: `Edit ${Modul.DATA_SPASIAL}`,
                 data: {
                   ...record,
-                  id_klasifikasi: record.klasifikasi.id,
+                  id_klasifikasi: record.klasifikasi_id,
                   icon: record.point_icon ?? null
                 },
                 formFields: buildEditFieldsByGeometry(record, klasifikasis),

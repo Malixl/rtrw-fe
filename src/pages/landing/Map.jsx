@@ -1,0 +1,769 @@
+/* eslint-disable no-unused-vars */
+/* eslint-disable react/prop-types */
+import { useAuth, useNotification, useService } from '@/hooks';
+import { BatasAdministrasiService, LayerGroupsService } from '@/services';
+import { BASE_URL } from '@/utils/api';
+import asset from '@/utils/asset';
+
+import { LockOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
+import { Button, Result, Skeleton, Tooltip } from 'antd';
+import React from 'react';
+import { MapContainer, TileLayer, GeoJSON, Popup, LayersControl } from 'react-leaflet';
+import { useNavigate } from 'react-router-dom';
+import L from 'leaflet';
+import 'leaflet-draw';
+import 'leaflet-draw/dist/leaflet.draw.css';
+import FeaturePopup from '@/components/Map/FeaturePopup';
+import HomeControl from '@/components/Map/HomeControl';
+import CoordinateControl from '@/components/Map/CoordinateControl';
+import MapToolsControl from '@/components/Map/MapToolsControl';
+import MapSidebar from '@/components/Map/MapSidebar';
+
+const { BaseLayer } = LayersControl;
+
+const Maps = () => {
+  const navigate = useNavigate();
+  const { canAccessMap, capabilities, isLoading: authLoading } = useAuth();
+  const { execute: fetchBatas, data: batasData, isLoading: isLoadingBatas, isSuccess: isBatasSuccess, message: batasMessage } = useService(BatasAdministrasiService.getAll);
+  const [selectedLayers, setSelectedLayers] = React.useState({});
+  const [loadingLayers, setLoadingLayers] = React.useState({});
+  const [popupInfo, setPopupInfo] = React.useState(null);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(true);
+  const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
+  const [isTablet, setIsTablet] = React.useState(window.innerWidth >= 768 && window.innerWidth < 1024);
+
+  const [layerGroupTrees, setLayerGroupTrees] = React.useState([]);
+
+  // Handle window resize for responsive
+  React.useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      setIsMobile(width < 768);
+      setIsTablet(width >= 768 && width < 1024);
+      // Auto collapse sidebar on mobile
+      if (width < 768) {
+        setIsSidebarCollapsed(true);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    handleResize();
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const hasMapAccess = canAccessMap();
+  const showBlurMap = capabilities?.show_blur_map ?? !hasMapAccess;
+  const loginMessage = capabilities?.login_message || 'Silakan login untuk melihat peta interaktif';
+
+  React.useEffect(() => {
+    if (hasMapAccess) {
+      fetchBatas({ page: 1, per_page: 100000 });
+    }
+  }, [fetchBatas, hasMapAccess]);
+
+  React.useEffect(() => {
+    if (!isLoadingBatas && !isBatasSuccess && batasMessage) {
+      console.error('Gagal memuat Batas Administrasi:', batasMessage);
+    }
+  }, [isLoadingBatas, isBatasSuccess, batasMessage]);
+
+  const batasAdministrasi = batasData ?? [];
+
+  const handleToggleLayer = async (pemetaan) => {
+    const key = pemetaan.key;
+    const id = pemetaan.id;
+    const type = pemetaan.type;
+
+    if (selectedLayers[key]) {
+      const updated = { ...selectedLayers };
+      delete updated[key];
+      setSelectedLayers(updated);
+      return;
+    }
+
+    setLoadingLayers((prev) => ({ ...prev, [key]: true }));
+
+    try {
+      let url = '';
+      if (type === 'pola') url = `${BASE_URL}/polaruang/${id}/geojson`;
+      else if (type === 'struktur') url = `${BASE_URL}/struktur_ruang/${id}/geojson`;
+      else if (type === 'ketentuan_khusus') url = `${BASE_URL}/ketentuan_khusus/${id}/geojson`;
+      else if (type === 'pkkprl') url = `${BASE_URL}/pkkprl/${id}/geojson`;
+      else if (type === 'data_spasial') url = `${BASE_URL}/data_spasial/${id}/geojson`;
+      else if (type === 'batas_administrasi') url = `${BASE_URL}/batas_administrasi/${id}/geojson`;
+
+      const res = await fetch(url);
+      const json = await res.json();
+      const warna = pemetaan.warna ?? null;
+      const iconImageUrl = asset(pemetaan.icon_titik) ?? null;
+      const tipe_garis = pemetaan.tipe_garis ?? null;
+      const fillOpacity = pemetaan.fill_opacity ?? 0.8;
+
+      const enhanced = {
+        ...json,
+        features: (json.features || []).map((feature) => {
+          const props = { ...(feature.properties || {}) };
+
+          // warna
+          if (warna) {
+            props.stroke = warna;
+            props.fill = warna;
+            props['stroke-opacity'] = 1;
+            props['fill-opacity'] = fillOpacity;
+          }
+
+          // tipe garis
+          if (tipe_garis === 'dashed') {
+            props.dashArray = '6 6';
+            props['stroke-width'] = 3;
+          }
+
+          if (tipe_garis === 'solid') {
+            props.dashArray = null;
+            props['stroke-width'] = 3;
+          }
+
+          if (tipe_garis === 'bold') {
+            props.dashArray = null;
+            props['stroke-width'] = 6; // 🔥 LEBIH TEBAL
+          }
+
+          if (iconImageUrl) {
+            props.icon_image_url = iconImageUrl;
+          }
+
+          return {
+            ...feature,
+            properties: props
+          };
+        })
+      };
+
+      setSelectedLayers((prev) => ({
+        ...prev,
+        [key]: { id, type, data: enhanced, meta: pemetaan }
+      }));
+    } catch (e) {
+      console.error('Gagal mengambil GeoJSON:', e);
+    } finally {
+      setLoadingLayers((prev) => ({ ...prev, [key]: false }));
+    }
+  };
+
+  React.useEffect(() => {
+    if (batasAdministrasi.length > 0) {
+      batasAdministrasi.forEach((item) => {
+        const pemetaan = {
+          key: `batas-${item.id}`,
+          id: item.id,
+          type: 'batas_administrasi',
+          nama: item.name || item.nama,
+          warna: item.color || item.warna || '#000000', // Default color for boundaries
+          tipe_geometri: item.geometry_type || item.tipe_geometri || 'polyline',
+          tipe_garis: item.line_type || item.tipe_garis || 'solid',
+          fill_opacity: 0.3
+        };
+        // Only toggle if not already selected
+        if (!selectedLayers[pemetaan.key]) {
+          handleToggleLayer(pemetaan);
+        }
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [batasAdministrasi]);
+
+  const mapPolaRuang = React.useCallback((data) => {
+    return data.map((klasifikasi) => ({
+      title: klasifikasi.nama,
+      key: `pola-root-${klasifikasi.id}`,
+      ...klasifikasi,
+      children: (klasifikasi.pola_ruang || []).map((pola) => ({
+        ...pola,
+        type: 'pola',
+        title: pola.nama,
+        key: `pola-${pola.id}`,
+        geojson_file: asset(pola.geojson_file),
+        isLeaf: true
+      }))
+    }));
+  }, []);
+
+  const mapStrukturRuang = React.useCallback((data) => {
+    return data.map((klasifikasi) => ({
+      title: klasifikasi.nama,
+      key: `struktur-root-${klasifikasi.id}`,
+      ...klasifikasi,
+      children: (klasifikasi.struktur_ruang || []).map((struktur) => ({
+        ...struktur,
+        type: 'struktur',
+        title: struktur.nama,
+        key: `struktur-${struktur.id}`,
+        geojson_file: asset(struktur.geojson_file),
+        isLeaf: true
+      }))
+    }));
+  }, []);
+
+  const mapKetentuanKhusus = React.useCallback((data) => {
+    return data.map((klasifikasi) => ({
+      title: klasifikasi.nama,
+      key: `ketentuan_khusus-root-${klasifikasi.id}`,
+      ...klasifikasi,
+      children: (klasifikasi.ketentuan_khusus || []).map((ketentuan_khusus) => ({
+        ...ketentuan_khusus,
+        type: 'ketentuan_khusus',
+        title: ketentuan_khusus.nama,
+        key: `ketentuan_khusus-${ketentuan_khusus.id}`,
+        geojson_file: asset(ketentuan_khusus.geojson_file),
+        isLeaf: true
+      }))
+    }));
+  }, []);
+
+  const mapPkkprl = React.useCallback((data) => {
+    return data.map((klasifikasi) => ({
+      title: klasifikasi.nama,
+      key: `pkkprl-root-${klasifikasi.id}`,
+      ...klasifikasi,
+      children: (klasifikasi.pkkprl || []).map((pkkprl) => ({
+        ...pkkprl,
+        type: 'pkkprl',
+        title: pkkprl.nama,
+        key: `pkkprl-${pkkprl.id}`,
+        geojson_file: asset(pkkprl.geojson_file),
+        isLeaf: true
+      }))
+    }));
+  }, []);
+
+  const mapIndikasiProgram = React.useCallback((data) => {
+    return data.map((klasifikasi) => ({
+      title: klasifikasi.nama,
+      key: `indikasi_program-root-${klasifikasi.id}`,
+      ...klasifikasi,
+      children: (klasifikasi.indikasi_program || []).map((indikasi_program) => ({
+        ...indikasi_program,
+        type: 'indikasi_program',
+        title: indikasi_program.nama,
+        key: `indikasi_program-${indikasi_program.id}`,
+        isLeaf: true
+      }))
+    }));
+  }, []);
+
+  const mapDataSpasial = React.useCallback((data) => {
+    return data.map((klasifikasi) => ({
+      title: klasifikasi.nama,
+      key: `data_spasial-root-${klasifikasi.id}`,
+      ...klasifikasi,
+      children: (klasifikasi.data_spasial || []).map((data_spasial) => ({
+        ...data_spasial,
+        type: 'data_spasial',
+        title: data_spasial.nama,
+        key: `data_spasial-${data_spasial.id}`,
+        geojson_file: asset(data_spasial.geojson_file),
+        isLeaf: true
+      }))
+    }));
+  }, []);
+
+  // Use stable execute function reference to avoid re-creating the callback when hook data changes
+  const { execute, ...getAllLayerGroups } = useService(LayerGroupsService.layerGroupWithKlasifikasi);
+
+  const fetchLayerGroups = React.useCallback(() => {
+    execute({ page: 1, per_page: 9999 });
+  }, [execute]);
+
+  React.useEffect(() => {
+    fetchLayerGroups();
+  }, [fetchLayerGroups]);
+
+  const layerGroupData = React.useMemo(() => getAllLayerGroups.data ?? [], [getAllLayerGroups.data]);
+
+  React.useEffect(() => {
+    if (layerGroupData) {
+      const result = layerGroupData.map((group) => {
+        const klasifikasis = group.klasifikasis || {};
+
+        const pola_ruang_list = klasifikasis.klasifikasi_pola_ruang ?? [];
+        const struktur_ruang_list = klasifikasis.klasifikasi_struktur_ruang ?? [];
+        const ketentuan_khusus_list = klasifikasis.klasifikasi_ketentuan_khusus ?? [];
+        const pkkprl_list = klasifikasis.klasifikasi_pkkprl ?? [];
+        const data_spasial = klasifikasis.klasifikasi_data_spasial ?? [];
+        const indikasi_program_list = klasifikasis.klasifikasi_indikasi_program ?? [];
+
+        return {
+          id: group.id,
+          nama: group.layer_group_name,
+          deskripsi: group.deskripsi,
+          urutan: group.urutan_tampil,
+
+          // 🔥 HASIL TREEMAP LAMA KAMU
+          tree: {
+            pola: mapPolaRuang(pola_ruang_list),
+            struktur: mapStrukturRuang(struktur_ruang_list),
+            ketentuan: mapKetentuanKhusus(ketentuan_khusus_list),
+            pkkprl: mapPkkprl(pkkprl_list),
+            data_spasial: mapDataSpasial(data_spasial),
+            indikasi: mapIndikasiProgram(indikasi_program_list)
+          }
+        };
+      });
+
+      setLayerGroupTrees(result);
+    }
+  }, [layerGroupData, mapDataSpasial, mapIndikasiProgram, mapKetentuanKhusus, mapPkkprl, mapPolaRuang, mapStrukturRuang]);
+
+  const getFeatureStyle = (feature) => {
+    const props = feature.properties || {};
+
+    const stroke = props.stroke || '#0000ff';
+    const weight = props['stroke-width'] ?? 3;
+    const opacity = props['stroke-opacity'] ?? 1;
+    const fillColor = props.fill;
+    const fillOpacity = props['fill-opacity'] ?? 0.8;
+    const dashArray = props.dashArray || props['stroke-dasharray'] || null;
+
+    const style = {
+      color: stroke,
+      weight,
+      opacity,
+      fillColor,
+      fillOpacity
+    };
+
+    if (dashArray) style.dashArray = dashArray;
+
+    return style;
+  };
+
+  // Show loading state while checking auth
+  if (authLoading) {
+    return (
+      <section className="flex h-screen w-full items-center justify-center">
+        <Skeleton active paragraph={{ rows: 6 }} />
+      </section>
+    );
+  }
+
+  // Show access denied overlay for users without map access
+  if (!hasMapAccess) {
+    return (
+      <section className="relative flex h-screen w-full">
+        {/* Blurred Map Background */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className={showBlurMap ? 'pointer-events-none blur-sm grayscale' : ''}>
+            <MapContainer center={[0.5412, 123.0595]} zoom={9} className="h-screen w-full" zoomControl={false} dragging={false} scrollWheelZoom={false}>
+              <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            </MapContainer>
+          </div>
+        </div>
+
+        {/* Overlay with Login Prompt */}
+        <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="mx-4 max-w-md rounded-xl bg-white p-8 shadow-2xl">
+            <Result
+              icon={<LockOutlined className="text-6xl text-blue-500" />}
+              title="Akses Terbatas"
+              subTitle={loginMessage}
+              extra={
+                <div className="flex flex-col gap-3">
+                  <Button key="login" type="primary" size="large" onClick={() => navigate('/auth/login?redirect=/map')}>
+                    Login Sekarang
+                  </Button>
+                  <Button key="home" size="large" onClick={() => navigate('/')}>
+                    Kembali ke Beranda
+                  </Button>
+                </div>
+              }
+            />
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="relative h-screen w-full overflow-hidden">
+      {/* Dynamic styles for map controls based on sidebar state and screen size */}
+      <style>
+        {`
+          /* Desktop styles */
+          @media (min-width: 1024px) {
+            .leaflet-top.leaflet-right {
+              right: ${isSidebarCollapsed ? '10px' : '410px'};
+              transition: right 0.3s ease-in-out;
+            }
+          }
+          
+          /* Tablet styles */
+          @media (min-width: 768px) and (max-width: 1023px) {
+            .leaflet-top.leaflet-right {
+              right: ${isSidebarCollapsed ? '10px' : '320px'};
+              transition: right 0.3s ease-in-out;
+            }
+          }
+          
+          /* Mobile styles */
+          @media (max-width: 767px) {
+            .leaflet-top.leaflet-right {
+              right: 10px;
+              top: 10px;
+            }
+            .leaflet-control-zoom {
+              display: none;
+            }
+            .map-tools-control {
+              transform: scale(0.9);
+            }
+            .leaflet-bottom.leaflet-left,
+            .leaflet-bottom.leaflet-right {
+              bottom: 60px !important;
+            }
+          }
+
+          /* === LABEL KHUSUS UNTUK BATAS ADMINISTRASI SAJA === */
+          .batas-label {
+            /* HAPUS BACKGROUND */
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            
+            /* STYLE TEKS SAJA */
+            font-weight: 700 !important;
+            font-size: 13px !important;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #000000 !important;
+            
+            /* STROKE/TEKS BORDER PUTIH */
+            text-shadow: 
+              1px 1px 0 #FFFFFF,
+              -1px 1px 0 #FFFFFF,
+              1px -1px 0 #FFFFFF,
+              -1px -1px 0 #FFFFFF,
+              0px 1px 0 #FFFFFF,
+              0px -1px 0 #FFFFFF,
+              1px 0px 0 #FFFFFF,
+              -1px 0px 0 #FFFFFF !important;
+            
+            text-align: center;
+            white-space: nowrap;
+            pointer-events: none;
+          }
+        `}
+      </style>
+
+      {/* Mobile Floating Button to Open Sidebar */}
+      {isMobile && isSidebarCollapsed && <Button type="primary" icon={<MenuUnfoldOutlined />} onClick={() => setIsSidebarCollapsed(false)} className="absolute right-4 top-4 z-[1001] h-10 w-10 rounded-full shadow-lg" size="large" />}
+
+      {/* Map Container - Full Width */}
+      <div className="h-full w-full">
+        <MapContainer center={[0.5412, 123.0595]} zoom={9} className="h-screen w-full">
+          {/* Custom Home Control - positioned at topleft */}
+          <HomeControl />
+
+          {/* Map Tools Control - drawing, screenshot, etc */}
+          <MapToolsControl />
+
+          {/* Coordinate and Scale display - bottom center */}
+          <CoordinateControl />
+
+          {/* Base Layer Control - next to zoom buttons (topright) */}
+          <LayersControl position="topleft">
+            <BaseLayer checked name="OpenStreetMap">
+              <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            </BaseLayer>
+            <BaseLayer name="Satelit (Esri)">
+              <TileLayer
+                attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
+                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+              />
+            </BaseLayer>
+            <BaseLayer name="Terrain">
+              <TileLayer
+                attribution='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
+                url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
+              />
+            </BaseLayer>
+          </LayersControl>
+          {Object.values(selectedLayers).map((layer) => (
+            <GeoJSON
+              key={`${layer.type}-${layer.id}`}
+              data={layer.data}
+              style={(feature) => {
+                const props = feature.properties || {};
+                let style = getFeatureStyle(feature);
+                if (layer.type === 'struktur' && props['stroke-width']) {
+                  style = { ...style, weight: props['stroke-width'] };
+                }
+                return style;
+              }}
+              pointToLayer={(feature, latlng) => {
+                const props = feature.properties || {};
+                if (props.icon_image_url) {
+                  const icon = L.icon({
+                    iconUrl: props.icon_image_url,
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 32],
+                    className: 'custom-marker-image'
+                  });
+                  return L.marker(latlng, { icon });
+                }
+                return L.marker(latlng);
+              }}
+              onEachFeature={(feature, layerGeo) => {
+                const props = feature.properties || {};
+
+                // Event klik untuk popup
+                layerGeo.on('click', (e) => {
+                  L.DomEvent.stopPropagation(e);
+                  setPopupInfo({
+                    position: e.latlng,
+                    properties: props
+                  });
+                });
+
+                // === HANYA UNTUK BATAS ADMINISTRASI - SANGAT SPESIFIK ===
+                // Cek: 1. Hanya batas administrasi, 2. Hanya polygon/multipolygon, 3. Hanya fitur pertama
+                if (layer.type === 'batas_administrasi') {
+                  const geomType = feature.geometry.type;
+                  const isArea = geomType === 'Polygon' || geomType === 'MultiPolygon';
+
+                  // Dapatkan index fitur ini dalam array features
+                  const featureIndex = layer.data.features.findIndex((f) => JSON.stringify(f) === JSON.stringify(feature));
+
+                  // Hanya tambahkan label pada fitur pertama yang area
+                  if (isArea && featureIndex === 0) {
+                    const layerName = layer.meta?.nama || 'Wilayah';
+
+                    // Gunakan event 'add' untuk memastikan map tersedia
+                    layerGeo.once('add', () => {
+                      layerGeo.bindTooltip(layerName, {
+                        permanent: true,
+                        direction: 'center',
+                        className: 'batas-label',
+                        interactive: false
+                      });
+                    });
+                  }
+                }
+
+                // === HAPUS SEMUA LOGIKA PENAMBAHAN ICON DI TENGAH POLYGON ===
+                // Ini menyebabkan gambar rusak muncul di Pola Ruang dan layer lainnya
+                // HAPUS KODE DI BAWAH INI:
+                // if (props.icon_image_url && feature.geometry && feature.geometry.type !== 'Point' && layer.type !== 'batas_administrasi') {
+                //   try {
+                //     const center = layerGeo.getBounds().getCenter();
+                //     const icon = L.icon({
+                //       iconUrl: props.icon_image_url,
+                //       iconSize: [32, 32],
+                //       iconAnchor: [16, 32]
+                //     });
+                //
+                //     setTimeout(() => {
+                //       if (layerGeo._map) {
+                //         L.marker(center, { icon }).addTo(layerGeo._map);
+                //       }
+                //     }, 100);
+                //   } catch (err) {
+                //     console.warn('Gagal menambahkan icon:', err);
+                //   }
+                // }
+              }}
+            />
+          ))}
+          {popupInfo && (
+            <Popup position={popupInfo.position} onClose={() => setPopupInfo(null)}>
+              <FeaturePopup properties={popupInfo.properties} />
+            </Popup>
+          )}
+        </MapContainer>
+
+        <div className={`absolute z-[1000] ${isMobile ? 'bottom-2 left-2 right-2' : 'bottom-4 left-4'}`}>
+          <div className={`rounded-lg bg-white p-3 shadow-lg ${isMobile ? 'max-h-32 w-full overflow-y-auto' : 'w-96 p-4'}`}>
+            <h4 className={`mb-2 font-semibold ${isMobile ? 'text-sm' : ''}`}>Legend</h4>
+            {/* POLA RUANG */}
+            {Object.entries(selectedLayers).some(([key]) => key.startsWith('pola')) && (
+              <>
+                <div className={`flex flex-wrap gap-1 ${isMobile ? 'gap-1' : 'max-h-28 gap-2'}`}>
+                  <b className={`w-full ${isMobile ? 'text-xs' : 'text-sm'}`}>Pola Ruang</b>
+
+                  {Object.entries(selectedLayers)
+                    .filter(([key]) => key.startsWith('pola'))
+                    .map(([_, item]) => (
+                      <div key={item.id} className="inline-flex items-center gap-x-1">
+                        <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna }} />
+                        <small>{item.meta.nama}</small>
+                      </div>
+                    ))}
+                </div>
+                <hr className="my-2" />
+              </>
+            )}
+            {Object.entries(selectedLayers).some(([key]) => key.startsWith('struktur')) && (
+              <>
+                <div className="flex max-h-28 flex-wrap gap-2">
+                  <b className="w-full text-sm">Struktur Ruang</b>
+
+                  {Object.entries(selectedLayers)
+                    .filter(([key]) => key.startsWith('struktur'))
+                    .map(([_, item]) => {
+                      return (
+                        <div key={item.id} className="inline-flex items-center gap-x-1">
+                          {item.meta.tipe_geometri === 'point' && (
+                            <>
+                              <img className="h-4 w-4" src={asset(item.meta.icon_titik)} />
+                              <small>{item.meta.nama}</small>
+                            </>
+                          )}
+
+                          {(item.meta.tipe_geometri === 'polyline' || item.meta.tipe_geometri === 'polygon') && (
+                            <>
+                              <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna }} />
+                              <small>{item.meta.nama}</small>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                </div>
+                <hr className="my-2" />
+              </>
+            )}
+            {Object.entries(selectedLayers).some(([key]) => key.startsWith('ketentuan_khusus')) && (
+              <>
+                <div className="flex max-h-28 flex-wrap gap-2">
+                  <b className="w-full text-sm">Ketentuan Khusus</b>
+
+                  {Object.entries(selectedLayers)
+                    .filter(([key]) => key.startsWith('ketentuan_khusus'))
+                    .map(([_, item]) => (
+                      <div key={item.id} className="inline-flex items-center gap-x-1">
+                        {item.meta.tipe_geometri === 'point' && (
+                          <>
+                            <img className="h-4 w-4" src={asset(item.meta.icon_titik)} />
+                            <small>{item.meta.nama}</small>
+                          </>
+                        )}
+
+                        {(item.meta.tipe_geometri === 'polyline' || item.meta.tipe_geometri === 'polygon') && (
+                          <>
+                            <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna }} />
+                            <small>{item.meta.nama}</small>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                </div>
+                <hr className="my-2" />
+              </>
+            )}
+            {Object.entries(selectedLayers).some(([key]) => key.startsWith('pkkprl')) && (
+              <>
+                <div className="flex max-h-28 flex-wrap gap-2">
+                  <b className="w-full text-sm">PKKPRL</b>
+
+                  {Object.entries(selectedLayers)
+                    .filter(([key]) => key.startsWith('pkkprl'))
+                    .map(([_, item]) => (
+                      <div key={item.id} className="inline-flex items-center gap-x-1">
+                        {item.meta.tipe_geometri === 'point' && (
+                          <>
+                            <img className="h-4 w-4" src={asset(item.meta.icon_titik)} />
+                            <small>{item.meta.nama}</small>
+                          </>
+                        )}
+
+                        {(item.meta.tipe_geometri === 'polyline' || item.meta.tipe_geometri === 'polygon') && (
+                          <>
+                            <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna }} />
+                            <small>{item.meta.nama}</small>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                </div>
+                <hr className="my-2" />
+              </>
+            )}
+            {Object.entries(selectedLayers).some(([key]) => key.startsWith('data_spasial')) && (
+              <>
+                <div className="flex max-h-28 flex-wrap gap-2">
+                  <b className="w-full text-sm">Data Spasial</b>
+
+                  {Object.entries(selectedLayers)
+                    .filter(([key]) => key.startsWith('data_spasial'))
+                    .map(([_, item]) => (
+                      <div key={item.id} className="inline-flex items-center gap-x-1">
+                        {item.meta.tipe_geometri === 'point' && (
+                          <>
+                            <img className="h-4 w-4" src={asset(item.meta.icon_titik)} />
+                            <small>{item.meta.nama}</small>
+                          </>
+                        )}
+
+                        {(item.meta.tipe_geometri === 'polyline' || item.meta.tipe_geometri === 'polygon') && (
+                          <>
+                            <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna }} />
+                            <small>{item.meta.nama}</small>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                </div>
+                <hr className="my-2" />
+              </>
+            )}
+            {Object.entries(selectedLayers).some(([key]) => key.startsWith('batas')) && (
+              <>
+                <div className="flex max-h-28 flex-wrap gap-2">
+                  <b className="w-full text-sm">Batas Administrasi</b>
+
+                  {Object.entries(selectedLayers)
+                    .filter(([key]) => key.startsWith('batas'))
+                    .map(([_, item]) => (
+                      <div key={item.id} className="inline-flex items-center gap-x-1">
+                        <div className="h-2 w-5" style={{ backgroundColor: item.meta.warna, opacity: 0.3 }} />
+                        <small>{item.meta.nama}</small>
+                      </div>
+                    ))}
+                </div>
+                <hr className="my-2" />
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Collapsible Sidebar - Responsive */}
+      <div className={`absolute right-0 top-0 z-[1000] h-full transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-0' : isMobile ? 'w-full' : isTablet ? 'w-[320px]' : 'w-[400px]'}`}>
+        <MapSidebar
+          // rtrws={rtrws}
+          batasAdministrasi={batasAdministrasi}
+          // treePolaRuangData={treePolaRuangData}
+          // treeStrukturRuangData={treeStrukturRuangData}
+          // treeKetentuanKhususData={treeKetentuanKhususData}
+          // treePkkprlData={treePkkprlData}
+          // treeIndikasiProgramData={treeIndikasiProgramData}
+          treeLayerGroup={layerGroupTrees}
+          selectedLayers={selectedLayers}
+          loadingLayers={loadingLayers}
+          isLoadingBatas={isLoadingBatas}
+          isLoadingKlasifikasi={getAllLayerGroups.isLoading}
+          onToggleLayer={handleToggleLayer}
+          // onReloadKlasifikasi={loadAllKlasifikasi}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
+          isMobile={isMobile}
+        />
+      </div>
+
+      {/* Mobile overlay when sidebar is open */}
+      {isMobile && !isSidebarCollapsed && <div className="absolute inset-0 z-[999] bg-black/50" onClick={() => setIsSidebarCollapsed(true)} />}
+    </section>
+  );
+};
+
+export default Maps;
