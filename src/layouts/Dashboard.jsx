@@ -22,24 +22,43 @@ const Dashboard = () => {
 
   // const breadcrumbItems = generateBreadcrumb(dashboardLink, pathname);
 
+  // Use <a> tags for right-click open in new tab
   const items = useMemo(
     () => [
       {
         key: '1',
         label: (
-          <button onClick={() => navigate('/')} className="flex min-w-32 items-center gap-x-2">
-            <HomeOutlined />
-            Beranda
-          </button>
+          <a
+            href="/"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => {
+              e.preventDefault();
+              navigate('/');
+            }}
+            className="flex min-w-32 items-center gap-x-2"
+            style={{ color: 'inherit', textDecoration: 'none' }}
+          >
+            <HomeOutlined /> Beranda
+          </a>
         )
       },
       {
         key: '2',
         label: (
-          <button onClick={logout} className="text-color-danger-500 flex min-w-32 items-center gap-x-2">
-            <LogoutOutlined />
-            Logout
-          </button>
+          <a
+            href="#logout"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => {
+              e.preventDefault();
+              logout();
+            }}
+            className="text-color-danger-500 flex min-w-32 items-center gap-x-2"
+            style={{ color: 'red', textDecoration: 'none' }}
+          >
+            <LogoutOutlined /> Logout
+          </a>
         )
       }
     ],

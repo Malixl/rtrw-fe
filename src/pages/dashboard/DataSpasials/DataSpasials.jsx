@@ -202,33 +202,29 @@ const DataSpasials = () => {
             title={`Detail ${Modul.DATA_SPASIAL}`}
             model={DataSpasialModel}
             onClick={() => {
+              const klasifikasi = record.klasifikasi || {};
               modal.show.description({
                 title: record.name,
                 data: [
                   {
                     key: 'name',
                     label: `Nama Data Spasial`,
-                    children: record.name
+                    children: record.name || '-'
+                  },
+                  {
+                    key: 'geometry_type',
+                    label: `Tipe Geometri`,
+                    children: record.geometry_type || '-'
                   },
                   {
                     key: 'desc',
                     label: `Deskripsi`,
-                    children: record.desc
-                  },
-                  {
-                    key: 'name',
-                    label: `Nama Klasifikasi`,
-                    children: record.klasifikasi.name
-                  },
-                  {
-                    key: 'desc',
-                    label: `Deskripsi Klasifikasi`,
-                    children: record.klasifikasi.desc
+                    children: record.desc || '-'
                   },
                   {
                     key: 'type',
-                    label: `Tipe Klasifikasi`,
-                    children: record.klasifikasi.type
+                    label: `Klasifikasi Data Spasial`,
+                    children: klasifikasi.type || '-'
                   }
                 ]
               });

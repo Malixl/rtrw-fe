@@ -65,6 +65,13 @@ export const dashboardLink = [
     icon: DatabaseOutlined,
     children: [
       {
+        path: '/dashboard/layer_group',
+        label: 'Layer Group',
+        element: Dashboard.LayerGroups,
+        permissions: [[Action.READ, Model.LayerGroups]],
+        capability: 'can_crud_map'
+      },
+      {
         path: '/dashboard/klasifikasi',
         label: 'Klasifikasi',
         element: Dashboard.Klasifikasi,
@@ -72,10 +79,9 @@ export const dashboardLink = [
         capability: 'can_crud_map'
       },
       {
-        path: '/dashboard/layer_group',
-        label: 'Layer Group',
-        element: Dashboard.LayerGroups,
-        permissions: [[Action.READ, Model.LayerGroups]],
+        path: '/dashboard/batas_administrasi',
+        label: 'Batas Administrasi',
+        element: Dashboard.BatasAdministrasi,
         capability: 'can_crud_map'
       },
       {
@@ -104,21 +110,15 @@ export const dashboardLink = [
         capability: 'can_crud_map'
       },
       {
-        path: '/dashboard/indikasi_program',
-        label: 'Indikasi Program',
-        element: Dashboard.IndikasiPrograms,
-        capability: 'can_crud_map'
-      },
-      {
-        path: '/dashboard/batas_administrasi',
-        label: 'Batas Administrasi',
-        element: Dashboard.BatasAdministrasi,
-        capability: 'can_crud_map'
-      },
-      {
         path: '/dashboard/data_spasial',
         label: 'Data Spasial',
         element: Dashboard.DataSpasials,
+        capability: 'can_crud_map'
+      },
+      {
+        path: '/dashboard/indikasi_program',
+        label: 'Indikasi Program',
+        element: Dashboard.IndikasiPrograms,
         capability: 'can_crud_map'
       },
       {
