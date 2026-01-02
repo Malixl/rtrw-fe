@@ -2,6 +2,7 @@ import Model from './Model';
 
 export interface IncomingApiData {
   id: number;
+  klasifikasi_id?: number;
   nama: string;
   deskripsi: string;
   geojson_file: string;
@@ -18,6 +19,7 @@ export interface OutgoingApiData {
   warna: string;
   tipe_geometri: 'polyline' | 'polygon';
   tipe_garis?: 'dashed' | 'solid' | 'bold';
+  klasifikasi_id?: string;
 }
 
 interface FormValue {
@@ -26,6 +28,7 @@ interface FormValue {
   desc: string;
   geojson_file?: string;
   color: string;
+  id_klasifikasi?: string;
   geometry_type: 'polyline' | 'polygon';
   line_type?: 'dashed' | 'solid' | 'bold';
 }
@@ -57,6 +60,7 @@ export default class BatasAdministrasi extends Model {
       nama: data.name,
       deskripsi: data.desc,
       warna: data.color,
+      klasifikasi_id: data.id_klasifikasi,
       tipe_geometri: data.geometry_type,
       ...(data.line_type ? { tipe_garis: data.line_type } : {})
     };

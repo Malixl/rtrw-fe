@@ -78,12 +78,12 @@ const Users = () => {
         return roleName === value;
       }
     },
-    {
-      title: 'Dibuat',
-      dataIndex: 'created_at',
-      render: (date) => (date ? new Date(date).toLocaleDateString('id-ID') : '-'),
-      sorter: (a, b) => new Date(a.created_at) - new Date(b.created_at)
-    },
+    // {
+    //   title: 'Dibuat',
+    //   dataIndex: 'created_at',
+    //   render: (date) => (date ? new Date(date).toLocaleDateString('id-ID') : '-'),
+    //   sorter: (a, b) => new Date(a.created_at) - new Date(b.created_at)
+    // },
     {
       title: 'Aksi',
       render: (_, record) => {

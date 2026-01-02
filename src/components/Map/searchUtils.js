@@ -73,7 +73,9 @@ export function filterTree(treeData = [], query = '') {
         const matchedChildren = (node.children || []).filter((child) => {
             return (
                 fuzzyMatch(q, child.title || child.nama || '') ||
-                fuzzyMatch(q, child.deskripsi || '')
+                fuzzyMatch(q, child.deskripsi || '') ||
+                // Allow searching by geojson filename / path (useful for batas items)
+                fuzzyMatch(q, child.geojson_file || '')
             );
         });
         if (nodeMatches) acc.push(node);

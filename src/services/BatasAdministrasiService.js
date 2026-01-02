@@ -49,6 +49,17 @@ export default class BatasAdministrasiService {
   }
 
   /**
+   * Ambil GeoJSON untuk batas administrasi (raw feature collection)
+   * @param {number} id
+   * @param {string} token
+   * @returns {Promise<any>} GeoJSON object
+   */
+  static async getGeoJson(id, token) {
+    const response = await api.get(`/batas_administrasi/${id}/geojson`, { token });
+    return response.data;
+  }
+
+  /**
    * @param {number} id
    * @param {string} token
    * @returns {Promise<{

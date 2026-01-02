@@ -1,17 +1,19 @@
 import { DataTable, DataTableHeader } from '@/components';
 import { Action, InputType } from '@/constants';
 import { useAuth, useCrudModal, useNotification, usePagination, useService } from '@/hooks';
-import { BatasAdministrasiService } from '@/services';
-import { Button, Card, Skeleton, Space } from 'antd';
+import { BatasAdministrasiService, KlasifikasisService } from '@/services';
+import { Button, Card, Skeleton, Space, Modal, Spin } from 'antd';
 import React from 'react';
 import { Delete, Detail, Edit } from '@/components/dashboard/button';
 import Modul from '@/constants/Modul';
 import { formFields } from './FormFields';
 import { DeleteOutlined, ExpandAltOutlined, ExpandOutlined, PlusOutlined } from '@ant-design/icons';
 import { extractUploadFile, hasNewUploadFile } from '@/utils/formData';
+import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 
-const buildEditFieldsByGeometry = (record) => {
-  let fields = [...formFields()];
+const buildEditFieldsByGeometry = (record, klasifikasis = []) => {
+  let fields = [...formFields({ options: { klasifikasi: klasifikasis } })];
 
   if (record.geometry_type === 'polyline') {
     fields.push({
@@ -44,7 +46,14 @@ const BatasAdministrasi = () => {
   const updateBatasAdministrasi = useService(BatasAdministrasiService.update);
   const deleteBatasAdministrasi = useService(BatasAdministrasiService.delete);
   const deleteBatchBatasAdministrasi = useService(BatasAdministrasiService.deleteBatch);
+
+  const { execute: fetchKlasifikasis, ...getAllKlasifikasis } = useService(KlasifikasisService.getAll);
+
   const [filterValues, setFilterValues] = React.useState({ search: '' });
+  const [previewItem, setPreviewItem] = React.useState(null);
+  const [previewVisible, setPreviewVisible] = React.useState(false);
+  const [geojson, setGeojson] = React.useState(null);
+  const [geoLoading] = React.useState(false);
 
   const pagination = usePagination({ totalData: getAllBatasAdministrasi.totalData });
 
@@ -62,6 +71,33 @@ const BatasAdministrasi = () => {
   React.useEffect(() => {
     fetchBatasAdministrasi();
   }, [fetchBatasAdministrasi, pagination.page, pagination.per_page, token]);
+
+  React.useEffect(() => {
+    // fetch klasifikasi untuk dropdown pada form (tipe 'batas_administrasi')
+    fetchKlasifikasis({ token: token, tipe: 'batas_administrasi' });
+  }, [fetchKlasifikasis, token]);
+
+  const klasifikasis = getAllKlasifikasis.data ?? [];
+
+  // const openPreview = async (item) => {
+  //   setPreviewItem(item);
+  //   setPreviewVisible(true);
+  //   setGeoLoading(true);
+  //   try {
+  //     const g = await BatasAdministrasiService.getGeoJson(item.id);
+  //     setGeojson(g);
+  //   } catch {
+  //     setGeojson(null);
+  //   } finally {
+  //     setGeoLoading(false);
+  //   }
+  // };
+
+  const closePreview = () => {
+    setPreviewVisible(false);
+    setPreviewItem(null);
+    setGeojson(null);
+  };
 
   const batasAdministrasiData = getAllBatasAdministrasi.data ?? [];
 
@@ -89,7 +125,7 @@ const BatasAdministrasi = () => {
               modal.edit({
                 title: `Edit ${Modul.BATAS_ADMINISTRASI}`,
                 data: record,
-                formFields: buildEditFieldsByGeometry(record),
+                formFields: buildEditFieldsByGeometry(record, klasifikasis),
                 onSubmit: async (values) => {
                   const payload = {
                     ...values,
@@ -109,6 +145,8 @@ const BatasAdministrasi = () => {
                   if (isSuccess) {
                     success('Berhasil', message);
                     fetchBatasAdministrasi();
+                    // refresh klasifikasi dropdowns if needed
+                    fetchKlasifikasis({ token: token, tipe: 'batas_administrasi' });
                   } else {
                     error('Gagal', message);
                   }
@@ -165,7 +203,7 @@ const BatasAdministrasi = () => {
   ];
 
   const onModalCreate = (type) => {
-    let fields = [...formFields()];
+    let fields = [...formFields({ options: { klasifikasi: klasifikasis } })];
     if (type === 'polyline') {
       fields.push({
         label: `Tipe garis ${Modul.STRUKTUR}`,
@@ -302,6 +340,28 @@ const BatasAdministrasi = () => {
           />
         </div>
       </Skeleton>
+
+      <Modal title={previewItem?.nama || 'Preview'} open={previewVisible} onCancel={closePreview} footer={null} width={800}>
+        <Spin spinning={geoLoading}>
+          {geojson ? (
+            <div style={{ height: 480 }}>
+              <MapContainer style={{ height: '100%', width: '100%' }} center={[0, 0]} zoom={13} scrollWheelZoom={false}>
+                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                <GeoJSON
+                  data={geojson}
+                  style={(feature) => {
+                    const tipe = feature?.properties?.tipe_garis || previewItem?.tipe_garis || 'solid';
+                    const warna = feature?.properties?.warna || previewItem?.warna || '#3388ff';
+                    return { color: warna, weight: tipe === 'bold' ? 5 : 2, dashArray: tipe === 'dashed' ? '5,5' : null };
+                  }}
+                />
+              </MapContainer>
+            </div>
+          ) : (
+            <div className="text-center text-gray-500">Tidak ada GeoJSON</div>
+          )}
+        </Spin>
+      </Modal>
     </Card>
   );
 };

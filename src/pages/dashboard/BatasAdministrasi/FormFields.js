@@ -1,7 +1,7 @@
 import { InputType } from '@/constants';
 import Modul from '@/constants/Modul';
 
-export const formFields = () => [
+export const formFields = ({ options = {} } = {}) => [
   {
     label: `Nama ${Modul.BATAS_ADMINISTRASI}`,
     name: 'name',
@@ -25,6 +25,19 @@ export const formFields = () => [
       }
     ],
     size: 'large'
+  },
+  {
+    label: `Klasifikasi ${Modul.BATAS_ADMINISTRASI}`,
+    name: 'id_klasifikasi',
+    type: InputType.SELECT,
+    rules: [
+      {
+        required: true,
+        message: `Klasifikasi ${Modul.BATAS_ADMINISTRASI} harus diisi`
+      }
+    ],
+    size: 'large',
+    options: (options.klasifikasi || []).map((item) => ({ label: item.name, value: item.id }))
   },
   {
     label: `File GeoJSON ${Modul.BATAS_ADMINISTRASI}`,
