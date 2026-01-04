@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import React, { useCallback, useState, useEffect, useRef } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { Button, Checkbox, Collapse, Skeleton, Typography, Tooltip, Input, Empty } from 'antd';
 import { highlightParts, filterTree as filterTreeUtil, filterList, fuzzyMatch } from './searchUtils';
 import LegendItem from './LegendItem';
@@ -31,7 +31,7 @@ const CollapsibleSection = ({ title, panelKey, children, defaultActiveKey }) => 
     <Panel
       key={panelKey}
       header={
-        <div className="inline-flex w-full items-center justify-between">
+        <div className="inline-flex w-full items-center justify-between gap-2">
           <div className="inline-flex w-full items-center gap-x-4">
             <div className="flex items-center justify-center rounded-md bg-blue-100 p-3">
               <AimOutlined className="text-blue-500" />
@@ -225,7 +225,7 @@ const MapSidebar = ({
         const defaultOpen = !!debouncedSearch && (itemMatches || (item.children || []).some((c) => ((c.title || c.nama) + '').toLowerCase().includes(debouncedSearch)));
 
         return (
-          <div key={item.key} className="mt-2">
+          <div key={item.key} className="">
             <CollapsibleSection title={<>{highlightText(`${item.title} (${getTypeLabel(item.tipe)})`, debouncedSearch)}</>} panelKey={item.key} defaultActiveKey={defaultOpen ? [item.key] : undefined}>
               {(item.children || []).map((pemetaan) => {
                 if (pemetaan.type === 'indikasi_program') {
@@ -328,7 +328,7 @@ const MapSidebar = ({
             if (hasBatasInGroups) return null;
 
             return (
-              <div className="mt-2">
+              <div>
                 {/* Batas Administrasi - searchable */}
                 {(() => {
                   const parentLabel = 'Batas Administrasi';
@@ -419,25 +419,35 @@ const MapSidebar = ({
                   }
                 }
 
-                return treeLayerGroup.map((layer) => (
-                  <React.Fragment key={layer.id || layer.key}>
-                    {/* Debug log to inspect runtime object when troubleshooting */}
-                    {typeof window !== 'undefined' && window.__DEBUG_MAPSIDEBAR__ && console.debug('MapSidebar layer:', layer)}
-                    <Typography.Title level={5} style={{ margin: 0 }}>
-                      {layer.layer_group_name || layer.nama || layer.name || layer.title || layer.deskripsi}
-                    </Typography.Title>
-
-                    {renderLayerTree(debouncedSearch ? filterTree(layer.tree.pola || []) : layer.tree.pola || [], 'Pola Ruang')}
-                    {renderLayerTree(debouncedSearch ? filterTree(layer.tree.struktur || []) : layer.tree.struktur || [], 'Struktur Ruang')}
-                    {renderLayerTree(debouncedSearch ? filterTree(layer.tree.ketentuan || []) : layer.tree.ketentuan || [], 'Ketentuan Khusus')}
-                    {renderLayerTree(debouncedSearch ? filterTree(layer.tree.pkkprl || []) : layer.tree.pkkprl || [], 'PKKPRL')}
-                    {renderLayerTree(debouncedSearch ? filterTree(layer.tree.indikasi || []) : layer.tree.indikasi || [], 'Indikasi Program')}
-                    {renderLayerTree(debouncedSearch ? filterTree(layer.tree.data_spasial || []) : layer.tree.data_spasial || [], 'Data Spasial')}
-                    {renderLayerTree(debouncedSearch ? filterTree(layer.tree.batas || []) : layer.tree.batas || [], 'Batas Administrasi')}
-
-                    <hr className="mb-4" />
-                  </React.Fragment>
-                ));
+                return (
+                  <Collapse key="layer-group-collapse" ghost expandIconPosition="right" defaultActiveKey={treeLayerGroup.map((layer) => layer.id || layer.key)}>
+                    {treeLayerGroup.map((layer) => {
+                      const groupKey = layer.id || layer.key;
+                      return (
+                        <Panel
+                          key={groupKey}
+                          header={
+                            <div className="inline-flex w-full items-center gap-x-2">
+                              <span style={{ fontWeight: 600, fontSize: '1.15rem' }}>{layer.layer_group_name || layer.nama || layer.name || layer.title || layer.deskripsi}</span>
+                            </div>
+                          }
+                        >
+                          {/* Debug log to inspect runtime object when troubleshooting */}
+                          {typeof window !== 'undefined' && window.__DEBUG_MAPSIDEBAR__ && console.debug('MapSidebar layer:', layer)}
+                          <div style={{ marginTop: '-16px' }}>
+                            {renderLayerTree(debouncedSearch ? filterTree(layer.tree.pola || []) : layer.tree.pola || [], 'Pola Ruang')}
+                            {renderLayerTree(debouncedSearch ? filterTree(layer.tree.struktur || []) : layer.tree.struktur || [], 'Struktur Ruang')}
+                            {renderLayerTree(debouncedSearch ? filterTree(layer.tree.ketentuan || []) : layer.tree.ketentuan || [], 'Ketentuan Khusus')}
+                            {renderLayerTree(debouncedSearch ? filterTree(layer.tree.pkkprl || []) : layer.tree.pkkprl || [], 'PKKPRL')}
+                            {renderLayerTree(debouncedSearch ? filterTree(layer.tree.indikasi || []) : layer.tree.indikasi || [], 'Indikasi Program')}
+                            {renderLayerTree(debouncedSearch ? filterTree(layer.tree.data_spasial || []) : layer.tree.data_spasial || [], 'Data Spasial')}
+                            {renderLayerTree(debouncedSearch ? filterTree(layer.tree.batas || []) : layer.tree.batas || [], 'Batas Administrasi')}
+                          </div>
+                        </Panel>
+                      );
+                    })}
+                  </Collapse>
+                );
               })()}
             </div>
           )}
