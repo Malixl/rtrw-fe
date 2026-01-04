@@ -607,6 +607,12 @@ const Maps = () => {
             </Popup>
           )}
         </MapContainer>
+        <div className="absolute left-1/2 top-4 z-[1002] -translate-x-1/2">
+          <div style={{ backgroundColor: 'rgba(255,255,255,0.65)' }} className="flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-2 shadow-md">
+            <img src="/image_asset/gorontalo-logo.png" alt="Lambang Provinsi Gorontalo" className="h-6 w-6 rounded object-contain" />
+            <div className="text-sm font-bold capitalize text-black">Peta Rencana Tata Ruang Wilayah Provinsi Gorontalo</div>
+          </div>
+        </div>
 
         {/* Legend removed - MapUserInfo only */}
       </div>

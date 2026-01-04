@@ -4,7 +4,7 @@ import { MenuOutlined, CloseOutlined } from '@ant-design/icons';
 
 const navLinks = [
   { label: 'Beranda', to: '/' },
-  { label: 'Periode', to: '/periode' },
+  // { label: 'Periode', to: '/periode' },
   { label: 'Berita', to: '/berita' },
   { label: 'Map', to: '/map' }
 ];

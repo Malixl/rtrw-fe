@@ -48,12 +48,12 @@ const LayerGroups = () => {
       sorter: (a, b) => a.name.length - b.name.length,
       searchable: true
     },
-    {
-      title: 'Deskripsi',
-      dataIndex: 'desc',
-      sorter: (a, b) => a.desc.length - b.desc.length,
-      searchable: true
-    },
+    // {
+    //   title: 'Deskripsi',
+    //   dataIndex: 'desc',
+    //   sorter: (a, b) => a.desc.length - b.desc.length,
+    //   searchable: true
+    // },
     {
       title: 'Urutan Tampil',
       dataIndex: 'order',

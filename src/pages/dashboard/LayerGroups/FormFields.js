@@ -14,18 +14,18 @@ export const formFields = () => [
     ],
     size: 'large'
   },
-  {
-    label: `Deskripsi ${Modul.LAYER_GROUP}`,
-    name: 'desc',
-    type: InputType.LONGTEXT,
-    rules: [
-      {
-        required: true,
-        message: `Deskripsi ${Modul.LAYER_GROUP} harus diisi`
-      }
-    ],
-    size: 'large'
-  },
+  // {
+  //   label: `Deskripsi ${Modul.LAYER_GROUP}`,
+  //   name: 'desc',
+  //   type: InputType.LONGTEXT,
+  //   rules: [
+  //     {
+  //       required: true,
+  //       message: `Deskripsi ${Modul.LAYER_GROUP} harus diisi`
+  //     }
+  //   ],
+  //   size: 'large'
+  // },
   {
     label: `Urutan Tampil ${Modul.LAYER_GROUP}`,
     name: 'order',

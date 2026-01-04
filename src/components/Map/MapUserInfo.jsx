@@ -19,7 +19,7 @@ const MapUserInfo = () => {
   const isAdmin = user?.role === Role.ADMIN;
   const isOPD = user?.role === Role.OPD;
 
-  // Build dropdown menu items based on role
+  // Build dropdown menu items based on role, using <a> for right-click support
   const dropdownItems = useMemo(() => {
     const items = [];
 
@@ -27,29 +27,47 @@ const MapUserInfo = () => {
     if (isAdmin) {
       items.push({
         key: 'dashboard',
-        label: 'Dashboard',
-        icon: <DashboardOutlined />
+        label: (
+          <a
+            href="/dashboard"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => {
+              e.preventDefault();
+              navigate('/dashboard');
+            }}
+            style={{ color: 'inherit', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <DashboardOutlined /> Dashboard
+          </a>
+        )
       });
     }
 
     // Logout for all authenticated users
     items.push({
       key: 'logout',
-      label: 'Keluar',
-      icon: <LogoutOutlined />,
+      label: (
+        <a
+          href="#logout"
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => {
+            e.preventDefault();
+            logout();
+          }}
+          style={{ color: 'red', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6 }}
+        >
+          <LogoutOutlined /> Keluar
+        </a>
+      ),
       danger: true
     });
 
     return items;
-  }, [isAdmin]);
+  }, [isAdmin, navigate, logout]);
 
-  const handleMenuClick = ({ key }) => {
-    if (key === 'dashboard') {
-      navigate('/dashboard');
-    } else if (key === 'logout') {
-      logout();
-    }
-  };
+  // No longer needed: handleMenuClick
 
   // Get role label for display
   const getRoleLabel = () => {
@@ -155,7 +173,7 @@ const MapUserInfo = () => {
 
   const node = (
     <div style={{ ...containerStyle, left: `${16 + offsetLeft}px`, bottom: `${16 + offsetBottom}px` }}>
-      <Dropdown menu={{ items: dropdownItems, onClick: handleMenuClick }} placement={'topLeft'} trigger={['click']}>
+      <Dropdown menu={{ items: dropdownItems }} placement={'topLeft'} trigger={['click']}>
         <div ref={wrapperRef} className={wrapperClass}>
           <Avatar size="small" icon={<UserOutlined />} className="bg-blue-500" />
           <div className="flex flex-col">
