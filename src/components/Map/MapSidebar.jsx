@@ -26,23 +26,32 @@ const LayerCheckbox = ({ pemetaan, isChecked, isLoading, onToggle, onInfoClick, 
 /**
  * CollapsibleSection - Reusable collapsible panel for layer categories
  */
-const CollapsibleSection = ({ title, panelKey, children, defaultActiveKey }) => (
-  <Collapse ghost expandIcon={() => ''} defaultActiveKey={defaultActiveKey}>
+const CollapsibleSection = ({ title, panelKey, children, defaultActiveKey, isVirtualFolder = false }) => (
+  <Collapse ghost expandIconPosition={isVirtualFolder ? 'end' : undefined} expandIcon={isVirtualFolder ? undefined : () => ''} defaultActiveKey={defaultActiveKey}>
     <Panel
+      className=""
       key={panelKey}
       header={
-        <div className="inline-flex w-full items-center justify-between gap-2">
-          <div className="inline-flex w-full items-center gap-x-4">
-            <div className="flex items-center justify-center rounded-md bg-blue-100 p-3">
-              <AimOutlined className="text-blue-500" />
-            </div>
-            {title}
+        isVirtualFolder ? (
+          // Virtual folder: mirip layer group dengan chevron di kanan
+          <div className="inline-flex w-full items-center">
+            <span className="text-base font-semibold">{title}</span>
           </div>
-          <MenuOutlined />
-        </div>
+        ) : (
+          // Klasifikasi normal: dengan icon dan menu
+          <div className="inline-flex w-full items-center justify-between gap-2">
+            <div className="inline-flex w-full items-center gap-x-4">
+              <div className="flex items-center justify-center rounded-md bg-blue-100 p-3">
+                <AimOutlined className="text-blue-500" />
+              </div>
+              <span>{title}</span>
+            </div>
+            <MenuOutlined />
+          </div>
+        )
       }
     >
-      <div className="flex flex-col px-4">{children}</div>
+      <div className="flex flex-col">{children}</div>
     </Panel>
   </Collapse>
 );
@@ -224,10 +233,65 @@ const MapSidebar = ({
         const itemMatches = debouncedSearch && (item.title || '').toLowerCase().includes(debouncedSearch);
         const defaultOpen = !!debouncedSearch && (itemMatches || (item.children || []).some((c) => ((c.title || c.nama) + '').toLowerCase().includes(debouncedSearch)));
 
+        // Deteksi virtual folder (tidak memiliki tipe, selectable false, atau key dimulai dengan 'virtual-')
+        const isVirtualFolder = item.selectable === false || item.key?.startsWith('virtual-');
+        const titleText = isVirtualFolder ? item.title : `${item.title} (${getTypeLabel(item.tipe)})`;
+
         return (
-          <div key={item.key} className="">
-            <CollapsibleSection title={<>{highlightText(`${item.title} (${getTypeLabel(item.tipe)})`, debouncedSearch)}</>} panelKey={item.key} defaultActiveKey={defaultOpen ? [item.key] : undefined}>
-              {(item.children || []).map((pemetaan) => {
+          <div key={item.key} className={isVirtualFolder ? '' : ''}>
+            <CollapsibleSection title={<>{highlightText(titleText, debouncedSearch)}</>} panelKey={item.key} defaultActiveKey={defaultOpen ? [item.key] : undefined} isVirtualFolder={isVirtualFolder}>
+              {(item.children || []).map((child) => {
+                // 🔥 REKURSI: Jika child memiliki children (klasifikasi), render secara rekursif
+                if (child.children && child.children.length > 0 && !child.isLeaf) {
+                  const childMatches = debouncedSearch && (child.title || '').toLowerCase().includes(debouncedSearch);
+                  const childDefaultOpen = !!debouncedSearch && (childMatches || (child.children || []).some((c) => ((c.title || c.nama) + '').toLowerCase().includes(debouncedSearch)));
+
+                  return (
+                    <div key={child.key}>
+                      <CollapsibleSection title={<>{highlightText(child.title, debouncedSearch)}</>} panelKey={child.key} defaultActiveKey={childDefaultOpen ? [child.key] : undefined}>
+                        {(child.children || []).map((pemetaan) => {
+                          if (pemetaan.type === 'indikasi_program') {
+                            return (
+                              <div key={pemetaan.key} className="inline-flex w-full items-center gap-x-2">
+                                <span>{highlightText(pemetaan.title, debouncedSearch)}</span>
+                                <Button icon={<InfoCircleOutlined />} type="link" size="small" onClick={() => showDokumenModal(pemetaan.file_dokumen)} />
+                              </div>
+                            );
+                          }
+
+                          // Fallback tipe_geometri jika tidak ada (default polygon)
+                          const tipe_geometri = pemetaan.tipe_geometri || 'polygon';
+                          return (
+                            <div key={pemetaan.key} className="ml-6">
+                              <LayerCheckbox
+                                pemetaan={pemetaan}
+                                label={highlightText(pemetaan.title || pemetaan.nama, debouncedSearch)}
+                                isChecked={!!selectedLayers[pemetaan.key]}
+                                isLoading={loadingLayers[pemetaan.key]}
+                                onToggle={() => onToggleLayer(pemetaan)}
+                                onInfoClick={() =>
+                                  showInfoModal(pemetaan.nama, [
+                                    { key: 'name', label: `Nama ${labelKey}`, children: pemetaan.nama },
+                                    { key: 'desc', label: 'Deskripsi', children: pemetaan.deskripsi }
+                                  ])
+                                }
+                                className="mb-1"
+                              />
+                              {/* Legend SELALU tampil di bawah checkbox, baik dicentang maupun tidak */}
+                              {/* PERBAIKAN: Kirim prop tipe_garis ke LegendItem */}
+                              <div className="">
+                                <LegendItem tipe_geometri={tipe_geometri} icon_titik={pemetaan.icon_titik} warna={pemetaan.warna} tipe_garis={pemetaan.tipe_garis} />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </CollapsibleSection>
+                    </div>
+                  );
+                }
+
+                // 🔥 LEAF NODE: Jika child adalah layer (pemetaan) langsung
+                const pemetaan = child;
                 if (pemetaan.type === 'indikasi_program') {
                   return (
                     <div key={pemetaan.key} className="inline-flex w-full items-center gap-x-2">
@@ -240,7 +304,7 @@ const MapSidebar = ({
                 // Fallback tipe_geometri jika tidak ada (default polygon)
                 const tipe_geometri = pemetaan.tipe_geometri || 'polygon';
                 return (
-                  <div key={pemetaan.key} className="mb-2">
+                  <div key={pemetaan.key} className="ml-6">
                     <LayerCheckbox
                       pemetaan={pemetaan}
                       label={highlightText(pemetaan.title || pemetaan.nama, debouncedSearch)}
@@ -256,7 +320,9 @@ const MapSidebar = ({
                     />
                     {/* Legend SELALU tampil di bawah checkbox, baik dicentang maupun tidak */}
                     {/* PERBAIKAN: Kirim prop tipe_garis ke LegendItem */}
-                    <LegendItem tipe_geometri={tipe_geometri} icon_titik={pemetaan.icon_titik} warna={pemetaan.warna} nama={pemetaan.nama} tipe_garis={pemetaan.tipe_garis} />
+                    <div className="">
+                      <LegendItem tipe_geometri={tipe_geometri} icon_titik={pemetaan.icon_titik} warna={pemetaan.warna} tipe_garis={pemetaan.tipe_garis} />
+                    </div>
                   </div>
                 );
               })}
@@ -361,7 +427,7 @@ const MapSidebar = ({
                       {filteredBatas.map((item) => {
                         const pemetaan = createBatasPemetaan(item);
                         return (
-                          <div key={pemetaan.key} className="mb-2">
+                          <div key={pemetaan.key} className="ml-6">
                             <LayerCheckbox
                               pemetaan={{ ...pemetaan, title: item.name }}
                               label={highlightText(item.name)}
@@ -376,7 +442,9 @@ const MapSidebar = ({
                               }
                             />
                             {/* Legend untuk batas administrasi */}
-                            <LegendItem tipe_geometri={pemetaan.tipe_geometri || 'polyline'} icon_titik={pemetaan.icon_titik} warna={pemetaan.warna} nama={pemetaan.nama} tipe_garis={pemetaan.tipe_garis} />
+                            <div className="">
+                              <LegendItem tipe_geometri={pemetaan.tipe_geometri || 'polyline'} icon_titik={pemetaan.icon_titik} warna={pemetaan.warna} tipe_garis={pemetaan.tipe_garis} />
+                            </div>
                           </div>
                         );
                       })}

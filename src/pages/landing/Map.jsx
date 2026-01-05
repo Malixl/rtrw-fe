@@ -311,6 +311,76 @@ const Maps = () => {
         // For backwards compatibility if backend stores batas_administrasi under data_spasial
         const batas_list = klasifikasis.klasifikasi_batas_administrasi ?? klasifikasis.klasifikasi_data_spasial ?? [];
 
+        // Build tree structure with Virtual Folder Grouping
+        const treeStructure = {};
+
+        // KELOMPOK A: DIBUNGKUS FOLDER (Virtual Folder)
+        // 1. Pola Ruang - Virtual Folder
+        if (pola_ruang_list.length > 0) {
+          treeStructure.pola = [
+            {
+              title: 'Pola Ruang',
+              key: `virtual-pola-${group.id}`,
+              selectable: false,
+              children: mapPolaRuang(pola_ruang_list)
+            }
+          ];
+        } else {
+          treeStructure.pola = [];
+        }
+
+        // 2. Struktur Ruang - Virtual Folder
+        if (struktur_ruang_list.length > 0) {
+          treeStructure.struktur = [
+            {
+              title: 'Struktur Ruang',
+              key: `virtual-struktur-${group.id}`,
+              selectable: false,
+              children: mapStrukturRuang(struktur_ruang_list)
+            }
+          ];
+        } else {
+          treeStructure.struktur = [];
+        }
+
+        // 3. Ketentuan Khusus - Virtual Folder
+        if (ketentuan_khusus_list.length > 0) {
+          treeStructure.ketentuan = [
+            {
+              title: 'Ketentuan Khusus',
+              key: `virtual-ketentuan-${group.id}`,
+              selectable: false,
+              children: mapKetentuanKhusus(ketentuan_khusus_list)
+            }
+          ];
+        } else {
+          treeStructure.ketentuan = [];
+        }
+
+        // 4. PKKPRL - Virtual Folder
+        if (pkkprl_list.length > 0) {
+          treeStructure.pkkprl = [
+            {
+              title: 'Kawasan PKKPRL',
+              key: `virtual-pkkprl-${group.id}`,
+              selectable: false,
+              children: mapPkkprl(pkkprl_list)
+            }
+          ];
+        } else {
+          treeStructure.pkkprl = [];
+        }
+
+        // KELOMPOK B: TETAP FLAT (Tanpa Folder)
+        // 5. Batas Administrasi - FLAT (tidak dibungkus folder)
+        treeStructure.batas = mapBatasAdministrasi(batas_list);
+
+        // 6. Data Spasial - FLAT (tidak dibungkus folder)
+        treeStructure.data_spasial = mapDataSpasial(data_spasial);
+
+        // 7. Indikasi Program - FLAT (tidak dibungkus folder)
+        treeStructure.indikasi = mapIndikasiProgram(indikasi_program_list);
+
         return {
           id: group.id,
           // Normalize server keys to make UI mapping explicit and robust
@@ -320,16 +390,8 @@ const Maps = () => {
           deskripsi: group.deskripsi,
           urutan: group.urutan_tampil,
 
-          // 🔥 HASIL TREEMAP LAMA KAMU
-          tree: {
-            pola: mapPolaRuang(pola_ruang_list),
-            struktur: mapStrukturRuang(struktur_ruang_list),
-            ketentuan: mapKetentuanKhusus(ketentuan_khusus_list),
-            pkkprl: mapPkkprl(pkkprl_list),
-            data_spasial: mapDataSpasial(data_spasial),
-            indikasi: mapIndikasiProgram(indikasi_program_list),
-            batas: mapBatasAdministrasi(batas_list)
-          }
+          // ✅ NEW: Tree structure with Virtual Folder Grouping (Separation of Concerns)
+          tree: treeStructure
         };
       });
 
@@ -476,6 +538,37 @@ const Maps = () => {
             white-space: nowrap;
             pointer-events: none;
           }
+
+          /* === LABEL UNTUK PULAU-PULAU KECIL === */
+          .pulau-label {
+            /* HAPUS BACKGROUND */
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            
+            /* STYLE TEKS LEBIH KECIL */
+            font-weight: 600 !important;
+            font-size: 10px !important;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #000000 !important;
+            
+            /* STROKE/TEKS BORDER PUTIH */
+            text-shadow: 
+              1px 1px 0 #FFFFFF,
+              -1px 1px 0 #FFFFFF,
+              1px -1px 0 #FFFFFF,
+              -1px -1px 0 #FFFFFF,
+              0px 1px 0 #FFFFFF,
+              0px -1px 0 #FFFFFF,
+              1px 0px 0 #FFFFFF,
+              -1px 0px 0 #FFFFFF !important;
+            
+            text-align: center;
+            white-space: nowrap;
+            pointer-events: none;
+          }
         `}
       </style>
 
@@ -561,8 +654,16 @@ const Maps = () => {
                   // Dapatkan index fitur ini dalam array features
                   const featureIndex = layer.data.features.findIndex((f) => JSON.stringify(f) === JSON.stringify(feature));
 
-                  // Hanya tambahkan label pada fitur pertama yang area
-                  if (isArea && featureIndex === 0) {
+                  // Cek apakah ada atribut KETERANGAN yang berisi "Pulau"
+                  const keterangan = props.KETERANGAN || props.keterangan || '';
+                  const isPulau = keterangan && keterangan.toLowerCase().includes('pulau');
+
+                  // LOGIKA PEMISAHAN:
+                  // 1. Jika feature pertama (index 0) dan bukan pulau -> tampilkan label wilayah utama
+                  // 2. Jika feature berapapun (termasuk pertama) dan adalah pulau -> tampilkan label pulau
+
+                  if (isArea && featureIndex === 0 && !isPulau) {
+                    // Label untuk wilayah utama (Kabupaten/Kota)
                     const layerName = layer.meta?.nama || 'Wilayah';
 
                     // Gunakan event 'add' untuk memastikan map tersedia
@@ -571,6 +672,16 @@ const Maps = () => {
                         permanent: true,
                         direction: 'center',
                         className: 'batas-label',
+                        interactive: false
+                      });
+                    });
+                  } else if (isArea && isPulau) {
+                    // Label untuk pulau-pulau kecil
+                    layerGeo.once('add', () => {
+                      layerGeo.bindTooltip(keterangan, {
+                        permanent: true,
+                        direction: 'center',
+                        className: 'pulau-label',
                         interactive: false
                       });
                     });
