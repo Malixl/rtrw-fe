@@ -262,7 +262,7 @@ const MapSidebar = ({
                           // Fallback tipe_geometri jika tidak ada (default polygon)
                           const tipe_geometri = pemetaan.tipe_geometri || 'polygon';
                           return (
-                            <div key={pemetaan.key} className="ml-6">
+                            <div key={pemetaan.key} className="ml-7">
                               <LayerCheckbox
                                 pemetaan={pemetaan}
                                 label={highlightText(pemetaan.title || pemetaan.nama, debouncedSearch)}
@@ -304,7 +304,7 @@ const MapSidebar = ({
                 // Fallback tipe_geometri jika tidak ada (default polygon)
                 const tipe_geometri = pemetaan.tipe_geometri || 'polygon';
                 return (
-                  <div key={pemetaan.key} className="ml-6">
+                  <div key={pemetaan.key} className="ml-7">
                     <LayerCheckbox
                       pemetaan={pemetaan}
                       label={highlightText(pemetaan.title || pemetaan.nama, debouncedSearch)}
@@ -427,7 +427,7 @@ const MapSidebar = ({
                       {filteredBatas.map((item) => {
                         const pemetaan = createBatasPemetaan(item);
                         return (
-                          <div key={pemetaan.key} className="ml-6">
+                          <div key={pemetaan.key} className="ml-7">
                             <LayerCheckbox
                               pemetaan={{ ...pemetaan, title: item.name }}
                               label={highlightText(item.name)}

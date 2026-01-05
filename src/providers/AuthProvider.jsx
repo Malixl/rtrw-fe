@@ -261,7 +261,7 @@ export default function AuthProvider({ children }) {
         // Auth state
         token,
         user,
-        isLoading: loginIsLoading || logoutIsLoading || getUserIsLoading || forgotIsLoading || resetIsLoading,
+        isLoading: (!!token && !user) || loginIsLoading || logoutIsLoading || getUserIsLoading || forgotIsLoading || resetIsLoading,
 
         // Role & Capabilities state
         capabilities,
