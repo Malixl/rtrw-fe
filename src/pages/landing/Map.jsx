@@ -439,7 +439,7 @@ const Maps = () => {
         {/* Blurred Map Background */}
         <div className="absolute inset-0 overflow-hidden">
           <div className={showBlurMap ? 'pointer-events-none blur-sm grayscale' : ''}>
-            <MapContainer center={[0.5412, 123.0595]} zoom={9} className="h-screen w-full" zoomControl={false} dragging={false} scrollWheelZoom={false}>
+            <MapContainer center={[0.5412, 123.0595]} zoom={9} minZoom={4} className="h-screen w-full" zoomControl={false} dragging={false} scrollWheelZoom={false}>
               <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             </MapContainer>
           </div>
@@ -580,7 +580,18 @@ const Maps = () => {
 
       {/* Map Container - Full Width */}
       <div className="h-full w-full">
-        <MapContainer center={[0.5412, 123.0595]} zoom={9} className="h-screen w-full">
+        <MapContainer
+          center={[0.6999, 122.4467]}
+          zoom={9}
+          minZoom={9}
+          maxZoom={18}
+          maxBounds={[
+            [-0.1, 121.0], // Southwest - diperluas lagi sedikit
+            [1.4, 123.8] // Northeast - diperluas lagi sedikit
+          ]}
+          maxBoundsViscosity={1.0}
+          className="h-screen w-full"
+        >
           {/* Custom Home Control - positioned at topleft */}
           <HomeControl />
 
@@ -718,10 +729,15 @@ const Maps = () => {
             </Popup>
           )}
         </MapContainer>
-        <div className="absolute left-1/2 top-4 z-[1002] -translate-x-1/2">
-          <div style={{ backgroundColor: 'rgba(255,255,255,0.65)' }} className="flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-2 shadow-md">
-            <img src="/image_asset/gorontalo-logo.png" alt="Lambang Provinsi Gorontalo" className="h-6 w-6 rounded object-contain" />
-            <div className="text-sm font-bold capitalize text-black">Peta Rencana Tata Ruang Wilayah Provinsi Gorontalo</div>
+        <div
+          className="absolute top-4 z-[1002] -translate-x-1/2 transition-all duration-300"
+          style={{
+            left: isSidebarCollapsed ? '50%' : isMobile ? '50%' : isTablet ? 'calc(50% - 160px)' : 'calc(50% - 200px)'
+          }}
+        >
+          <div style={{ backgroundColor: 'rgba(255,255,255,0.90)' }} className="flex items-center gap-4 rounded-xl border border-gray-300 px-6 py-3 shadow-lg">
+            <img src="/image_asset/gorontalo-logo.png" alt="Lambang Provinsi Gorontalo" className="h-7 w-7 rounded object-contain" />
+            <div className="text-lg font-bold capitalize text-black">Peta Rencana Tata Ruang Wilayah Provinsi Gorontalo</div>
           </div>
         </div>
 

@@ -3,7 +3,7 @@ import { useCallback, useState, useEffect, useRef } from 'react';
 import { Button, Checkbox, Collapse, Skeleton, Typography, Tooltip, Input, Empty } from 'antd';
 import { highlightParts, filterTree as filterTreeUtil, filterList, fuzzyMatch } from './searchUtils';
 import LegendItem from './LegendItem';
-import { AimOutlined, InfoCircleOutlined, MenuOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
+import { AimOutlined, InfoCircleOutlined, MenuOutlined, MenuFoldOutlined, MenuUnfoldOutlined, InboxOutlined } from '@ant-design/icons';
 import { useCrudModal } from '@/hooks';
 import asset from '@/utils/asset';
 /* MapUserInfo moved out of the sidebar and positioned fixed on the viewport (bottom-left) */
@@ -27,14 +27,13 @@ const LayerCheckbox = ({ pemetaan, isChecked, isLoading, onToggle, onInfoClick, 
  * CollapsibleSection - Reusable collapsible panel for layer categories
  */
 const CollapsibleSection = ({ title, panelKey, children, defaultActiveKey, isVirtualFolder = false }) => (
-  <Collapse ghost expandIconPosition={isVirtualFolder ? 'end' : undefined} expandIcon={isVirtualFolder ? undefined : () => ''} defaultActiveKey={defaultActiveKey}>
+  <Collapse className={isVirtualFolder ? 'layer-group-collapse' : ''} ghost expandIconPosition={isVirtualFolder ? 'end' : undefined} expandIcon={isVirtualFolder ? undefined : () => ''} defaultActiveKey={defaultActiveKey}>
     <Panel
-      className=""
       key={panelKey}
       header={
         isVirtualFolder ? (
           // Virtual folder: mirip layer group dengan chevron di kanan
-          <div className="inline-flex w-full items-center">
+          <div className="-mt-1 inline-flex w-full items-center">
             <span className="text-base font-semibold">{title}</span>
           </div>
         ) : (
@@ -51,7 +50,7 @@ const CollapsibleSection = ({ title, panelKey, children, defaultActiveKey, isVir
         )
       }
     >
-      <div className="flex flex-col">{children}</div>
+      <div className="-my-3 flex flex-col">{children}</div>
     </Panel>
   </Collapse>
 );
@@ -365,15 +364,15 @@ const MapSidebar = ({
           {/* Header - hide on mobile since we have it above */}
           {!isMobile && (
             <div className="flex flex-col">
-              <Typography.Title level={5} style={{ margin: 0 }}>
-                Legenda Geospasial
-              </Typography.Title>
+              <p className="text-2xl font-bold" style={{ margin: 0 }}>
+                Legenda
+              </p>
               <p className="text-sm text-gray-500">Pencarian</p>
             </div>
           )}
 
           {/* Search box */}
-          <div className="my-5">
+          <div className="mb-4 mt-2">
             <Input
               ref={searchInputRef}
               placeholder="Cari legenda atau klasifikasi..."
@@ -495,22 +494,49 @@ const MapSidebar = ({
                         <Panel
                           key={groupKey}
                           header={
-                            <div className="inline-flex w-full items-center gap-x-2">
+                            <div className="-py-2 inline-flex w-full items-center gap-x-2">
                               <span style={{ fontWeight: 600, fontSize: '1.15rem' }}>{layer.layer_group_name || layer.nama || layer.name || layer.title || layer.deskripsi}</span>
                             </div>
                           }
                         >
                           {/* Debug log to inspect runtime object when troubleshooting */}
                           {typeof window !== 'undefined' && window.__DEBUG_MAPSIDEBAR__ && console.debug('MapSidebar layer:', layer)}
-                          <div style={{ marginTop: '-16px' }}>
-                            {renderLayerTree(debouncedSearch ? filterTree(layer.tree.pola || []) : layer.tree.pola || [], 'Pola Ruang')}
-                            {renderLayerTree(debouncedSearch ? filterTree(layer.tree.struktur || []) : layer.tree.struktur || [], 'Struktur Ruang')}
-                            {renderLayerTree(debouncedSearch ? filterTree(layer.tree.ketentuan || []) : layer.tree.ketentuan || [], 'Ketentuan Khusus')}
-                            {renderLayerTree(debouncedSearch ? filterTree(layer.tree.pkkprl || []) : layer.tree.pkkprl || [], 'PKKPRL')}
-                            {renderLayerTree(debouncedSearch ? filterTree(layer.tree.indikasi || []) : layer.tree.indikasi || [], 'Indikasi Program')}
-                            {renderLayerTree(debouncedSearch ? filterTree(layer.tree.data_spasial || []) : layer.tree.data_spasial || [], 'Data Spasial')}
-                            {renderLayerTree(debouncedSearch ? filterTree(layer.tree.batas || []) : layer.tree.batas || [], 'Batas Administrasi')}
-                          </div>
+                          {(() => {
+                            // Cek apakah layer group memiliki data
+                            const hasAnyData =
+                              (layer.tree.batas && layer.tree.batas.length > 0) ||
+                              (layer.tree.pola && layer.tree.pola.length > 0) ||
+                              (layer.tree.struktur && layer.tree.struktur.length > 0) ||
+                              (layer.tree.ketentuan && layer.tree.ketentuan.length > 0) ||
+                              (layer.tree.pkkprl && layer.tree.pkkprl.length > 0) ||
+                              (layer.tree.indikasi && layer.tree.indikasi.length > 0) ||
+                              (layer.tree.data_spasial && layer.tree.data_spasial.length > 0);
+
+                            // Jika tidak ada data sama sekali, tampilkan empty state
+                            if (!hasAnyData) {
+                              return (
+                                <div className="flex flex-col items-center justify-center py-8">
+                                  <InboxOutlined style={{ fontSize: '48px', color: '#d9d9d9' }} />
+                                  <p className="mt-3 text-sm text-gray-500">Data belum ada</p>
+                                  <p className="text-xs text-gray-400">Belum ada klasifikasi dalam layer group ini</p>
+                                </div>
+                              );
+                            }
+
+                            // Jika ada data, tampilkan seperti biasa
+                            return (
+                              <div style={{ marginTop: '-16px' }}>
+                                {/* Batas Administrasi ditampilkan pertama */}
+                                {renderLayerTree(debouncedSearch ? filterTree(layer.tree.batas || []) : layer.tree.batas || [], 'Batas Administrasi')}
+                                {renderLayerTree(debouncedSearch ? filterTree(layer.tree.pola || []) : layer.tree.pola || [], 'Pola Ruang')}
+                                {renderLayerTree(debouncedSearch ? filterTree(layer.tree.struktur || []) : layer.tree.struktur || [], 'Struktur Ruang')}
+                                {renderLayerTree(debouncedSearch ? filterTree(layer.tree.ketentuan || []) : layer.tree.ketentuan || [], 'Ketentuan Khusus')}
+                                {renderLayerTree(debouncedSearch ? filterTree(layer.tree.pkkprl || []) : layer.tree.pkkprl || [], 'PKKPRL')}
+                                {renderLayerTree(debouncedSearch ? filterTree(layer.tree.indikasi || []) : layer.tree.indikasi || [], 'Indikasi Program')}
+                                {renderLayerTree(debouncedSearch ? filterTree(layer.tree.data_spasial || []) : layer.tree.data_spasial || [], 'Data Spasial')}
+                              </div>
+                            );
+                          })()}
                         </Panel>
                       );
                     })}
