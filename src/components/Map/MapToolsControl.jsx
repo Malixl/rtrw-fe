@@ -53,7 +53,7 @@ const MapToolsControl = () => {
           { id: 'fullscreen', icon: 'fullscreen', title: 'Layar Penuh' },
           // { id: 'screenshot', icon: 'screenshot', title: 'Screenshot Peta' },
           { id: 'location', icon: 'location', title: 'Lokasi Saya' },
-          { id: 'target', icon: 'target', title: 'Cari di Peta' },
+          // { id: 'target', icon: 'target', title: 'Cari di Peta' },
           { id: 'search', icon: 'search', title: 'Zoom ke Pencarian' },
           { id: 'fitbounds', icon: 'fitbounds', title: 'Zoom ke Semua Layer' },
           { id: 'divider1', type: 'divider' },
@@ -62,7 +62,7 @@ const MapToolsControl = () => {
           { id: 'rectangle', icon: 'rectangle', title: 'Gambar Kotak' },
           { id: 'marker', icon: 'marker', title: 'Tambah Marker' },
           { id: 'divider2', type: 'divider' },
-          { id: 'edit', icon: 'edit', title: 'Edit Gambar' },
+          // { id: 'edit', icon: 'edit', title: 'Edit Gambar' },
           { id: 'delete', icon: 'delete', title: 'Hapus Gambar' }
         ];
 
@@ -85,11 +85,13 @@ const MapToolsControl = () => {
         tools.forEach((tool) => {
           if (tool.type === 'divider') {
             const divider = L.DomUtil.create('div', '', container);
-            divider.style.cssText = `
-              height: 1px;
-              background-color: #ddd;
-              margin: 2px 4px;
-            `;
+            // divider.style.cssText = `
+            //   height: 1px;
+            //   background-color: #ddd;
+            //   margin: 2px 4px;
+            // `;
+            // Remove visible divider as requested ("hapus putih-putih")
+            divider.style.display = 'none';
             return;
           }
 
@@ -98,24 +100,86 @@ const MapToolsControl = () => {
           button.title = tool.title;
           button.setAttribute('data-tool', tool.id);
           button.innerHTML = icons[tool.icon];
+
+          // Define colors based on tool ID
+          let textColor = 'white';
+          let bgColor = 'white';
+          let hoverBg = '#f4f4f4';
+          let activeBg = '#e6f7ff';
+
+          switch (tool.id) {
+            case 'fullscreen':
+              bgColor = '#1890ff'; // Blue
+              hoverBg = '#40a9ff';
+              break;
+            case 'location':
+              bgColor = '#13c2c2'; // Cyan
+              hoverBg = '#36cfc9';
+              break;
+            case 'search':
+              bgColor = '#722ed1'; // Purple
+              hoverBg = '#9254de';
+              break;
+            case 'fitbounds':
+              bgColor = '#faad14'; // Gold
+              hoverBg = '#ffc53d';
+              break;
+            case 'polyline':
+              bgColor = '#eb2f96'; // Magenta
+              hoverBg = '#f759ab';
+              activeBg = '#c41d7f';
+              break;
+            case 'polygon':
+              bgColor = '#fa8c16'; // Orange
+              hoverBg = '#ffa940';
+              activeBg = '#d46b08';
+              break;
+            case 'rectangle':
+              bgColor = '#52c41a'; // Green
+              hoverBg = '#73d13d';
+              activeBg = '#389e0d';
+              break;
+            case 'marker':
+              bgColor = '#2f54eb'; // Geek Blue
+              hoverBg = '#597ef7';
+              activeBg = '#1d39c4';
+              break;
+            case 'delete':
+              bgColor = '#ff4d4f'; // Red
+              hoverBg = '#ff7875';
+              activeBg = '#d9363e';
+              break;
+            default:
+              textColor = '#333';
+              break;
+          }
+
+          // Store attributes for state restoration
+          button.setAttribute('data-bg-color', bgColor);
+          button.setAttribute('data-text-color', textColor);
+          button.setAttribute('data-hover-bg', hoverBg);
+          button.setAttribute('data-active-bg', activeBg);
+
           button.style.cssText = `
             display: flex;
             align-items: center;
             justify-content: center;
             width: 30px;
             height: 30px;
-            color: #333;
+            color: ${textColor};
+            background-color: ${bgColor};
             text-decoration: none;
             cursor: pointer;
-            border-bottom: 1px solid #ddd;
+            border-bottom: none; /* Removed border to eliminate white gaps */
+            transition: all 0.2s;
           `;
 
           button.onmouseover = function () {
-            this.style.backgroundColor = '#f4f4f4';
+            this.style.backgroundColor = this.getAttribute('data-hover-bg');
           };
           button.onmouseout = function () {
             if (!this.classList.contains('active')) {
-              this.style.backgroundColor = 'white';
+              this.style.backgroundColor = this.getAttribute('data-bg-color');
             }
           };
 
@@ -143,7 +207,9 @@ const MapToolsControl = () => {
       const clearActive = () => {
         container.querySelectorAll('.map-tool-btn').forEach((btn) => {
           btn.classList.remove('active');
-          btn.style.backgroundColor = 'white';
+          // Restore to original colors defined in data attributes
+          btn.style.backgroundColor = btn.getAttribute('data-bg-color') || 'white';
+          btn.style.color = btn.getAttribute('data-text-color') || '#333';
         });
       };
 
@@ -172,7 +238,7 @@ const MapToolsControl = () => {
         case 'marker':
           clearActive();
           button.classList.add('active');
-          button.style.backgroundColor = '#e3f2fd';
+          button.style.backgroundColor = button.getAttribute('data-active-bg') || '#e3f2fd';
           startDrawing(toolId);
           break;
         case 'edit':

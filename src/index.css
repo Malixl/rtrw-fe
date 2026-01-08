@@ -123,3 +123,9 @@
 .ant-menu-dark .ant-menu-item:hover {
   @apply bg-white bg-opacity-10;
 }
+
+/* Layer Group Collapse - Reduce header padding */
+.layer-group-collapse .ant-collapse-header {
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+}

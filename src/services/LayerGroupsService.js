@@ -87,6 +87,6 @@ export default class LayerGroupsService {
    * }>}
    */
   static async deleteBatch(ids, token) {
-    return await api.delete(`/layer-groups/multi-delete/?id=${ids.join(',')}`, { token });
+    return await api.delete(`/layer-groups/multi-delete?ids=${ids.join(',')}`, { token });
   }
 }

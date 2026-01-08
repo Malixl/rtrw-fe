@@ -68,7 +68,115 @@ const Maps = () => {
     }
   }, [isLoadingBatas, isBatasSuccess, batasMessage]);
 
-  const batasAdministrasi = batasData ?? [];
+  const batasAdministrasi = React.useMemo(() => batasData ?? [], [batasData]);
+
+  /**
+   * Batch toggle layers - untuk Select All / Deselect All
+   * @param {Array} layers - array of pemetaan objects
+   * @param {boolean} enable - true = aktifkan semua, false = matikan semua
+   */
+  const handleBatchToggleLayers = async (layers, enable) => {
+    if (enable) {
+      // Aktifkan semua layers yang belum aktif
+      const layersToEnable = layers.filter((l) => !selectedLayers[l.key]);
+      if (layersToEnable.length === 0) return;
+
+      // Set loading state untuk semua
+      setLoadingLayers((prev) => {
+        const updated = { ...prev };
+        layersToEnable.forEach((l) => (updated[l.key] = true));
+        return updated;
+      });
+
+      // Fetch semua GeoJSON secara parallel
+      const results = await Promise.allSettled(
+        layersToEnable.map(async (pemetaan) => {
+          const key = pemetaan.key;
+          const id = pemetaan.id;
+          const type = pemetaan.type;
+
+          let url = '';
+          if (type === 'pola') url = `${BASE_URL}/polaruang/${id}/geojson`;
+          else if (type === 'struktur') url = `${BASE_URL}/struktur_ruang/${id}/geojson`;
+          else if (type === 'ketentuan_khusus') url = `${BASE_URL}/ketentuan_khusus/${id}/geojson`;
+          else if (type === 'pkkprl') url = `${BASE_URL}/pkkprl/${id}/geojson`;
+          else if (type === 'data_spasial') url = `${BASE_URL}/data_spasial/${id}/geojson`;
+          else if (type === 'batas_administrasi') url = `${BASE_URL}/batas_administrasi/${id}/geojson`;
+
+          const res = await fetch(url);
+          const json = await res.json();
+          const warna = pemetaan.warna ?? null;
+          const iconImageUrl = asset(pemetaan.icon_titik) ?? null;
+          const tipe_garis = pemetaan.tipe_garis ?? null;
+          const fillOpacity = pemetaan.fill_opacity ?? 0.8;
+
+          const enhanced = {
+            ...json,
+            features: (json.features || []).map((feature) => {
+              const props = { ...(feature.properties || {}) };
+              if (warna) {
+                props.stroke = warna;
+                props.fill = warna;
+                props['stroke-opacity'] = 1;
+                props['fill-opacity'] = fillOpacity;
+              }
+              if (tipe_garis === 'dashed') {
+                props.dashArray = '6 6';
+                props['stroke-width'] = 3;
+              }
+              if (tipe_garis === 'solid') {
+                props.dashArray = null;
+                props['stroke-width'] = 3;
+              }
+              if (tipe_garis === 'bold') {
+                props.dashArray = null;
+                props['stroke-width'] = 6;
+              }
+              if (tipe_garis === 'dash-dot-dot') {
+                props.dashArray = '20 8 3 8 3 8'; // pola: ─── ·  · ───
+                props['stroke-width'] = 3;
+              }
+              if (iconImageUrl) {
+                props.icon_image_url = iconImageUrl;
+              }
+              return { ...feature, properties: props };
+            })
+          };
+
+          return { key, id, type, data: enhanced, meta: pemetaan };
+        })
+      );
+
+      // Update state sekali untuk semua hasil
+      setSelectedLayers((prev) => {
+        const updated = { ...prev };
+        results.forEach((result) => {
+          if (result.status === 'fulfilled') {
+            const { key, id, type, data, meta } = result.value;
+            updated[key] = { id, type, data, meta };
+          }
+        });
+        return updated;
+      });
+
+      // Clear loading state
+      setLoadingLayers((prev) => {
+        const updated = { ...prev };
+        layersToEnable.forEach((l) => (updated[l.key] = false));
+        return updated;
+      });
+    } else {
+      // Matikan semua layers yang aktif - sekali update
+      const keysToDisable = layers.filter((l) => selectedLayers[l.key]).map((l) => l.key);
+      if (keysToDisable.length === 0) return;
+
+      setSelectedLayers((prev) => {
+        const updated = { ...prev };
+        keysToDisable.forEach((key) => delete updated[key]);
+        return updated;
+      });
+    }
+  };
 
   const handleToggleLayer = async (pemetaan) => {
     const key = pemetaan.key;
@@ -127,6 +235,11 @@ const Maps = () => {
           if (tipe_garis === 'bold') {
             props.dashArray = null;
             props['stroke-width'] = 6; // 🔥 LEBIH TEBAL
+          }
+
+          if (tipe_garis === 'dash-dot-dot') {
+            props.dashArray = '20 8 3 8 3 8'; // pola: ─── ·  · ───
+            props['stroke-width'] = 3;
           }
 
           if (iconImageUrl) {
@@ -311,6 +424,76 @@ const Maps = () => {
         // For backwards compatibility if backend stores batas_administrasi under data_spasial
         const batas_list = klasifikasis.klasifikasi_batas_administrasi ?? klasifikasis.klasifikasi_data_spasial ?? [];
 
+        // Build tree structure with Virtual Folder Grouping
+        const treeStructure = {};
+
+        // KELOMPOK A: DIBUNGKUS FOLDER (Virtual Folder)
+        // 1. Pola Ruang - Virtual Folder
+        if (pola_ruang_list.length > 0) {
+          treeStructure.pola = [
+            {
+              title: 'Pola Ruang',
+              key: `virtual-pola-${group.id}`,
+              selectable: false,
+              children: mapPolaRuang(pola_ruang_list)
+            }
+          ];
+        } else {
+          treeStructure.pola = [];
+        }
+
+        // 2. Struktur Ruang - Virtual Folder
+        if (struktur_ruang_list.length > 0) {
+          treeStructure.struktur = [
+            {
+              title: 'Struktur Ruang',
+              key: `virtual-struktur-${group.id}`,
+              selectable: false,
+              children: mapStrukturRuang(struktur_ruang_list)
+            }
+          ];
+        } else {
+          treeStructure.struktur = [];
+        }
+
+        // 3. Ketentuan Khusus - Virtual Folder
+        if (ketentuan_khusus_list.length > 0) {
+          treeStructure.ketentuan = [
+            {
+              title: 'Data Khusus',
+              key: `virtual-ketentuan-${group.id}`,
+              selectable: false,
+              children: mapKetentuanKhusus(ketentuan_khusus_list)
+            }
+          ];
+        } else {
+          treeStructure.ketentuan = [];
+        }
+
+        // 4. PKKPRL - Virtual Folder
+        if (pkkprl_list.length > 0) {
+          treeStructure.pkkprl = [
+            {
+              title: 'PKKPRL',
+              key: `virtual-pkkprl-${group.id}`,
+              selectable: false,
+              children: mapPkkprl(pkkprl_list)
+            }
+          ];
+        } else {
+          treeStructure.pkkprl = [];
+        }
+
+        // KELOMPOK B: TETAP FLAT (Tanpa Folder)
+        // 5. Batas Administrasi - FLAT (tidak dibungkus folder)
+        treeStructure.batas = mapBatasAdministrasi(batas_list);
+
+        // 6. Data Spasial - FLAT (tidak dibungkus folder)
+        treeStructure.data_spasial = mapDataSpasial(data_spasial);
+
+        // 7. Indikasi Program - FLAT (tidak dibungkus folder)
+        treeStructure.indikasi = mapIndikasiProgram(indikasi_program_list);
+
         return {
           id: group.id,
           // Normalize server keys to make UI mapping explicit and robust
@@ -320,16 +503,8 @@ const Maps = () => {
           deskripsi: group.deskripsi,
           urutan: group.urutan_tampil,
 
-          // 🔥 HASIL TREEMAP LAMA KAMU
-          tree: {
-            pola: mapPolaRuang(pola_ruang_list),
-            struktur: mapStrukturRuang(struktur_ruang_list),
-            ketentuan: mapKetentuanKhusus(ketentuan_khusus_list),
-            pkkprl: mapPkkprl(pkkprl_list),
-            data_spasial: mapDataSpasial(data_spasial),
-            indikasi: mapIndikasiProgram(indikasi_program_list),
-            batas: mapBatasAdministrasi(batas_list)
-          }
+          // ✅ NEW: Tree structure with Virtual Folder Grouping (Separation of Concerns)
+          tree: treeStructure
         };
       });
 
@@ -337,6 +512,54 @@ const Maps = () => {
       setLayerGroupTrees(result);
     }
   }, [layerGroupData, mapDataSpasial, mapIndikasiProgram, mapKetentuanKhusus, mapPkkprl, mapPolaRuang, mapStrukturRuang, mapBatasAdministrasi]);
+
+  // Cleanup selectedLayers: remove layers that no longer exist in tree
+  React.useEffect(() => {
+    if (layerGroupTrees.length === 0 && batasAdministrasi.length === 0) return;
+
+    // Collect all valid keys from tree and batas
+    const validKeys = new Set();
+
+    // Add keys from batasAdministrasi
+    batasAdministrasi.forEach((item) => {
+      validKeys.add(`batas-${item.id}`);
+    });
+
+    // Add keys from layerGroupTrees
+    const extractKeys = (nodes) => {
+      if (!Array.isArray(nodes)) return;
+      nodes.forEach((node) => {
+        if (node.key) validKeys.add(node.key);
+        if (node.children) extractKeys(node.children);
+      });
+    };
+
+    layerGroupTrees.forEach((group) => {
+      const tree = group.tree || {};
+      extractKeys(tree.pola || []);
+      extractKeys(tree.struktur || []);
+      extractKeys(tree.ketentuan || []);
+      extractKeys(tree.pkkprl || []);
+      extractKeys(tree.batas || []);
+      extractKeys(tree.data_spasial || []);
+      extractKeys(tree.indikasi || []);
+    });
+
+    // Check if any selected layer is no longer valid
+    setSelectedLayers((prev) => {
+      const selectedKeys = Object.keys(prev);
+      const orphanedKeys = selectedKeys.filter((key) => !validKeys.has(key));
+
+      if (orphanedKeys.length > 0) {
+        console.info('🧹 Cleaning up orphaned layers:', orphanedKeys);
+        const updated = { ...prev };
+        orphanedKeys.forEach((key) => delete updated[key]);
+        return updated;
+      }
+
+      return prev; // No changes
+    });
+  }, [layerGroupTrees, batasAdministrasi]);
 
   const getFeatureStyle = (feature) => {
     const props = feature.properties || {};
@@ -377,7 +600,7 @@ const Maps = () => {
         {/* Blurred Map Background */}
         <div className="absolute inset-0 overflow-hidden">
           <div className={showBlurMap ? 'pointer-events-none blur-sm grayscale' : ''}>
-            <MapContainer center={[0.5412, 123.0595]} zoom={9} className="h-screen w-full" zoomControl={false} dragging={false} scrollWheelZoom={false}>
+            <MapContainer center={[0.5412, 123.0595]} zoom={9} minZoom={4} className="h-screen w-full" zoomControl={false} dragging={false} scrollWheelZoom={false}>
               <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             </MapContainer>
           </div>
@@ -476,6 +699,37 @@ const Maps = () => {
             white-space: nowrap;
             pointer-events: none;
           }
+
+          /* === LABEL UNTUK PULAU-PULAU KECIL === */
+          .pulau-label {
+            /* HAPUS BACKGROUND */
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            
+            /* STYLE TEKS LEBIH KECIL */
+            font-weight: 600 !important;
+            font-size: 10px !important;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #000000 !important;
+            
+            /* STROKE/TEKS BORDER PUTIH */
+            text-shadow: 
+              1px 1px 0 #FFFFFF,
+              -1px 1px 0 #FFFFFF,
+              1px -1px 0 #FFFFFF,
+              -1px -1px 0 #FFFFFF,
+              0px 1px 0 #FFFFFF,
+              0px -1px 0 #FFFFFF,
+              1px 0px 0 #FFFFFF,
+              -1px 0px 0 #FFFFFF !important;
+            
+            text-align: center;
+            white-space: nowrap;
+            pointer-events: none;
+          }
         `}
       </style>
 
@@ -487,7 +741,18 @@ const Maps = () => {
 
       {/* Map Container - Full Width */}
       <div className="h-full w-full">
-        <MapContainer center={[0.5412, 123.0595]} zoom={9} className="h-screen w-full">
+        <MapContainer
+          center={[0.6999, 122.4467]}
+          zoom={9}
+          minZoom={9}
+          maxZoom={18}
+          maxBounds={[
+            [-1.5, 120.0], // Southwest - Diperluas agar aman di layar besar
+            [2.5, 125.0] // Northeast
+          ]}
+          maxBoundsViscosity={1.0}
+          className="h-screen w-full"
+        >
           {/* Custom Home Control - positioned at topleft */}
           <HomeControl />
 
@@ -561,8 +826,16 @@ const Maps = () => {
                   // Dapatkan index fitur ini dalam array features
                   const featureIndex = layer.data.features.findIndex((f) => JSON.stringify(f) === JSON.stringify(feature));
 
-                  // Hanya tambahkan label pada fitur pertama yang area
-                  if (isArea && featureIndex === 0) {
+                  // Cek apakah ada atribut KETERANGAN yang berisi "Pulau"
+                  const keterangan = props.KETERANGAN || props.keterangan || '';
+                  const isPulau = keterangan && keterangan.toLowerCase().includes('pulau');
+
+                  // LOGIKA PEMISAHAN:
+                  // 1. Jika feature pertama (index 0) dan bukan pulau -> tampilkan label wilayah utama
+                  // 2. Jika feature berapapun (termasuk pertama) dan adalah pulau -> tampilkan label pulau
+
+                  if (isArea && featureIndex === 0 && !isPulau) {
+                    // Label untuk wilayah utama (Kabupaten/Kota)
                     const layerName = layer.meta?.nama || 'Wilayah';
 
                     // Gunakan event 'add' untuk memastikan map tersedia
@@ -571,6 +844,16 @@ const Maps = () => {
                         permanent: true,
                         direction: 'center',
                         className: 'batas-label',
+                        interactive: false
+                      });
+                    });
+                  } else if (isArea && isPulau) {
+                    // Label untuk pulau-pulau kecil
+                    layerGeo.once('add', () => {
+                      layerGeo.bindTooltip(keterangan, {
+                        permanent: true,
+                        direction: 'center',
+                        className: 'pulau-label',
                         interactive: false
                       });
                     });
@@ -607,10 +890,15 @@ const Maps = () => {
             </Popup>
           )}
         </MapContainer>
-        <div className="absolute left-1/2 top-4 z-[1002] -translate-x-1/2">
-          <div style={{ backgroundColor: 'rgba(255,255,255,0.65)' }} className="flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-2 shadow-md">
-            <img src="/image_asset/gorontalo-logo.png" alt="Lambang Provinsi Gorontalo" className="h-6 w-6 rounded object-contain" />
-            <div className="text-sm font-bold capitalize text-black">Peta Rencana Tata Ruang Wilayah Provinsi Gorontalo</div>
+        <div
+          className="absolute top-4 z-[1002] -translate-x-1/2 transition-all duration-300"
+          style={{
+            left: isSidebarCollapsed ? '50%' : isMobile ? '50%' : isTablet ? 'calc(50% - 160px)' : 'calc(50% - 200px)'
+          }}
+        >
+          <div style={{ backgroundColor: 'rgba(255,255,255,0.90)' }} className="flex items-center gap-4 rounded-xl border border-gray-300 px-6 py-3 shadow-lg">
+            <img src="/image_asset/gorontalo-logo.png" alt="Lambang Provinsi Gorontalo" className="h-7 w-7 rounded object-contain" />
+            <div className="text-lg font-bold capitalize text-black">Peta Rencana Tata Ruang Wilayah Provinsi Gorontalo</div>
           </div>
         </div>
 
@@ -633,6 +921,7 @@ const Maps = () => {
           isLoadingBatas={isLoadingBatas}
           isLoadingKlasifikasi={getAllLayerGroups.isLoading}
           onToggleLayer={handleToggleLayer}
+          onBatchToggleLayers={handleBatchToggleLayers}
           // onReloadKlasifikasi={loadAllKlasifikasi}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}

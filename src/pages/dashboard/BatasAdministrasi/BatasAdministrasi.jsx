@@ -27,9 +27,23 @@ const buildEditFieldsByGeometry = (record, klasifikasis = []) => {
         }
       ],
       options: [
-        { label: <div className="w-full border-4" />, value: 'bold' },
-        { label: <div className="w-full border" />, value: 'solid' },
-        { label: <div className="w-full border border-dashed" />, value: 'dashed' }
+        { label: <div className="w-full border-4 border-black" />, value: 'bold' },
+        { label: <div className="w-full border border-black" />, value: 'solid' },
+        { label: <div className="w-full border border-dashed border-black" />, value: 'dashed' },
+        {
+          label: (
+            <div
+              className="w-full border-2"
+              style={{
+                borderStyle: 'dashed',
+                borderColor: 'black',
+                borderImage:
+                  'repeating-linear-gradient(90deg, currentColor 0, currentColor 10px, transparent 10px, transparent 13px, currentColor 13px, currentColor 15px, transparent 15px, transparent 18px, currentColor 18px, currentColor 20px, transparent 20px, transparent 23px) 1'
+              }}
+            />
+          ),
+          value: 'dash-dot-dot'
+        }
       ]
     });
   }
@@ -103,16 +117,18 @@ const BatasAdministrasi = () => {
 
   const column = [
     {
-      title: 'Nama Area',
+      title: 'Nama',
       dataIndex: 'name',
       sorter: (a, b) => a.name.length - b.name.length,
       searchable: true
     },
     {
-      title: 'Deskripsi',
-      dataIndex: 'desc',
-      sorter: (a, b) => a.desc.length - b.desc.length,
-      searchable: true
+      title: 'Klasifikasi Batas Administrasi',
+      render: (_, record) => {
+        const id = record.klasifikasi_id ?? record.klasifikasi?.id ?? record.klasifikasi;
+        const klas = klasifikasis.find((k) => k.id === id);
+        return klas?.nama || klas?.name || '-';
+      }
     },
     {
       title: 'Aksi',
@@ -124,7 +140,10 @@ const BatasAdministrasi = () => {
             onClick={() => {
               modal.edit({
                 title: `Edit ${Modul.BATAS_ADMINISTRASI}`,
-                data: record,
+                data: {
+                  ...record,
+                  id_klasifikasi: record.klasifikasi_id
+                },
                 formFields: buildEditFieldsByGeometry(record, klasifikasis),
                 onSubmit: async (values) => {
                   const payload = {
@@ -159,6 +178,8 @@ const BatasAdministrasi = () => {
           <Detail
             title={`Detail ${Modul.BATAS_ADMINISTRASI}`}
             action={Action.NONE}
+            disabled
+            style={{ display: 'none' }}
             onClick={() => {
               modal.show.description({
                 title: record.name,
@@ -352,7 +373,12 @@ const BatasAdministrasi = () => {
                   style={(feature) => {
                     const tipe = feature?.properties?.tipe_garis || previewItem?.tipe_garis || 'solid';
                     const warna = feature?.properties?.warna || previewItem?.warna || '#3388ff';
-                    return { color: warna, weight: tipe === 'bold' ? 5 : 2, dashArray: tipe === 'dashed' ? '5,5' : null };
+                    const getDashArray = () => {
+                      if (tipe === 'dashed') return '5,5';
+                      if (tipe === 'dash-dot-dot') return '20,8,3,8,3,8';
+                      return null;
+                    };
+                    return { color: warna, weight: tipe === 'bold' ? 5 : 2, dashArray: getDashArray() };
                   }}
                 />
               </MapContainer>

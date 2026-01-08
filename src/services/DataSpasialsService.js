@@ -103,6 +103,6 @@ export default class DataSpasialsService {
    * }>}
    */
   static async deleteBatch(ids, token) {
-    return await api.delete(`/data_spasial/multi-delete/?id=${ids.join(',')}`, { token });
+    return await api.delete(`/data_spasial/multi-delete/?ids=${ids.join(',')}`, { token });
   }
 }
