@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { DataTable, DataTableHeader } from '@/components';
 import { Action } from '@/constants';
 import { useAuth, useCrudModal, useNotification, usePagination, useService } from '@/hooks';
@@ -50,23 +51,18 @@ const Polaruangs = () => {
 
   const column = [
     {
-      title: 'Nama Polaruang',
+      title: 'Nama',
       dataIndex: 'name',
       sorter: (a, b) => a.name.length - b.name.length,
       searchable: true
     },
     {
-      title: 'Warna',
-      dataIndex: 'color',
-      sorter: (a, b) => a.color.length - b.color.length,
-      searchable: true,
-      render: (record) => <ColorPicker value={record} showText disabled />
-    },
-    {
-      title: 'Klasifikasi',
-      dataIndex: ['klasifikasi', 'name'],
-      sorter: (a, b) => a.klasifikasi.name.length - b.klasifikasi.name.length,
-      searchable: true
+      title: 'Klasifikasi Pola Ruang',
+      render: (_, record) => {
+        const id = record.klasifikasi_id ?? record.klasifikasi?.id ?? record.klasifikasi;
+        const klas = klasifikasis.find((k) => k.id === id);
+        return klas?.nama || klas?.name || '-';
+      }
     }
   ];
 
@@ -114,6 +110,8 @@ const Polaruangs = () => {
           <Detail
             title={`Detail ${Modul.POLARUANG}`}
             model={PolaruangModel}
+            disabled
+            style={{ display: 'none' }}
             onClick={() => {
               modal.show.description({
                 title: record.name,

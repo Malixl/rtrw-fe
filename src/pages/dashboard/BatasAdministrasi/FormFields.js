@@ -37,7 +37,7 @@ export const formFields = ({ options = {} } = {}) => [
       }
     ],
     size: 'large',
-    options: (options.klasifikasi || []).map((item) => ({ label: item.name, value: item.id }))
+    options: (options.klasifikasi || []).map((item) => ({ label: item.nama || item.name, value: item.id }))
   },
   {
     label: `File GeoJSON ${Modul.BATAS_ADMINISTRASI}`,

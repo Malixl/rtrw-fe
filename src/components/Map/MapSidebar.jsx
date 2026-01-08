@@ -3,7 +3,7 @@ import { useCallback, useState, useEffect, useRef } from 'react';
 import { Button, Checkbox, Collapse, Skeleton, Typography, Tooltip, Input, Empty } from 'antd';
 import { highlightParts, filterTree as filterTreeUtil, filterList, fuzzyMatch } from './searchUtils';
 import LegendItem from './LegendItem';
-import { AimOutlined, InfoCircleOutlined, MenuOutlined, MenuFoldOutlined, MenuUnfoldOutlined, InboxOutlined } from '@ant-design/icons';
+import { AimOutlined, InfoCircleOutlined, MenuOutlined, MenuFoldOutlined, MenuUnfoldOutlined, InboxOutlined, FileTextOutlined } from '@ant-design/icons';
 import { useCrudModal } from '@/hooks';
 import asset from '@/utils/asset';
 /* MapUserInfo moved out of the sidebar and positioned fixed on the viewport (bottom-left) */
@@ -26,8 +26,8 @@ const LayerCheckbox = ({ pemetaan, isChecked, isLoading, onToggle, onInfoClick, 
 /**
  * CollapsibleSection - Reusable collapsible panel for layer categories
  */
-const CollapsibleSection = ({ title, panelKey, children, defaultActiveKey, isVirtualFolder = false }) => (
-  <Collapse className={isVirtualFolder ? 'layer-group-collapse' : ''} ghost expandIconPosition={isVirtualFolder ? 'end' : undefined} expandIcon={isVirtualFolder ? undefined : () => ''} defaultActiveKey={defaultActiveKey}>
+const CollapsibleSection = ({ title, panelKey, children, defaultActiveKey, isVirtualFolder = false, checked, indeterminate, onCheck, isIndikasiProgram = false }) => (
+  <Collapse className={isVirtualFolder ? 'layer-group-collapse' : ''} ghost expandIconPosition="end" defaultActiveKey={defaultActiveKey}>
     <Panel
       key={panelKey}
       header={
@@ -37,15 +37,23 @@ const CollapsibleSection = ({ title, panelKey, children, defaultActiveKey, isVir
             <span className="text-base font-semibold">{title}</span>
           </div>
         ) : (
-          // Klasifikasi normal: dengan icon dan menu
+          // Klasifikasi normal: dengan icon dan checkbox
           <div className="inline-flex w-full items-center justify-between gap-2">
             <div className="inline-flex w-full items-center gap-x-4">
-              <div className="flex items-center justify-center rounded-md bg-blue-100 p-3">
-                <AimOutlined className="text-blue-500" />
+              <div
+                className="flex items-center justify-center rounded-md bg-blue-100 p-3"
+                onClick={(e) => {
+                  if (onCheck) {
+                    e.stopPropagation();
+                    onCheck();
+                  }
+                }}
+                style={{ cursor: onCheck ? 'pointer' : 'default' }}
+              >
+                {isIndikasiProgram ? <FileTextOutlined className="text-blue-500" /> : <Checkbox checked={checked} indeterminate={indeterminate} disabled={!onCheck} />}
               </div>
               <span>{title}</span>
             </div>
-            <MenuOutlined />
           </div>
         )
       }
@@ -85,6 +93,26 @@ const LoadingSkeleton = () => (
 );
 
 /**
+ * Helper to get all toggleable leaf nodes
+ */
+const getAllLeaves = (nodes) => {
+  let leaves = [];
+  if (!Array.isArray(nodes)) return leaves;
+  nodes.forEach((node) => {
+    // If folder/group, recurse
+    if (node.children && node.children.length > 0 && !node.isLeaf) {
+      leaves = leaves.concat(getAllLeaves(node.children));
+    } else {
+      // If leaf, check type. Exclude documents/info-only items like 'indikasi_program'
+      if (node.type !== 'indikasi_program') {
+        leaves.push(node);
+      }
+    }
+  });
+  return leaves;
+};
+
+/**
  * MapSidebar - Collapsible sidebar component for map layer controls
  */
 const MapSidebar = ({
@@ -103,6 +131,7 @@ const MapSidebar = ({
   isLoadingKlasifikasi,
   // Handlers
   onToggleLayer,
+  onBatchToggleLayers,
   // onReloadKlasifikasi,
   // Collapse control
   isCollapsed,
@@ -234,103 +263,186 @@ const MapSidebar = ({
 
         // Deteksi virtual folder (tidak memiliki tipe, selectable false, atau key dimulai dengan 'virtual-')
         const isVirtualFolder = item.selectable === false || item.key?.startsWith('virtual-');
-        const titleText = isVirtualFolder ? item.title : `${item.title} (${getTypeLabel(item.tipe)})`;
+        const typeLabel = getTypeLabel(item.tipe);
+        const titleText = isVirtualFolder ? item.title : typeLabel ? `${item.title} (${typeLabel})` : item.title;
+
+        // Detect if this is Indikasi Program klasifikasi
+        const isIndikasiProgram = item.tipe === 'indikasi_program' || item.key?.includes('indikasi_program');
+
+        // Calculate toggle state for group
+        const leaves = getAllLeaves(item.children || []);
+        const checkedCount = leaves.filter((l) => selectedLayers[l.key]).length;
+        const totalCount = leaves.length;
+        const isChecked = checkedCount > 0; // Tercentang jika ada minimal 1 item aktif
+
+        const handleGroupToggle = () => {
+          if (isChecked) {
+            // Jika tercentang -> Matikan semua sekaligus
+            onBatchToggleLayers(leaves, false);
+          } else {
+            // Jika tidak tercentang -> Aktifkan semua sekaligus
+            onBatchToggleLayers(leaves, true);
+          }
+        };
 
         return (
           <div key={item.key} className={isVirtualFolder ? '' : ''}>
-            <CollapsibleSection title={<>{highlightText(titleText, debouncedSearch)}</>} panelKey={item.key} defaultActiveKey={defaultOpen ? [item.key] : undefined} isVirtualFolder={isVirtualFolder}>
-              {(item.children || []).map((child) => {
-                // 🔥 REKURSI: Jika child memiliki children (klasifikasi), render secara rekursif
-                if (child.children && child.children.length > 0 && !child.isLeaf) {
-                  const childMatches = debouncedSearch && (child.title || '').toLowerCase().includes(debouncedSearch);
-                  const childDefaultOpen = !!debouncedSearch && (childMatches || (child.children || []).some((c) => ((c.title || c.nama) + '').toLowerCase().includes(debouncedSearch)));
+            <CollapsibleSection
+              title={<>{highlightText(titleText, debouncedSearch)}</>}
+              panelKey={item.key}
+              defaultActiveKey={defaultOpen ? [item.key] : undefined}
+              isVirtualFolder={isVirtualFolder}
+              checked={isChecked}
+              indeterminate={false}
+              onCheck={!isIndikasiProgram && totalCount > 0 ? handleGroupToggle : undefined}
+              isIndikasiProgram={isIndikasiProgram}
+            >
+              {/* Empty state jika tidak ada children atau semua children kosong */}
+              {(!item.children || item.children.length === 0 || totalCount === 0) && (
+                <div className="flex items-center justify-center gap-x-2 py-4 text-xs text-gray-400">
+                  <InboxOutlined style={{ fontSize: '18px' }} />
+                  <span>Belum ada data</span>
+                </div>
+              )}
+              {(item.children || [])
+                .filter((child) => {
+                  // Skip invalid items (no title/nama)
+                  const hasTitle = child.title || child.nama;
+                  return hasTitle;
+                })
+                .map((child) => {
+                  // 🔥 REKURSI: Jika child adalah klasifikasi (punya children array, meskipun kosong)
+                  // Cek apakah ini klasifikasi: punya key yang mengandung '-root-' atau punya array children
+                  const isKlasifikasi = child.key?.includes('-root-') || (Array.isArray(child.children) && !child.isLeaf);
 
-                  return (
-                    <div key={child.key}>
-                      <CollapsibleSection title={<>{highlightText(child.title, debouncedSearch)}</>} panelKey={child.key} defaultActiveKey={childDefaultOpen ? [child.key] : undefined}>
-                        {(child.children || []).map((pemetaan) => {
-                          if (pemetaan.type === 'indikasi_program') {
-                            return (
-                              <div key={pemetaan.key} className="inline-flex w-full items-center gap-x-2">
-                                <span>{highlightText(pemetaan.title, debouncedSearch)}</span>
-                                <Button icon={<InfoCircleOutlined />} type="link" size="small" onClick={() => showDokumenModal(pemetaan.file_dokumen)} />
-                              </div>
-                            );
-                          }
+                  if (isKlasifikasi) {
+                    const childMatches = debouncedSearch && (child.title || '').toLowerCase().includes(debouncedSearch);
+                    const childDefaultOpen = !!debouncedSearch && (childMatches || (child.children || []).some((c) => ((c.title || c.nama) + '').toLowerCase().includes(debouncedSearch)));
 
-                          // Fallback tipe_geometri jika tidak ada (default polygon)
-                          const tipe_geometri = pemetaan.tipe_geometri || 'polygon';
-                          return (
-                            <div key={pemetaan.key} className="ml-7">
-                              <LayerCheckbox
-                                pemetaan={pemetaan}
-                                label={highlightText(pemetaan.title || pemetaan.nama, debouncedSearch)}
-                                isChecked={!!selectedLayers[pemetaan.key]}
-                                isLoading={loadingLayers[pemetaan.key]}
-                                onToggle={() => onToggleLayer(pemetaan)}
-                                onInfoClick={() =>
-                                  showInfoModal(pemetaan.nama, [
-                                    { key: 'name', label: `Nama ${labelKey}`, children: pemetaan.nama },
-                                    { key: 'desc', label: 'Deskripsi', children: pemetaan.deskripsi }
-                                  ])
-                                }
-                                className="mb-1"
-                              />
-                              {/* Legend SELALU tampil di bawah checkbox, baik dicentang maupun tidak */}
-                              {/* PERBAIKAN: Kirim prop tipe_garis ke LegendItem */}
-                              <div className="">
-                                <LegendItem tipe_geometri={tipe_geometri} icon_titik={pemetaan.icon_titik} warna={pemetaan.warna} tipe_garis={pemetaan.tipe_garis} />
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </CollapsibleSection>
-                    </div>
-                  );
-                }
+                    // Calculate toggle state for subgroup
+                    const subLeaves = getAllLeaves(child.children || []);
+                    const subCheckedCount = subLeaves.filter((l) => selectedLayers[l.key]).length;
+                    const subTotalCount = subLeaves.length;
+                    const subIsChecked = subCheckedCount > 0; // Tercentang jika ada minimal 1 item aktif
 
-                // 🔥 LEAF NODE: Jika child adalah layer (pemetaan) langsung
-                const pemetaan = child;
-                if (pemetaan.type === 'indikasi_program') {
-                  return (
-                    <div key={pemetaan.key} className="inline-flex w-full items-center gap-x-2">
-                      <span>{highlightText(pemetaan.title, debouncedSearch)}</span>
-                      <Button icon={<InfoCircleOutlined />} type="link" size="small" onClick={() => showDokumenModal(pemetaan.file_dokumen)} />
-                    </div>
-                  );
-                }
-
-                // Fallback tipe_geometri jika tidak ada (default polygon)
-                const tipe_geometri = pemetaan.tipe_geometri || 'polygon';
-                return (
-                  <div key={pemetaan.key} className="ml-7">
-                    <LayerCheckbox
-                      pemetaan={pemetaan}
-                      label={highlightText(pemetaan.title || pemetaan.nama, debouncedSearch)}
-                      isChecked={!!selectedLayers[pemetaan.key]}
-                      isLoading={loadingLayers[pemetaan.key]}
-                      onToggle={() => onToggleLayer(pemetaan)}
-                      onInfoClick={() =>
-                        showInfoModal(pemetaan.nama, [
-                          { key: 'name', label: `Nama ${labelKey}`, children: pemetaan.nama },
-                          { key: 'desc', label: 'Deskripsi', children: pemetaan.deskripsi }
-                        ])
+                    const handleSubGroupToggle = () => {
+                      if (subTotalCount === 0) return; // No-op jika kosong
+                      if (subIsChecked) {
+                        // Jika tercentang -> Matikan semua sekaligus
+                        onBatchToggleLayers(subLeaves, false);
+                      } else {
+                        // Jika tidak tercentang -> Aktifkan semua sekaligus
+                        onBatchToggleLayers(subLeaves, true);
                       }
-                    />
-                    {/* Legend SELALU tampil di bawah checkbox, baik dicentang maupun tidak */}
-                    {/* PERBAIKAN: Kirim prop tipe_garis ke LegendItem */}
-                    <div className="">
-                      <LegendItem tipe_geometri={tipe_geometri} icon_titik={pemetaan.icon_titik} warna={pemetaan.warna} tipe_garis={pemetaan.tipe_garis} />
+                    };
+
+                    return (
+                      <div key={child.key}>
+                        <CollapsibleSection
+                          title={<>{highlightText(child.title, debouncedSearch)}</>}
+                          panelKey={child.key}
+                          defaultActiveKey={childDefaultOpen ? [child.key] : undefined}
+                          checked={subIsChecked}
+                          indeterminate={false}
+                          onCheck={subTotalCount > 0 ? handleSubGroupToggle : undefined}
+                          isIndikasiProgram={false}
+                        >
+                          {/* Empty state jika tidak ada children atau semua children kosong */}
+                          {(!child.children || child.children.length === 0 || subTotalCount === 0) && (
+                            <div className="flex items-center justify-center gap-x-2 py-4 text-xs text-gray-400">
+                              <InboxOutlined style={{ fontSize: '18px' }} />
+                              <span>Belum ada data</span>
+                            </div>
+                          )}
+                          {(child.children || [])
+                            .filter((pemetaan) => {
+                              // Skip invalid items
+                              const hasTitle = pemetaan.title || pemetaan.nama;
+                              return hasTitle;
+                            })
+                            .map((pemetaan) => {
+                              if (pemetaan.type === 'indikasi_program') {
+                                return (
+                                  <div key={pemetaan.key} className="inline-flex w-full items-center gap-x-2">
+                                    <span>{highlightText(pemetaan.title, debouncedSearch)}</span>
+                                    <Button icon={<InfoCircleOutlined />} type="link" size="small" onClick={() => showDokumenModal(pemetaan.file_dokumen)} />
+                                  </div>
+                                );
+                              }
+
+                              // Fallback tipe_geometri jika tidak ada (default polygon)
+                              const tipe_geometri = pemetaan.tipe_geometri || 'polygon';
+                              return (
+                                <div key={pemetaan.key} className="ml-7">
+                                  <LayerCheckbox
+                                    pemetaan={pemetaan}
+                                    label={highlightText(pemetaan.title || pemetaan.nama, debouncedSearch)}
+                                    isChecked={!!selectedLayers[pemetaan.key]}
+                                    isLoading={loadingLayers[pemetaan.key]}
+                                    onToggle={() => onToggleLayer(pemetaan)}
+                                    onInfoClick={() =>
+                                      showInfoModal(pemetaan.nama, [
+                                        { key: 'name', label: `Nama ${labelKey}`, children: pemetaan.nama },
+                                        { key: 'desc', label: 'Deskripsi', children: pemetaan.deskripsi }
+                                      ])
+                                    }
+                                    className="mb-1"
+                                  />
+                                  {/* Legend SELALU tampil di bawah checkbox, baik dicentang maupun tidak */}
+                                  {/* PERBAIKAN: Kirim prop tipe_garis ke LegendItem */}
+                                  <div className="">
+                                    <LegendItem tipe_geometri={tipe_geometri} icon_titik={pemetaan.icon_titik} warna={pemetaan.warna} tipe_garis={pemetaan.tipe_garis} />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </CollapsibleSection>
+                      </div>
+                    );
+                  }
+
+                  // 🔥 LEAF NODE: Jika child adalah layer (pemetaan) langsung
+                  const pemetaan = child;
+                  if (pemetaan.type === 'indikasi_program') {
+                    return (
+                      <div key={pemetaan.key} className="inline-flex w-full items-center gap-x-2">
+                        <span>{highlightText(pemetaan.title, debouncedSearch)}</span>
+                        <Button icon={<InfoCircleOutlined />} type="link" size="small" onClick={() => showDokumenModal(pemetaan.file_dokumen)} />
+                      </div>
+                    );
+                  }
+
+                  // Fallback tipe_geometri jika tidak ada (default polygon)
+                  const tipe_geometri = pemetaan.tipe_geometri || 'polygon';
+                  return (
+                    <div key={pemetaan.key} className="ml-7">
+                      <LayerCheckbox
+                        pemetaan={pemetaan}
+                        label={highlightText(pemetaan.title || pemetaan.nama, debouncedSearch)}
+                        isChecked={!!selectedLayers[pemetaan.key]}
+                        isLoading={loadingLayers[pemetaan.key]}
+                        onToggle={() => onToggleLayer(pemetaan)}
+                        onInfoClick={() =>
+                          showInfoModal(pemetaan.nama, [
+                            { key: 'name', label: `Nama ${labelKey}`, children: pemetaan.nama },
+                            { key: 'desc', label: 'Deskripsi', children: pemetaan.deskripsi }
+                          ])
+                        }
+                      />
+                      {/* Legend SELALU tampil di bawah checkbox, baik dicentang maupun tidak */}
+                      {/* PERBAIKAN: Kirim prop tipe_garis ke LegendItem */}
+                      <div className="">
+                        <LegendItem tipe_geometri={tipe_geometri} icon_titik={pemetaan.icon_titik} warna={pemetaan.warna} tipe_garis={pemetaan.tipe_garis} />
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
             </CollapsibleSection>
           </div>
         );
       });
     },
-    [selectedLayers, loadingLayers, onToggleLayer, showInfoModal, showDokumenModal, getTypeLabel, debouncedSearch, highlightText]
+    [selectedLayers, loadingLayers, onToggleLayer, onBatchToggleLayers, showInfoModal, showDokumenModal, getTypeLabel, debouncedSearch, highlightText]
   );
 
   return (
@@ -408,8 +520,29 @@ const MapSidebar = ({
 
                   const batasOpen = Boolean(debouncedSearch && filteredBatas.length > 0);
 
+                  // Create pemetaan objects for batch toggle
+                  const batasPemetaans = filteredBatas.map((item) => createBatasPemetaan(item));
+                  const batasCheckedCount = batasPemetaans.filter((p) => selectedLayers[p.key]).length;
+                  const batasTotalCount = batasPemetaans.length;
+                  const batasIsChecked = batasCheckedCount > 0;
+
+                  const handleBatasGroupToggle = () => {
+                    if (batasIsChecked) {
+                      onBatchToggleLayers(batasPemetaans, false);
+                    } else {
+                      onBatchToggleLayers(batasPemetaans, true);
+                    }
+                  };
+
                   return (
-                    <CollapsibleSection title={<>{highlightText('Batas Administrasi')}</>} panelKey="batas" defaultActiveKey={batasOpen ? ['batas'] : ['batas']}>
+                    <CollapsibleSection
+                      title={<>{highlightText('Batas Administrasi')}</>}
+                      panelKey="batas"
+                      defaultActiveKey={batasOpen ? ['batas'] : ['batas']}
+                      checked={batasIsChecked}
+                      indeterminate={false}
+                      onCheck={batasTotalCount > 0 ? handleBatasGroupToggle : undefined}
+                    >
                       {isLoadingBatas && (
                         <>
                           <Checkbox>
@@ -494,7 +627,7 @@ const MapSidebar = ({
                         <Panel
                           key={groupKey}
                           header={
-                            <div className="-py-2 inline-flex w-full items-center gap-x-2">
+                            <div className="-my-3 inline-flex w-full items-center gap-x-2">
                               <span style={{ fontWeight: 600, fontSize: '1.15rem' }}>{layer.layer_group_name || layer.nama || layer.name || layer.title || layer.deskripsi}</span>
                             </div>
                           }
@@ -528,8 +661,8 @@ const MapSidebar = ({
                               <div style={{ marginTop: '-16px' }}>
                                 {/* Batas Administrasi ditampilkan pertama */}
                                 {renderLayerTree(debouncedSearch ? filterTree(layer.tree.batas || []) : layer.tree.batas || [], 'Batas Administrasi')}
-                                {renderLayerTree(debouncedSearch ? filterTree(layer.tree.pola || []) : layer.tree.pola || [], 'Pola Ruang')}
                                 {renderLayerTree(debouncedSearch ? filterTree(layer.tree.struktur || []) : layer.tree.struktur || [], 'Struktur Ruang')}
+                                {renderLayerTree(debouncedSearch ? filterTree(layer.tree.pola || []) : layer.tree.pola || [], 'Pola Ruang')}
                                 {renderLayerTree(debouncedSearch ? filterTree(layer.tree.ketentuan || []) : layer.tree.ketentuan || [], 'Ketentuan Khusus')}
                                 {renderLayerTree(debouncedSearch ? filterTree(layer.tree.pkkprl || []) : layer.tree.pkkprl || [], 'PKKPRL')}
                                 {renderLayerTree(debouncedSearch ? filterTree(layer.tree.indikasi || []) : layer.tree.indikasi || [], 'Indikasi Program')}

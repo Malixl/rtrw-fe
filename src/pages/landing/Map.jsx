@@ -68,7 +68,115 @@ const Maps = () => {
     }
   }, [isLoadingBatas, isBatasSuccess, batasMessage]);
 
-  const batasAdministrasi = batasData ?? [];
+  const batasAdministrasi = React.useMemo(() => batasData ?? [], [batasData]);
+
+  /**
+   * Batch toggle layers - untuk Select All / Deselect All
+   * @param {Array} layers - array of pemetaan objects
+   * @param {boolean} enable - true = aktifkan semua, false = matikan semua
+   */
+  const handleBatchToggleLayers = async (layers, enable) => {
+    if (enable) {
+      // Aktifkan semua layers yang belum aktif
+      const layersToEnable = layers.filter((l) => !selectedLayers[l.key]);
+      if (layersToEnable.length === 0) return;
+
+      // Set loading state untuk semua
+      setLoadingLayers((prev) => {
+        const updated = { ...prev };
+        layersToEnable.forEach((l) => (updated[l.key] = true));
+        return updated;
+      });
+
+      // Fetch semua GeoJSON secara parallel
+      const results = await Promise.allSettled(
+        layersToEnable.map(async (pemetaan) => {
+          const key = pemetaan.key;
+          const id = pemetaan.id;
+          const type = pemetaan.type;
+
+          let url = '';
+          if (type === 'pola') url = `${BASE_URL}/polaruang/${id}/geojson`;
+          else if (type === 'struktur') url = `${BASE_URL}/struktur_ruang/${id}/geojson`;
+          else if (type === 'ketentuan_khusus') url = `${BASE_URL}/ketentuan_khusus/${id}/geojson`;
+          else if (type === 'pkkprl') url = `${BASE_URL}/pkkprl/${id}/geojson`;
+          else if (type === 'data_spasial') url = `${BASE_URL}/data_spasial/${id}/geojson`;
+          else if (type === 'batas_administrasi') url = `${BASE_URL}/batas_administrasi/${id}/geojson`;
+
+          const res = await fetch(url);
+          const json = await res.json();
+          const warna = pemetaan.warna ?? null;
+          const iconImageUrl = asset(pemetaan.icon_titik) ?? null;
+          const tipe_garis = pemetaan.tipe_garis ?? null;
+          const fillOpacity = pemetaan.fill_opacity ?? 0.8;
+
+          const enhanced = {
+            ...json,
+            features: (json.features || []).map((feature) => {
+              const props = { ...(feature.properties || {}) };
+              if (warna) {
+                props.stroke = warna;
+                props.fill = warna;
+                props['stroke-opacity'] = 1;
+                props['fill-opacity'] = fillOpacity;
+              }
+              if (tipe_garis === 'dashed') {
+                props.dashArray = '6 6';
+                props['stroke-width'] = 3;
+              }
+              if (tipe_garis === 'solid') {
+                props.dashArray = null;
+                props['stroke-width'] = 3;
+              }
+              if (tipe_garis === 'bold') {
+                props.dashArray = null;
+                props['stroke-width'] = 6;
+              }
+              if (tipe_garis === 'dash-dot-dot') {
+                props.dashArray = '20 8 3 8 3 8'; // pola: ─── ·  · ───
+                props['stroke-width'] = 3;
+              }
+              if (iconImageUrl) {
+                props.icon_image_url = iconImageUrl;
+              }
+              return { ...feature, properties: props };
+            })
+          };
+
+          return { key, id, type, data: enhanced, meta: pemetaan };
+        })
+      );
+
+      // Update state sekali untuk semua hasil
+      setSelectedLayers((prev) => {
+        const updated = { ...prev };
+        results.forEach((result) => {
+          if (result.status === 'fulfilled') {
+            const { key, id, type, data, meta } = result.value;
+            updated[key] = { id, type, data, meta };
+          }
+        });
+        return updated;
+      });
+
+      // Clear loading state
+      setLoadingLayers((prev) => {
+        const updated = { ...prev };
+        layersToEnable.forEach((l) => (updated[l.key] = false));
+        return updated;
+      });
+    } else {
+      // Matikan semua layers yang aktif - sekali update
+      const keysToDisable = layers.filter((l) => selectedLayers[l.key]).map((l) => l.key);
+      if (keysToDisable.length === 0) return;
+
+      setSelectedLayers((prev) => {
+        const updated = { ...prev };
+        keysToDisable.forEach((key) => delete updated[key]);
+        return updated;
+      });
+    }
+  };
 
   const handleToggleLayer = async (pemetaan) => {
     const key = pemetaan.key;
@@ -127,6 +235,11 @@ const Maps = () => {
           if (tipe_garis === 'bold') {
             props.dashArray = null;
             props['stroke-width'] = 6; // 🔥 LEBIH TEBAL
+          }
+
+          if (tipe_garis === 'dash-dot-dot') {
+            props.dashArray = '20 8 3 8 3 8'; // pola: ─── ·  · ───
+            props['stroke-width'] = 3;
           }
 
           if (iconImageUrl) {
@@ -347,7 +460,7 @@ const Maps = () => {
         if (ketentuan_khusus_list.length > 0) {
           treeStructure.ketentuan = [
             {
-              title: 'Ketentuan Khusus',
+              title: 'Data Khusus',
               key: `virtual-ketentuan-${group.id}`,
               selectable: false,
               children: mapKetentuanKhusus(ketentuan_khusus_list)
@@ -361,7 +474,7 @@ const Maps = () => {
         if (pkkprl_list.length > 0) {
           treeStructure.pkkprl = [
             {
-              title: 'Kawasan PKKPRL',
+              title: 'PKKPRL',
               key: `virtual-pkkprl-${group.id}`,
               selectable: false,
               children: mapPkkprl(pkkprl_list)
@@ -399,6 +512,54 @@ const Maps = () => {
       setLayerGroupTrees(result);
     }
   }, [layerGroupData, mapDataSpasial, mapIndikasiProgram, mapKetentuanKhusus, mapPkkprl, mapPolaRuang, mapStrukturRuang, mapBatasAdministrasi]);
+
+  // Cleanup selectedLayers: remove layers that no longer exist in tree
+  React.useEffect(() => {
+    if (layerGroupTrees.length === 0 && batasAdministrasi.length === 0) return;
+
+    // Collect all valid keys from tree and batas
+    const validKeys = new Set();
+
+    // Add keys from batasAdministrasi
+    batasAdministrasi.forEach((item) => {
+      validKeys.add(`batas-${item.id}`);
+    });
+
+    // Add keys from layerGroupTrees
+    const extractKeys = (nodes) => {
+      if (!Array.isArray(nodes)) return;
+      nodes.forEach((node) => {
+        if (node.key) validKeys.add(node.key);
+        if (node.children) extractKeys(node.children);
+      });
+    };
+
+    layerGroupTrees.forEach((group) => {
+      const tree = group.tree || {};
+      extractKeys(tree.pola || []);
+      extractKeys(tree.struktur || []);
+      extractKeys(tree.ketentuan || []);
+      extractKeys(tree.pkkprl || []);
+      extractKeys(tree.batas || []);
+      extractKeys(tree.data_spasial || []);
+      extractKeys(tree.indikasi || []);
+    });
+
+    // Check if any selected layer is no longer valid
+    setSelectedLayers((prev) => {
+      const selectedKeys = Object.keys(prev);
+      const orphanedKeys = selectedKeys.filter((key) => !validKeys.has(key));
+
+      if (orphanedKeys.length > 0) {
+        console.info('🧹 Cleaning up orphaned layers:', orphanedKeys);
+        const updated = { ...prev };
+        orphanedKeys.forEach((key) => delete updated[key]);
+        return updated;
+      }
+
+      return prev; // No changes
+    });
+  }, [layerGroupTrees, batasAdministrasi]);
 
   const getFeatureStyle = (feature) => {
     const props = feature.properties || {};
@@ -586,8 +747,8 @@ const Maps = () => {
           minZoom={9}
           maxZoom={18}
           maxBounds={[
-            [-0.1, 121.0], // Southwest - diperluas lagi sedikit
-            [1.4, 123.8] // Northeast - diperluas lagi sedikit
+            [-1.5, 120.0], // Southwest - Diperluas agar aman di layar besar
+            [2.5, 125.0] // Northeast
           ]}
           maxBoundsViscosity={1.0}
           className="h-screen w-full"
@@ -760,6 +921,7 @@ const Maps = () => {
           isLoadingBatas={isLoadingBatas}
           isLoadingKlasifikasi={getAllLayerGroups.isLoading}
           onToggleLayer={handleToggleLayer}
+          onBatchToggleLayers={handleBatchToggleLayers}
           // onReloadKlasifikasi={loadAllKlasifikasi}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}

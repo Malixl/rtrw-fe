@@ -9,6 +9,7 @@ const normalizeLineType = (input) => {
   const type = input.toLowerCase();
 
   // Mapping jika nama di database berbeda
+  if (type === 'dash-dot-dot' || type.includes('dash-dot-dot')) return 'dash-dot-dot';
   if (type.includes('putus') || type.includes('dash')) return 'dashed';
   if (type.includes('tebal') || type.includes('bold')) return 'bold';
   if (type.includes('titik') || type.includes('dot')) return 'dotted';
@@ -25,6 +26,8 @@ const getLineStyle = (tipe_garis) => {
       return { strokeWidth: 3, dashArray: '6, 3' };
     case 'dotted':
       return { strokeWidth: 3, dashArray: '2, 3' };
+    case 'dash-dot-dot':
+      return { strokeWidth: 3, dashArray: '20, 8, 3, 8, 3, 8' }; // pola: ─── ·  · ───
     case 'bold':
       return { strokeWidth: 7, dashArray: undefined }; // Dipertebal jadi 7
     case 'solid':
@@ -48,7 +51,7 @@ const renderPolyline = (warna, nama, tipe_garis) => {
     <div className="mb-2 ml-6 mt-1 flex items-center gap-x-2">
       <div className="flex w-8 items-center justify-center">
         <svg width="32" height="12" viewBox={`0 0 ${width} ${height}`} fill="none" xmlns="http://www.w3.org/2000/svg">
-          <line x1="0" y1={centerY} x2={width} y2={centerY} stroke={warna} strokeWidth={strokeWidth} strokeDasharray={dashArray} strokeLinecap={normalizedType === 'dashed' ? 'butt' : 'round'} />
+          <line x1="0" y1={centerY} x2={width} y2={centerY} stroke={warna} strokeWidth={strokeWidth} strokeDasharray={dashArray} strokeLinecap={normalizedType === 'dashed' || normalizedType === 'dash-dot-dot' ? 'butt' : 'round'} />
         </svg>
       </div>
       <span className="text-xs font-medium text-gray-700">{nama}</span>
