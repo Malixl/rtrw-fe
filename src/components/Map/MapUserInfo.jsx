@@ -83,9 +83,19 @@ const MapUserInfo = () => {
     return 'default';
   };
 
-  const wrapperRef = useRef(null);
   const [offsetLeft, setOffsetLeft] = useState(0);
   const [offsetBottom, setOffsetBottom] = useState(0);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const wrapperRef = useRef(null);
+
+  // Handle window resize for responsive
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const rectsIntersect = (r1, r2) => !(r2.left > r1.right || r2.right < r1.left || r2.top > r1.bottom || r2.bottom < r1.top);
 
@@ -161,26 +171,26 @@ const MapUserInfo = () => {
   if (!isAuthenticated || !user) {
     return null;
   }
-  const wrapperClass = `flex cursor-pointer items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 shadow-sm transition-shadow hover:shadow-md`;
+  const wrapperClass = `flex cursor-pointer items-center rounded-lg bg-gray-50 shadow-sm transition-shadow hover:shadow-md ${isMobile ? 'gap-1 px-2 py-1.5' : 'gap-2 px-3 py-2'}`;
 
   const containerStyle = {
     position: 'fixed',
-    bottom: 16,
-    left: 16,
+    bottom: isMobile ? 12 : 16,
+    left: isMobile ? 12 : 16,
     zIndex: 1200,
     transition: 'all 220ms ease'
   };
 
   const node = (
-    <div style={{ ...containerStyle, left: `${16 + offsetLeft}px`, bottom: `${16 + offsetBottom}px` }}>
+    <div style={{ ...containerStyle, left: `${(isMobile ? 12 : 16) + offsetLeft}px`, bottom: `${(isMobile ? 12 : 16) + offsetBottom}px` }}>
       <Dropdown menu={{ items: dropdownItems }} placement={'topLeft'} trigger={['click']}>
         <div ref={wrapperRef} className={wrapperClass}>
-          <Avatar size="small" icon={<UserOutlined />} className="bg-blue-500" />
+          <Avatar size={isMobile ? 'small' : 'default'} icon={<UserOutlined />} className="bg-blue-500" />
           <div className="flex flex-col">
-            <span className="text-sm font-medium leading-tight">{user.name}</span>
-            <span className="text-xs text-gray-500">
+            <span className={`font-medium leading-tight ${isMobile ? 'text-xs' : 'text-sm'}`}>{user.name}</span>
+            <span className={`text-gray-500 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
               Login sebagai{' '}
-              <Tag color={getRoleColor()} className="m-0 text-xs">
+              <Tag color={getRoleColor()} className={`m-0 ${isMobile ? 'px-1 text-[10px]' : 'text-xs'}`}>
                 {getRoleLabel()}
               </Tag>
             </span>

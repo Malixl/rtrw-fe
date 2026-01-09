@@ -14,11 +14,11 @@ const { Panel } = Collapse;
  * LayerCheckbox - Reusable checkbox component for layer items
  */
 const LayerCheckbox = ({ pemetaan, isChecked, isLoading, onToggle, onInfoClick, label }) => (
-  <Checkbox checked={isChecked} onChange={onToggle}>
-    <span className="inline-flex items-center gap-x-2">
-      {label ? label : pemetaan.title || pemetaan.nama}
+  <Checkbox checked={isChecked} onChange={onToggle} className="flex items-start">
+    <span className="inline-flex flex-wrap items-center gap-x-2 leading-relaxed">
+      <span className="text-sm">{label ? label : pemetaan.title || pemetaan.nama}</span>
       {isLoading && <span className="h-3 w-3 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />}
-      {onInfoClick && <Button icon={<InfoCircleOutlined />} type="link" size="small" onClick={onInfoClick} />}
+      {onInfoClick && <Button icon={<InfoCircleOutlined />} type="link" size="small" onClick={onInfoClick} className="h-7 w-7 min-w-0 p-0" />}
     </span>
   </Checkbox>
 );
@@ -34,14 +34,14 @@ const CollapsibleSection = ({ title, panelKey, children, defaultActiveKey, isVir
         isVirtualFolder ? (
           // Virtual folder: mirip layer group dengan chevron di kanan
           <div className="-mt-1 inline-flex w-full items-center">
-            <span className="text-base font-semibold">{title}</span>
+            <span className="text-base font-semibold leading-relaxed">{title}</span>
           </div>
         ) : (
           // Klasifikasi normal: dengan icon dan checkbox
           <div className="inline-flex w-full items-center justify-between gap-2">
-            <div className="inline-flex w-full items-center gap-x-4">
+            <div className="inline-flex w-full items-center gap-x-3 md:gap-x-4">
               <div
-                className="flex items-center justify-center rounded-md bg-blue-100 p-3"
+                className="flex min-w-[36px] items-center justify-center rounded-md bg-blue-100 p-2 md:min-w-[40px] md:p-3"
                 onClick={(e) => {
                   if (onCheck) {
                     e.stopPropagation();
@@ -50,9 +50,9 @@ const CollapsibleSection = ({ title, panelKey, children, defaultActiveKey, isVir
                 }}
                 style={{ cursor: onCheck ? 'pointer' : 'default' }}
               >
-                {isIndikasiProgram ? <FileTextOutlined className="text-blue-500" /> : <Checkbox checked={checked} indeterminate={indeterminate} disabled={!onCheck} />}
+                {isIndikasiProgram ? <FileTextOutlined className="text-base text-blue-500 md:text-lg" /> : <Checkbox checked={checked} indeterminate={indeterminate} disabled={!onCheck} />}
               </div>
-              <span>{title}</span>
+              <span className="text-sm leading-relaxed md:text-base">{title}</span>
             </div>
           </div>
         )
@@ -138,6 +138,7 @@ const MapSidebar = ({
   onToggleCollapse,
   // Responsive
   isMobile = false,
+  isTablet = false,
   treeLayerGroup
 }) => {
   const modal = useCrudModal();
@@ -299,8 +300,8 @@ const MapSidebar = ({
             >
               {/* Empty state jika tidak ada children atau semua children kosong */}
               {(!item.children || item.children.length === 0 || totalCount === 0) && (
-                <div className="flex items-center justify-center gap-x-2 py-4 text-xs text-gray-400">
-                  <InboxOutlined style={{ fontSize: '18px' }} />
+                <div className="flex items-center justify-center gap-x-2 py-4 text-xs text-gray-400 md:text-sm">
+                  <InboxOutlined style={{ fontSize: '16px' }} className="md:text-lg" />
                   <span>Belum ada data</span>
                 </div>
               )}
@@ -349,8 +350,8 @@ const MapSidebar = ({
                         >
                           {/* Empty state jika tidak ada children atau semua children kosong */}
                           {(!child.children || child.children.length === 0 || subTotalCount === 0) && (
-                            <div className="flex items-center justify-center gap-x-2 py-4 text-xs text-gray-400">
-                              <InboxOutlined style={{ fontSize: '18px' }} />
+                            <div className="flex items-center justify-center gap-x-2 py-4 text-xs text-gray-400 md:text-sm">
+                              <InboxOutlined style={{ fontSize: '16px' }} className="md:text-lg" />
                               <span>Belum ada data</span>
                             </div>
                           )}
@@ -363,9 +364,9 @@ const MapSidebar = ({
                             .map((pemetaan) => {
                               if (pemetaan.type === 'indikasi_program') {
                                 return (
-                                  <div key={pemetaan.key} className="inline-flex w-full items-center gap-x-2">
-                                    <span>{highlightText(pemetaan.title, debouncedSearch)}</span>
-                                    <Button icon={<InfoCircleOutlined />} type="link" size="small" onClick={() => showDokumenModal(pemetaan.file_dokumen)} />
+                                  <div key={pemetaan.key} className="inline-flex w-full items-center gap-x-2 py-1">
+                                    <span className="text-sm">{highlightText(pemetaan.title, debouncedSearch)}</span>
+                                    <Button icon={<InfoCircleOutlined />} type="link" size="small" onClick={() => showDokumenModal(pemetaan.file_dokumen)} className="h-7 w-7 min-w-0 p-0" />
                                   </div>
                                 );
                               }
@@ -373,7 +374,7 @@ const MapSidebar = ({
                               // Fallback tipe_geometri jika tidak ada (default polygon)
                               const tipe_geometri = pemetaan.tipe_geometri || 'polygon';
                               return (
-                                <div key={pemetaan.key} className="ml-7">
+                                <div key={pemetaan.key} className="my-2 ml-4 md:ml-7">
                                   <LayerCheckbox
                                     pemetaan={pemetaan}
                                     label={highlightText(pemetaan.title || pemetaan.nama, debouncedSearch)}
@@ -405,9 +406,9 @@ const MapSidebar = ({
                   const pemetaan = child;
                   if (pemetaan.type === 'indikasi_program') {
                     return (
-                      <div key={pemetaan.key} className="inline-flex w-full items-center gap-x-2">
-                        <span>{highlightText(pemetaan.title, debouncedSearch)}</span>
-                        <Button icon={<InfoCircleOutlined />} type="link" size="small" onClick={() => showDokumenModal(pemetaan.file_dokumen)} />
+                      <div key={pemetaan.key} className="inline-flex w-full items-center gap-x-2 py-1">
+                        <span className="text-sm">{highlightText(pemetaan.title, debouncedSearch)}</span>
+                        <Button icon={<InfoCircleOutlined />} type="link" size="small" onClick={() => showDokumenModal(pemetaan.file_dokumen)} className="h-7 w-7 min-w-0 p-0" />
                       </div>
                     );
                   }
@@ -415,7 +416,7 @@ const MapSidebar = ({
                   // Fallback tipe_geometri jika tidak ada (default polygon)
                   const tipe_geometri = pemetaan.tipe_geometri || 'polygon';
                   return (
-                    <div key={pemetaan.key} className="ml-7">
+                    <div key={pemetaan.key} className="my-2 ml-4 md:ml-7">
                       <LayerCheckbox
                         pemetaan={pemetaan}
                         label={highlightText(pemetaan.title || pemetaan.nama, debouncedSearch)}
@@ -454,32 +455,36 @@ const MapSidebar = ({
             type="primary"
             icon={isCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
             onClick={onToggleCollapse}
-            className="absolute -left-10 top-1/2 z-[1001] h-12 w-10 -translate-y-1/2 rounded-l-lg rounded-r-none shadow-lg"
+            className={`absolute -left-10 top-1/2 z-[1001] -translate-y-1/2 rounded-l-lg rounded-r-none shadow-lg transition-all ${isTablet ? 'h-10 w-9' : 'h-12 w-10'}`}
             style={{ right: '100%', left: 'auto' }}
           />
         </Tooltip>
       )}
 
       {/* Sidebar Content */}
-      <div className={`h-full overflow-y-auto bg-white shadow-xl transition-all duration-300 ease-in-out ${isCollapsed ? 'w-0 overflow-hidden p-0' : `w-full ${isMobile ? 'p-4' : 'p-6'}`}`}>
+      <div
+        className={`h-full overflow-y-auto bg-white shadow-xl transition-all duration-300 ease-in-out ${
+          isCollapsed ? 'w-0 overflow-hidden p-0' : `w-full ${isMobile ? 'p-4' : isTablet ? 'p-4' : 'p-6'}`
+        } scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100`}
+      >
         {/* Mobile Header with Close Button */}
         {isMobile && !isCollapsed && (
           <div className="mb-4 flex items-center justify-between border-b pb-3">
-            <Typography.Title level={5} style={{ margin: 0 }}>
+            <Typography.Title level={5} style={{ margin: 0 }} className="text-base font-bold">
               Layer Control
             </Typography.Title>
-            <Button type="text" icon={<MenuFoldOutlined />} onClick={onToggleCollapse} className="text-gray-500" />
+            <Button type="text" icon={<MenuFoldOutlined />} onClick={onToggleCollapse} className="h-10 w-10 text-gray-500 hover:text-gray-700" size="large" />
           </div>
         )}
 
-        <div className={`flex flex-col ${isMobile ? 'min-w-0' : 'min-w-[340px]'} ${isCollapsed ? 'invisible opacity-0' : 'visible opacity-100'}`}>
+        <div className={`flex flex-col ${isMobile ? 'min-w-0' : isTablet ? 'min-w-[300px]' : 'min-w-[360px]'} ${isCollapsed ? 'invisible opacity-0' : 'visible opacity-100'}`}>
           {/* Header - hide on mobile since we have it above */}
           {!isMobile && (
             <div className="flex flex-col">
-              <p className="text-2xl font-bold" style={{ margin: 0 }}>
+              <p className={`font-bold ${isTablet ? 'text-xl' : 'text-2xl'}`} style={{ margin: 0 }}>
                 Legenda
               </p>
-              <p className="text-sm text-gray-500">Pencarian</p>
+              <p className={`text-gray-500 ${isTablet ? 'text-xs' : 'text-sm'}`}>Pencarian</p>
             </div>
           )}
 
@@ -491,7 +496,9 @@ const MapSidebar = ({
               allowClear
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              size="large"
+              size={isMobile ? 'large' : 'large'}
+              className={isMobile ? 'text-base' : ''}
+              style={isMobile ? { minHeight: '44px' } : {}}
               aria-label="Cari legenda atau klasifikasi"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') e.preventDefault();
@@ -559,7 +566,7 @@ const MapSidebar = ({
                       {filteredBatas.map((item) => {
                         const pemetaan = createBatasPemetaan(item);
                         return (
-                          <div key={pemetaan.key} className="ml-7">
+                          <div key={pemetaan.key} className="my-2 ml-4 md:ml-7">
                             <LayerCheckbox
                               pemetaan={{ ...pemetaan, title: item.name }}
                               label={highlightText(item.name)}
@@ -628,7 +635,7 @@ const MapSidebar = ({
                           key={groupKey}
                           header={
                             <div className="-my-3 inline-flex w-full items-center gap-x-2">
-                              <span style={{ fontWeight: 600, fontSize: '1.15rem' }}>{layer.layer_group_name || layer.nama || layer.name || layer.title || layer.deskripsi}</span>
+                              <span className="text-base font-semibold leading-relaxed md:text-lg">{layer.layer_group_name || layer.nama || layer.name || layer.title || layer.deskripsi}</span>
                             </div>
                           }
                         >
@@ -649,8 +656,8 @@ const MapSidebar = ({
                             if (!hasAnyData) {
                               return (
                                 <div className="flex flex-col items-center justify-center py-8">
-                                  <InboxOutlined style={{ fontSize: '48px', color: '#d9d9d9' }} />
-                                  <p className="mt-3 text-sm text-gray-500">Data belum ada</p>
+                                  <InboxOutlined style={{ fontSize: '40px' }} className="text-gray-300 md:text-5xl" />
+                                  <p className="mt-3 text-xs text-gray-500 md:text-sm">Data belum ada</p>
                                   <p className="text-xs text-gray-400">Belum ada klasifikasi dalam layer group ini</p>
                                 </div>
                               );
