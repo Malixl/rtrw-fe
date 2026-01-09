@@ -15,7 +15,7 @@ export interface IncomingApiData {
   geojson_file: string;
   warna: string;
   tipe_geometri: 'polyline' | 'polygon';
-  tipe_garis: 'dashed' | 'solid' | 'bold';
+  tipe_garis: 'dashed' | 'solid' | 'bold' | 'dash-dot-dot' | 'dash-dot-dash-dot-dot';
 }
 
 export interface OutgoingApiData {
@@ -25,7 +25,7 @@ export interface OutgoingApiData {
   geojson_file?: string;
   warna: string;
   tipe_geometri: 'polyline' | 'polygon';
-  tipe_garis?: 'dashed' | 'solid' | 'bold';
+  tipe_garis?: 'dashed' | 'solid' | 'bold' | 'dash-dot-dot' | 'dash-dot-dash-dot-dot';
   klasifikasi_id?: number;
 }
 
@@ -37,7 +37,7 @@ interface FormValue {
   color: string;
   id_klasifikasi?: number;
   geometry_type: 'polyline' | 'polygon';
-  line_type?: 'dashed' | 'solid' | 'bold';
+  line_type?: 'dashed' | 'solid' | 'bold' | 'dash-dot-dot' | 'dash-dot-dash-dot-dot';
 }
 
 type ReturnType<S, From, To> = S extends From[] ? To[] : To;
@@ -50,7 +50,7 @@ export default class BatasAdministrasi extends Model {
     public geojson_file: string,
     public color: string,
     public geometry_type: 'polyline' | 'polygon',
-    public line_type: 'dashed' | 'solid' | 'bold',
+    public line_type: 'dashed' | 'solid' | 'bold' | 'dash-dot-dot' | 'dash-dot-dash-dot-dot',
     public klasifikasi_id?: number,
     public klasifikasi?: KlasifikasiData
   ) {

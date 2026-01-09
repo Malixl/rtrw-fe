@@ -164,6 +164,10 @@ const Maps = () => {
                   props.dashArray = '20 8 3 8 3 8'; // pola: ─── ·  · ───
                   props['stroke-width'] = 3;
                 }
+                if (tipe_garis === 'dash-dot-dash-dot-dot') {
+                  props.dashArray = '15 5 3 5 15 5 3 5 3 5'; // pola: ─ · ─ ··
+                  props['stroke-width'] = 3;
+                }
                 if (iconImageUrl) {
                   props.icon_image_url = iconImageUrl;
                 }
@@ -306,6 +310,11 @@ const Maps = () => {
 
           if (tipe_garis === 'dash-dot-dot') {
             props.dashArray = '20 8 3 8 3 8'; // pola: ─── ·  · ───
+            props['stroke-width'] = 3;
+          }
+
+          if (tipe_garis === 'dash-dot-dash-dot-dot') {
+            props.dashArray = '15 5 3 5 15 5 3 5 3 5'; // pola: ─ · ─ ··
             props['stroke-width'] = 3;
           }
 
