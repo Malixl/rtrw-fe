@@ -10,7 +10,7 @@ export interface IncomingApiData {
   geojson_file: string;
   tipe_geometri: 'polyline' | 'poin';
   icon_titik: string;
-  tipe_garis: 'dashed' | 'solid' | 'bold';
+  tipe_garis: 'dashed' | 'solid' | 'bold' | 'dash-dot-dot' | 'dash-dot-dash-dot-dot';
   warna: string;
 }
 
@@ -23,7 +23,7 @@ export interface OutgoingApiData {
   warna: string;
   tipe_geometri: 'polyline' | 'poin';
   icon_titik?: string;
-  tipe_garis?: 'dashed' | 'solid' | 'bold';
+  tipe_garis?: 'dashed' | 'solid' | 'bold' | 'dash-dot-dot' | 'dash-dot-dash-dot-dot';
 }
 
 interface FormValue {
@@ -35,7 +35,7 @@ interface FormValue {
   color: string;
   geometry_type: 'polyline' | 'poin';
   point_icon?: string;
-  line_type?: 'dashed' | 'solid' | 'bold';
+  line_type?: 'dashed' | 'solid' | 'bold' | 'dash-dot-dot' | 'dash-dot-dash-dot-dot';
 }
 
 type ReturnType<S, From, To> = S extends From[] ? To[] : To;
@@ -50,7 +50,7 @@ export default class StrukturRuangs extends Model {
     public geojson_file: string,
     public geometry_type: 'polyline' | 'poin',
     public point_icon: string,
-    public line_type: 'dashed' | 'solid' | 'bold',
+    public line_type: 'dashed' | 'solid' | 'bold' | 'dash-dot-dot' | 'dash-dot-dash-dot-dot',
     public color: string
   ) {
     super();

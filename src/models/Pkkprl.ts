@@ -10,7 +10,7 @@ export interface IncomingApiData {
   geojson_file: string;
   tipe_geometri: 'polyline' | 'poin' | 'polygon';
   icon_titik: string;
-  tipe_garis: 'dashed' | 'solid' | 'bold';
+  tipe_garis: 'dashed' | 'solid' | 'bold' | 'dash-dot-dot' | 'dash-dot-dash-dot-dot';
 }
 
 export interface OutgoingApiData {
@@ -22,7 +22,7 @@ export interface OutgoingApiData {
   warna?: string;
   tipe_geometri: 'polyline' | 'poin' | 'polygon';
   icon_titik?: string;
-  tipe_garis?: 'dashed' | 'solid' | 'bold';
+  tipe_garis?: 'dashed' | 'solid' | 'bold' | 'dash-dot-dot' | 'dash-dot-dash-dot-dot';
 }
 
 interface FormValue {
@@ -34,7 +34,7 @@ interface FormValue {
   color?: string;
   geometry_type: 'polyline' | 'poin' | 'polygon';
   point_icon?: string;
-  line_type?: 'dashed' | 'solid' | 'bold';
+  line_type?: 'dashed' | 'solid' | 'bold' | 'dash-dot-dot' | 'dash-dot-dash-dot-dot';
 }
 
 type ReturnType<S, From, To> = S extends From[] ? To[] : To;
@@ -49,7 +49,7 @@ export default class Pkkprl extends Model {
     public geojson_file: string,
     public geometry_type: 'polyline' | 'poin' | 'polygon',
     public point_icon: string,
-    public line_type: 'dashed' | 'solid' | 'bold'
+    public line_type: 'dashed' | 'solid' | 'bold' | 'dash-dot-dot' | 'dash-dot-dash-dot-dot'
   ) {
     super();
   }

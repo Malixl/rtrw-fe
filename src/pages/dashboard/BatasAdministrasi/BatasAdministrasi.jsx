@@ -43,6 +43,20 @@ const buildEditFieldsByGeometry = (record, klasifikasis = []) => {
             />
           ),
           value: 'dash-dot-dot'
+        },
+        {
+          label: (
+            <div
+              className="w-full border-2"
+              style={{
+                borderStyle: 'dashed',
+                borderColor: 'black',
+                borderImage:
+                  'repeating-linear-gradient(90deg, currentColor 0, currentColor 12px, transparent 12px, transparent 16px, currentColor 16px, currentColor 18px, transparent 18px, transparent 22px, currentColor 22px, currentColor 34px, transparent 34px, transparent 38px, currentColor 38px, currentColor 40px, transparent 40px, transparent 44px, currentColor 44px, currentColor 46px, transparent 46px, transparent 50px) 1'
+              }}
+            />
+          ),
+          value: 'dash-dot-dash-dot-dot'
         }
       ]
     });
@@ -238,16 +252,44 @@ const BatasAdministrasi = () => {
         ],
         options: [
           {
-            label: <div className="w-full border-4" />,
+            label: <div className="w-full border-4 border-black" />,
             value: 'bold'
           },
           {
-            label: <div className="w-full border" />,
+            label: <div className="w-full border border-black" />,
             value: 'solid'
           },
           {
-            label: <div className="w-full border border-dashed" />,
+            label: <div className="w-full border border-dashed border-black" />,
             value: 'dashed'
+          },
+          {
+            label: (
+              <div
+                className="w-full border-2"
+                style={{
+                  borderStyle: 'dashed',
+                  borderColor: 'black',
+                  borderImage:
+                    'repeating-linear-gradient(90deg, currentColor 0, currentColor 10px, transparent 10px, transparent 13px, currentColor 13px, currentColor 15px, transparent 15px, transparent 18px, currentColor 18px, currentColor 20px, transparent 20px, transparent 23px) 1'
+                }}
+              />
+            ),
+            value: 'dash-dot-dot'
+          },
+          {
+            label: (
+              <div
+                className="w-full border-2"
+                style={{
+                  borderStyle: 'dashed',
+                  borderColor: 'black',
+                  borderImage:
+                    'repeating-linear-gradient(90deg, currentColor 0, currentColor 12px, transparent 12px, transparent 16px, currentColor 16px, currentColor 18px, transparent 18px, transparent 22px, currentColor 22px, currentColor 34px, transparent 34px, transparent 38px, currentColor 38px, currentColor 40px, transparent 40px, transparent 44px, currentColor 44px, currentColor 46px, transparent 46px, transparent 50px) 1'
+                }}
+              />
+            ),
+            value: 'dash-dot-dash-dot-dot'
           }
         ]
       });
@@ -376,6 +418,7 @@ const BatasAdministrasi = () => {
                     const getDashArray = () => {
                       if (tipe === 'dashed') return '5,5';
                       if (tipe === 'dash-dot-dot') return '20,8,3,8,3,8';
+                      if (tipe === 'dash-dot-dash-dot-dot') return '15,5,3,5,15,5,3,5,3,5';
                       return null;
                     };
                     return { color: warna, weight: tipe === 'bold' ? 5 : 2, dashArray: getDashArray() };

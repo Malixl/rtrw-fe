@@ -70,6 +70,20 @@ const buildEditFieldsByGeometry = (record, klasifikasis) => {
               />
             ),
             value: 'dash-dot-dot'
+          },
+          {
+            label: (
+              <div
+                className="w-full border-2"
+                style={{
+                  borderStyle: 'dashed',
+                  borderColor: 'black',
+                  borderImage:
+                    'repeating-linear-gradient(90deg, currentColor 0, currentColor 12px, transparent 12px, transparent 16px, currentColor 16px, currentColor 18px, transparent 18px, transparent 22px, currentColor 22px, currentColor 34px, transparent 34px, transparent 38px, currentColor 38px, currentColor 40px, transparent 40px, transparent 44px, currentColor 44px, currentColor 46px, transparent 46px, transparent 50px) 1'
+                }}
+              />
+            ),
+            value: 'dash-dot-dash-dot-dot'
           }
         ]
       },
@@ -327,6 +341,20 @@ const StrukturRuangs = () => {
                 />
               ),
               value: 'dash-dot-dot'
+            },
+            {
+              label: (
+                <div
+                  className="w-full border-2"
+                  style={{
+                    borderStyle: 'dashed',
+                    borderColor: 'black',
+                    borderImage:
+                      'repeating-linear-gradient(90deg, currentColor 0, currentColor 12px, transparent 12px, transparent 16px, currentColor 16px, currentColor 18px, transparent 18px, transparent 22px, currentColor 22px, currentColor 34px, transparent 34px, transparent 38px, currentColor 38px, currentColor 40px, transparent 40px, transparent 44px, currentColor 44px, currentColor 46px, transparent 46px, transparent 50px) 1'
+                  }}
+                />
+              ),
+              value: 'dash-dot-dash-dot-dot'
             }
           ]
         },

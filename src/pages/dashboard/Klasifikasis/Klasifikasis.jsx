@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { DataTable, DataTableHeader } from '@/components';
 import { Action } from '@/constants';
 import { useAuth, useCrudModal, useNotification, usePagination, useService } from '@/hooks';
@@ -96,7 +97,7 @@ const Klasifikasis = () => {
               });
             }}
           />
-          <Detail
+          {/* <Detail
             title={`Detail ${Modul.KLASIFIKASI}`}
             model={KlasifikasiModel}
             onClick={() => {
@@ -127,7 +128,7 @@ const Klasifikasis = () => {
                 ]
               });
             }}
-          />
+          /> */}
 
           <Delete
             title={`Delete ${Modul.KLASIFIKASI}`}

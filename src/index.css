@@ -68,6 +68,28 @@
   ::-webkit-scrollbar-thumb:hover {
     background: linear-gradient(180deg, #0958d9, #003eb3);
   }
+
+  /* Thin scrollbar for mobile/tablet */
+  @media (max-width: 1023px) {
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+  }
+
+  /* Touch-friendly targets on mobile */
+  @media (max-width: 767px) {
+    .ant-checkbox-wrapper {
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+    }
+
+    .ant-btn {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  }
 }
 
 @layer utilities {
@@ -128,4 +150,41 @@
 .layer-group-collapse .ant-collapse-header {
   padding-top: 0.5rem !important;
   padding-bottom: 0.5rem !important;
+}
+
+/* Responsive collapse panels for mobile */
+@media (max-width: 767px) {
+  .ant-collapse-header {
+    padding: 10px 12px !important;
+    font-size: 14px !important;
+  }
+
+  .ant-collapse-content-box {
+    padding: 12px !important;
+  }
+
+  /* Make expand icons larger on mobile */
+  .ant-collapse-expand-icon {
+    padding-inline-end: 8px !important;
+  }
+}
+
+/* Responsive collapse panels for tablet */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .ant-collapse-header {
+    padding: 10px 14px !important;
+  }
+
+  .ant-collapse-content-box {
+    padding: 14px !important;
+  }
+}
+
+/* Smooth transitions for collapsible elements */
+.ant-collapse {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ant-collapse-item {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }

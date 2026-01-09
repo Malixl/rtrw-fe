@@ -6,10 +6,11 @@ import { BASE_URL } from '@/utils/api';
 import asset from '@/utils/asset';
 
 import { LockOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
-import { Button, Result, Skeleton, Tooltip } from 'antd';
+import { Button, Result, Tooltip } from 'antd';
 import React from 'react';
 import { MapContainer, TileLayer, GeoJSON, Popup, LayersControl } from 'react-leaflet';
 import { useNavigate } from 'react-router-dom';
+import { AnimatePresence } from 'framer-motion';
 import L from 'leaflet';
 import 'leaflet-draw';
 import 'leaflet-draw/dist/leaflet.draw.css';
@@ -19,6 +20,8 @@ import CoordinateControl from '@/components/Map/CoordinateControl';
 import MapToolsControl from '@/components/Map/MapToolsControl';
 import MapSidebar from '@/components/Map/MapSidebar';
 import MapUserInfo from '@/components/Map/MapUserInfo';
+import MapLoader from '@/components/Map/MapLoader';
+import BatchLoadingOverlay from '@/components/Map/BatchLoadingOverlay';
 
 const { BaseLayer } = LayersControl;
 
@@ -32,8 +35,20 @@ const Maps = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(true);
   const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
   const [isTablet, setIsTablet] = React.useState(window.innerWidth >= 768 && window.innerWidth < 1024);
+  const [isDesktop, setIsDesktop] = React.useState(window.innerWidth >= 1024);
 
   const [layerGroupTrees, setLayerGroupTrees] = React.useState([]);
+
+  // State untuk mengontrol visibilitas Loader
+  const [showLoader, setShowLoader] = React.useState(true);
+
+  // State untuk batch loading overlay
+  const [batchLoading, setBatchLoading] = React.useState({
+    isVisible: false,
+    current: 0,
+    total: 0,
+    isEnabling: true
+  });
 
   // Handle window resize for responsive
   React.useEffect(() => {
@@ -41,6 +56,7 @@ const Maps = () => {
       const width = window.innerWidth;
       setIsMobile(width < 768);
       setIsTablet(width >= 768 && width < 1024);
+      setIsDesktop(width >= 1024);
       // Auto collapse sidebar on mobile
       if (width < 768) {
         setIsSidebarCollapsed(true);
@@ -81,6 +97,14 @@ const Maps = () => {
       const layersToEnable = layers.filter((l) => !selectedLayers[l.key]);
       if (layersToEnable.length === 0) return;
 
+      // Show batch loading overlay
+      setBatchLoading({
+        isVisible: true,
+        current: 0,
+        total: layersToEnable.length,
+        isEnabling: true
+      });
+
       // Set loading state untuk semua
       setLoadingLayers((prev) => {
         const updated = { ...prev };
@@ -88,8 +112,11 @@ const Maps = () => {
         return updated;
       });
 
-      // Fetch semua GeoJSON secara parallel
-      const results = await Promise.allSettled(
+      // Fetch semua GeoJSON secara parallel dengan progress tracking
+      const results = [];
+      let completed = 0;
+
+      await Promise.all(
         layersToEnable.map(async (pemetaan) => {
           const key = pemetaan.key;
           const id = pemetaan.id;
@@ -103,47 +130,63 @@ const Maps = () => {
           else if (type === 'data_spasial') url = `${BASE_URL}/data_spasial/${id}/geojson`;
           else if (type === 'batas_administrasi') url = `${BASE_URL}/batas_administrasi/${id}/geojson`;
 
-          const res = await fetch(url);
-          const json = await res.json();
-          const warna = pemetaan.warna ?? null;
-          const iconImageUrl = asset(pemetaan.icon_titik) ?? null;
-          const tipe_garis = pemetaan.tipe_garis ?? null;
-          const fillOpacity = pemetaan.fill_opacity ?? 0.8;
+          try {
+            const res = await fetch(url);
+            const json = await res.json();
+            const warna = pemetaan.warna ?? null;
+            const iconImageUrl = asset(pemetaan.icon_titik) ?? null;
+            const tipe_garis = pemetaan.tipe_garis ?? null;
+            const fillOpacity = pemetaan.fill_opacity ?? 0.8;
 
-          const enhanced = {
-            ...json,
-            features: (json.features || []).map((feature) => {
-              const props = { ...(feature.properties || {}) };
-              if (warna) {
-                props.stroke = warna;
-                props.fill = warna;
-                props['stroke-opacity'] = 1;
-                props['fill-opacity'] = fillOpacity;
-              }
-              if (tipe_garis === 'dashed') {
-                props.dashArray = '6 6';
-                props['stroke-width'] = 3;
-              }
-              if (tipe_garis === 'solid') {
-                props.dashArray = null;
-                props['stroke-width'] = 3;
-              }
-              if (tipe_garis === 'bold') {
-                props.dashArray = null;
-                props['stroke-width'] = 6;
-              }
-              if (tipe_garis === 'dash-dot-dot') {
-                props.dashArray = '20 8 3 8 3 8'; // pola: ─── ·  · ───
-                props['stroke-width'] = 3;
-              }
-              if (iconImageUrl) {
-                props.icon_image_url = iconImageUrl;
-              }
-              return { ...feature, properties: props };
-            })
-          };
+            const enhanced = {
+              ...json,
+              features: (json.features || []).map((feature) => {
+                const props = { ...(feature.properties || {}) };
+                if (warna) {
+                  props.stroke = warna;
+                  props.fill = warna;
+                  props['stroke-opacity'] = 1;
+                  props['fill-opacity'] = fillOpacity;
+                }
+                if (tipe_garis === 'dashed') {
+                  props.dashArray = '6 6';
+                  props['stroke-width'] = 3;
+                }
+                if (tipe_garis === 'solid') {
+                  props.dashArray = null;
+                  props['stroke-width'] = 3;
+                }
+                if (tipe_garis === 'bold') {
+                  props.dashArray = null;
+                  props['stroke-width'] = 6;
+                }
+                if (tipe_garis === 'dash-dot-dot') {
+                  props.dashArray = '20 8 3 8 3 8'; // pola: ─── ·  · ───
+                  props['stroke-width'] = 3;
+                }
+                if (tipe_garis === 'dash-dot-dash-dot-dot') {
+                  props.dashArray = '15 5 3 5 15 5 3 5 3 5'; // pola: ─ · ─ ··
+                  props['stroke-width'] = 3;
+                }
+                if (iconImageUrl) {
+                  props.icon_image_url = iconImageUrl;
+                }
+                return { ...feature, properties: props };
+              })
+            };
 
-          return { key, id, type, data: enhanced, meta: pemetaan };
+            results.push({ key, id, type, data: enhanced, meta: pemetaan, status: 'fulfilled' });
+          } catch (error) {
+            console.error(`Failed to load layer ${key}:`, error);
+            results.push({ key, status: 'rejected' });
+          } finally {
+            completed++;
+            // Update progress
+            setBatchLoading((prev) => ({
+              ...prev,
+              current: completed
+            }));
+          }
         })
       );
 
@@ -152,7 +195,7 @@ const Maps = () => {
         const updated = { ...prev };
         results.forEach((result) => {
           if (result.status === 'fulfilled') {
-            const { key, id, type, data, meta } = result.value;
+            const { key, id, type, data, meta } = result;
             updated[key] = { id, type, data, meta };
           }
         });
@@ -165,16 +208,44 @@ const Maps = () => {
         layersToEnable.forEach((l) => (updated[l.key] = false));
         return updated;
       });
+
+      // Hide overlay with slight delay
+      setTimeout(() => {
+        setBatchLoading({
+          isVisible: false,
+          current: 0,
+          total: 0,
+          isEnabling: true
+        });
+      }, 500);
     } else {
       // Matikan semua layers yang aktif - sekali update
       const keysToDisable = layers.filter((l) => selectedLayers[l.key]).map((l) => l.key);
       if (keysToDisable.length === 0) return;
+
+      // Show overlay for disabling
+      setBatchLoading({
+        isVisible: true,
+        current: keysToDisable.length,
+        total: keysToDisable.length,
+        isEnabling: false
+      });
 
       setSelectedLayers((prev) => {
         const updated = { ...prev };
         keysToDisable.forEach((key) => delete updated[key]);
         return updated;
       });
+
+      // Hide overlay immediately for disable (it's fast)
+      setTimeout(() => {
+        setBatchLoading({
+          isVisible: false,
+          current: 0,
+          total: 0,
+          isEnabling: true
+        });
+      }, 300);
     }
   };
 
@@ -239,6 +310,11 @@ const Maps = () => {
 
           if (tipe_garis === 'dash-dot-dot') {
             props.dashArray = '20 8 3 8 3 8'; // pola: ─── ·  · ───
+            props['stroke-width'] = 3;
+          }
+
+          if (tipe_garis === 'dash-dot-dash-dot-dot') {
+            props.dashArray = '15 5 3 5 15 5 3 5 3 5'; // pola: ─ · ─ ··
             props['stroke-width'] = 3;
           }
 
@@ -399,6 +475,21 @@ const Maps = () => {
 
   // Use stable execute function reference to avoid re-creating the callback when hook data changes
   const { execute, ...getAllLayerGroups } = useService(LayerGroupsService.layerGroupWithKlasifikasi);
+
+  // Definisikan kondisi data sudah siap atau belum
+  // Cek juga apakah batas administrasi sudah ter-load ke selectedLayers
+  const batasKeysInSelected = React.useMemo(() => {
+    return Object.keys(selectedLayers).filter((key) => key.startsWith('batas-')).length;
+  }, [selectedLayers]);
+
+  const isDataReady = React.useMemo(() => {
+    const apiReady = !authLoading && !getAllLayerGroups.isLoading && !isLoadingBatas;
+    const batasDataExists = batasAdministrasi.length > 0;
+    const batasLayersLoaded = batasKeysInSelected === batasAdministrasi.length;
+    const noLoadingLayers = Object.values(loadingLayers).every((loading) => !loading);
+
+    return apiReady && batasDataExists && batasLayersLoaded && noLoadingLayers;
+  }, [authLoading, getAllLayerGroups.isLoading, isLoadingBatas, batasAdministrasi.length, batasKeysInSelected, loadingLayers]);
 
   const fetchLayerGroups = React.useCallback(() => {
     execute({ page: 1, per_page: 9999 });
@@ -584,17 +675,8 @@ const Maps = () => {
     return style;
   };
 
-  // Show loading state while checking auth
-  if (authLoading) {
-    return (
-      <section className="flex h-screen w-full items-center justify-center">
-        <Skeleton active paragraph={{ rows: 6 }} />
-      </section>
-    );
-  }
-
   // Show access denied overlay for users without map access
-  if (!hasMapAccess) {
+  if (!hasMapAccess && !authLoading) {
     return (
       <section className="relative flex h-screen w-full">
         {/* Blurred Map Background */}
@@ -632,6 +714,13 @@ const Maps = () => {
 
   return (
     <section className="relative h-screen w-full overflow-hidden">
+      {/* === KOMPONEN LOADER BARU === */}
+      {/* AnimatePresence memastikan animasi exit (menghilang) berjalan dulu sebelum dihapus dari DOM */}
+      <AnimatePresence>{showLoader && <MapLoader isLoaded={isDataReady} onFinished={() => setShowLoader(false)} />}</AnimatePresence>
+
+      {/* === BATCH LOADING OVERLAY === */}
+      <BatchLoadingOverlay isVisible={batchLoading.isVisible} current={batchLoading.current} total={batchLoading.total} isEnabling={batchLoading.isEnabling} />
+
       {/* Dynamic styles for map controls based on sidebar state and screen size */}
       <style>
         {`
@@ -734,7 +823,9 @@ const Maps = () => {
       </style>
 
       {/* Mobile Floating Button to Open Sidebar */}
-      {isMobile && isSidebarCollapsed && <Button type="primary" icon={<MenuUnfoldOutlined />} onClick={() => setIsSidebarCollapsed(false)} className="absolute right-4 top-4 z-[1001] h-10 w-10 rounded-full shadow-lg" size="large" />}
+      {isMobile && isSidebarCollapsed && (
+        <Button type="primary" icon={<MenuUnfoldOutlined />} onClick={() => setIsSidebarCollapsed(false)} className="absolute right-4 top-4 z-[1001] h-12 w-12 rounded-full shadow-xl transition-transform hover:scale-110" size="large" />
+      )}
 
       {/* Floating user info (always mounted as portal) */}
       <MapUserInfo />
@@ -896,9 +987,9 @@ const Maps = () => {
             left: isSidebarCollapsed ? '50%' : isMobile ? '50%' : isTablet ? 'calc(50% - 160px)' : 'calc(50% - 200px)'
           }}
         >
-          <div style={{ backgroundColor: 'rgba(255,255,255,0.90)' }} className="flex items-center gap-4 rounded-xl border border-gray-300 px-6 py-3 shadow-lg">
-            <img src="/image_asset/gorontalo-logo.png" alt="Lambang Provinsi Gorontalo" className="h-7 w-7 rounded object-contain" />
-            <div className="text-lg font-bold capitalize text-black">Peta Rencana Tata Ruang Wilayah Provinsi Gorontalo</div>
+          <div style={{ backgroundColor: 'rgba(255,255,255,0.92)' }} className={`flex items-center rounded-xl border border-gray-300 shadow-lg ${isMobile ? 'max-w-[calc(100vw-32px)] gap-2 px-3 py-2' : 'gap-4 px-6 py-3'}`}>
+            <img src="/image_asset/gorontalo-logo.png" alt="Lambang Provinsi Gorontalo" className={`rounded object-contain ${isMobile ? 'h-6 w-6' : 'h-7 w-7'}`} />
+            <div className={`font-bold capitalize text-black ${isMobile ? 'text-xs leading-tight' : isTablet ? 'text-base' : 'text-lg'}`}>Peta Rencana Tata Ruang Wilayah Provinsi Gorontalo</div>
           </div>
         </div>
 
@@ -906,7 +997,7 @@ const Maps = () => {
       </div>
 
       {/* Collapsible Sidebar - Responsive */}
-      <div className={`absolute right-0 top-0 z-[1000] h-full transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-0' : isMobile ? 'w-full' : isTablet ? 'w-[320px]' : 'w-[400px]'}`}>
+      <div className={`absolute right-0 top-0 z-[1000] h-full transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-0' : isMobile ? 'w-full' : isTablet ? 'w-[340px]' : 'w-[420px]'}`}>
         <MapSidebar
           // rtrws={rtrws}
           batasAdministrasi={batasAdministrasi}
@@ -926,11 +1017,12 @@ const Maps = () => {
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
           isMobile={isMobile}
+          isTablet={isTablet}
         />
       </div>
 
       {/* Mobile overlay when sidebar is open */}
-      {isMobile && !isSidebarCollapsed && <div className="absolute inset-0 z-[999] bg-black/50" onClick={() => setIsSidebarCollapsed(true)} />}
+      {isMobile && !isSidebarCollapsed && <div className="absolute inset-0 z-[999] bg-black/60 backdrop-blur-sm transition-opacity duration-300" onClick={() => setIsSidebarCollapsed(true)} onTouchEnd={() => setIsSidebarCollapsed(true)} />}
     </section>
   );
 };
