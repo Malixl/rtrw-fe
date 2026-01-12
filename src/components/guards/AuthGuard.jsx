@@ -11,11 +11,11 @@ import { Navigate, useLocation } from 'react-router-dom';
  * @param {React.ReactNode} props.children - The content to render if authenticated
  */
 const AuthGuard = ({ children }) => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isInitialized } = useAuth();
   const { pathname } = useLocation();
 
   // Show loading state
-  if (isLoading) {
+  if (!isInitialized) {
     return <Skeleton active paragraph={{ rows: 4 }} />;
   }
 

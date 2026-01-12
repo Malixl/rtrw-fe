@@ -12,7 +12,8 @@ const AuthContext = createContext({
   token: JSON.parse(localStorage.getItem('token'))?.data || '',
   user: null,
   isLoading: false,
-  onUnauthorized: () => {},
+  isInitialized: false,
+  onUnauthorized: () => { },
 
   // Role & Capabilities state
   capabilities: DEFAULT_GUEST_CAPABILITIES,

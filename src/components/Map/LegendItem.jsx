@@ -28,9 +28,9 @@ const getLineStyle = (tipe_garis) => {
     case 'dotted':
       return { strokeWidth: 3, dashArray: '2, 3' };
     case 'dash-dot-dot':
-      return { strokeWidth: 3, dashArray: '20, 8, 3, 8, 3, 8' }; // pola: ─── ·  · ───
+      return { strokeWidth: 4, dashArray: '12, 3, 2.5, 3, 2.5, 3' }; // pola: ─ ·· ─ ·· (tebal & titik besar)
     case 'dash-dot-dash-dot-dot':
-      return { strokeWidth: 3, dashArray: '15, 5, 3, 5, 15, 5, 3, 5, 3, 5' }; // pola: ─ · ─ ··
+      return { strokeWidth: 4, dashArray: '8, 3, 2.5, 3, 8, 3, 2.5, 3, 2.5, 3' }; // pola: ─ · ─ ·· (tebal & titik besar)
     case 'bold':
       return { strokeWidth: 7, dashArray: undefined }; // Dipertebal jadi 7
     case 'solid':
