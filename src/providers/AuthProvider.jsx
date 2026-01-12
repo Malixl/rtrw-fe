@@ -46,13 +46,13 @@ export default function AuthProvider({ children }) {
   const { execute: logoutService, isLoading: logoutIsLoading } = useService(AuthService.logout);
   const { execute: forgotService, isLoading: forgotIsLoading } = useService(AuthService.forgot);
   const { execute: resetService, isLoading: resetIsLoading } = useService(AuthService.reset);
-  const { execute: getUser, isLoading: getUserIsLoading } = useService(AuthService.me);
   const { execute: checkRoleService } = useService(AuthService.checkRole);
   const { execute: getGuestCapabilitiesService } = useService(AuthService.getGuestCapabilities);
 
   const [token, setToken] = useLocalStorage('token', '');
   const [user, setUser] = useState(null);
   const [capabilities, setCapabilities] = useState(DEFAULT_GUEST_CAPABILITIES);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Computed role states
   const isAuthenticated = useMemo(() => !!token && !!user, [token, user]);
@@ -90,33 +90,55 @@ export default function AuthProvider({ children }) {
 
   // Fetch user data when token exists
   useEffect(() => {
+    console.log('[AUTH] useEffect start, token exists:', !!token);
+
     if (!token) {
+      console.log('[AUTH] No token, setting initialized=true');
       setUser(null);
+      setIsInitialized(true);
       return;
     }
 
-    const fetchUser = async () => {
-      try {
-        const { code, data } = await getUser(token);
-        if (code === HttpStatusCode.UNAUTHORIZED) {
-          setToken('');
-          setCapabilities(DEFAULT_GUEST_CAPABILITIES);
-          return;
-        }
-        const userInstance = mapToUserInstance(data);
-        setUser(userInstance);
-        if (userInstance?.capabilities) {
-          setCapabilities(userInstance.capabilities);
-        }
-      } catch (error) {
-        console.error('Error fetching user:', error);
-        setToken('');
-        setCapabilities(DEFAULT_GUEST_CAPABILITIES);
-      }
-    };
+    console.log('[AUTH] Token exists, fetching user...');
 
-    fetchUser();
-  }, [getUser, mapToUserInstance, setToken, token]);
+    AuthService.me(token)
+      .then((response) => {
+        console.log('[AUTH] Response received:', response);
+        const { code, data, status: isSuccess } = response;
+
+        if (!isSuccess || !data || code === HttpStatusCode.UNAUTHORIZED) {
+          console.log('[AUTH] Invalid response, clearing token');
+          setToken('');
+          setUser(null);
+          setCapabilities(DEFAULT_GUEST_CAPABILITIES);
+        } else {
+          console.log('[AUTH] Valid response, setting user');
+          const userInstance = mapToUserInstance(data);
+          setUser(userInstance);
+          if (userInstance?.capabilities) {
+            setCapabilities(userInstance.capabilities);
+          }
+        }
+      })
+      .catch((error) => {
+        console.log('[AUTH] Error:', error);
+        if (!(error instanceof Error && error.name === 'AbortError')) {
+          setToken('');
+          setUser(null);
+          setCapabilities(DEFAULT_GUEST_CAPABILITIES);
+        }
+      })
+      .finally(() => {
+        console.log('[AUTH] Finally block, setting isInitialized=true');
+        setIsInitialized(true);
+      });
+  }, [mapToUserInstance, setToken, token]);
+
+  useEffect(() => {
+    console.log('[AUTH] isInitialized changed:', isInitialized);
+    console.log('[AUTH] Loading states - login:', loginIsLoading, 'logout:', logoutIsLoading, 'forgot:', forgotIsLoading, 'reset:', resetIsLoading);
+    console.log('[AUTH] isLoading:', !isInitialized || loginIsLoading || logoutIsLoading || forgotIsLoading || resetIsLoading);
+  }, [isInitialized, loginIsLoading, logoutIsLoading, forgotIsLoading, resetIsLoading]);
 
   // Check user role and capabilities
   const checkUserRole = useCallback(async () => {
@@ -261,7 +283,8 @@ export default function AuthProvider({ children }) {
         // Auth state
         token,
         user,
-        isLoading: (!!token && !user) || loginIsLoading || logoutIsLoading || getUserIsLoading || forgotIsLoading || resetIsLoading,
+        isInitialized,
+        isLoading: !isInitialized || loginIsLoading || logoutIsLoading || forgotIsLoading || resetIsLoading,
 
         // Role & Capabilities state
         capabilities,

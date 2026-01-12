@@ -10,9 +10,49 @@ import { Notfound } from './pages/result';
 import { CreateNews, EditNews, IndikasiPrograms, KetentuanKhusus, Pkkprl, Polaruang, StrukturRuang } from './pages/dashboard';
 import { ReadNews } from './pages/landing';
 import { ProtectedRoute } from './components';
+// import { useEffect, useMemo } from 'react';
+import PropTypes from 'prop-types';
+
+function DashboardAuthGuard({ permissions, roles, capability, capabilities, requireAllCapabilities, children }) {
+  const { isLoading, user, hasCapability } = useAuth();
+
+  if (isLoading) {
+    return <Skeleton active />;
+  }
+
+  // Use capability-based check first
+  if (capability || (capabilities && capabilities.length > 0)) {
+    const requiredCaps = capability ? [capability] : capabilities;
+    const hasRequiredCap = requireAllCapabilities ? requiredCaps.every((cap) => hasCapability(cap)) : requiredCaps.some((cap) => hasCapability(cap));
+
+    if (!hasRequiredCap) {
+      return <Result status="403" subTitle="Anda tidak memiliki akses ke halaman ini" title="Forbidden" />;
+    }
+  }
+
+  // Fallback to old permission/role system for backward compatibility
+  const hasPermissions = permissions && permissions.length > 0;
+  const hasRoles = roles && roles.length > 0;
+  const userCantDoAnyOfThat = hasPermissions && (!user || user.cantDoAny(...permissions));
+  const userIsNotInAnyOfThatRole = hasRoles && (!user || !roles.some((role) => user.is(role)));
+
+  if (userCantDoAnyOfThat && userIsNotInAnyOfThatRole) {
+    return <Result status="403" subTitle="Anda tidak memiliki akses ke halaman ini" title="Forbidden" />;
+  }
+
+  return children;
+}
+
+DashboardAuthGuard.propTypes = {
+  permissions: PropTypes.array,
+  roles: PropTypes.array,
+  capability: PropTypes.string,
+  capabilities: PropTypes.array,
+  requireAllCapabilities: PropTypes.bool,
+  children: PropTypes.node
+};
 
 function App() {
-  const { isLoading, user, hasCapability } = useAuth();
   const flatLandingLinks = flattenLandingLinks(landingLink);
 
   return (
@@ -41,45 +81,14 @@ function App() {
           element: <DashboardLayout />,
           children: [
             ...dashboardLink.flatMap(({ children }) =>
-              children.map(({ permissions, roles, capability, capabilities, requireAllCapabilities, path, element: Element }) => {
-                if (isLoading) {
-                  return {
-                    path,
-                    element: <Skeleton active />
-                  };
-                }
-
-                // Use capability-based check first
-                if (capability || (capabilities && capabilities.length > 0)) {
-                  const requiredCaps = capability ? [capability] : capabilities;
-                  const hasRequiredCap = requireAllCapabilities ? requiredCaps.every((cap) => hasCapability(cap)) : requiredCaps.some((cap) => hasCapability(cap));
-
-                  if (!hasRequiredCap) {
-                    return {
-                      path,
-                      element: <Result status="403" subTitle="Anda tidak memiliki akses ke halaman ini" title="Forbidden" />
-                    };
-                  }
-                }
-
-                // Fallback to old permission/role system for backward compatibility
-                const hasPermissions = permissions && permissions.length > 0;
-                const hasRoles = roles && roles.length > 0;
-                const userCantDoAnyOfThat = hasPermissions && (!user || user.cantDoAny(...permissions));
-                const userIsNotInAnyOfThatRole = hasRoles && (!user || !roles.some((role) => user.is(role)));
-
-                if (userCantDoAnyOfThat && userIsNotInAnyOfThatRole) {
-                  return {
-                    path,
-                    element: <Result status="403" subTitle="Anda tidak memiliki akses ke halaman ini" title="Forbidden" />
-                  };
-                }
-
-                return {
-                  path,
-                  element: <Element />
-                };
-              })
+              children.map(({ permissions, roles, capability, capabilities, requireAllCapabilities, path, element: Element }) => ({
+                path,
+                element: (
+                  <DashboardAuthGuard permissions={permissions} roles={roles} capability={capability} capabilities={capabilities} requireAllCapabilities={requireAllCapabilities}>
+                    <Element />
+                  </DashboardAuthGuard>
+                )
+              }))
             ),
             // Dynamic routes with capability protection
             {

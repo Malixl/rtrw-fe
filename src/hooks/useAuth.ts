@@ -35,6 +35,7 @@ export interface AuthContextType {
   token: string;
   user: User | null;
   isLoading: boolean;
+  isInitialized: boolean;
 
   // Role & Capabilities state
   capabilities: Capabilities;
@@ -69,5 +70,5 @@ export default function useAuth(): AuthContextType {
     throw new Error('useAuth must be used within an AuthProvider');
   }
 
-  return context as AuthContextType;
+  return context as unknown as AuthContextType;
 }

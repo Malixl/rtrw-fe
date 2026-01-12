@@ -8,17 +8,17 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
   const [collapsed, setCollapsed] = useState(false);
-  const { logout, token, user, isLoading, canAccessDashboard, isAuthenticated } = useAuth();
+  const { logout, token, user, isInitialized, canAccessDashboard, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
   // Redirect to login if not authenticated
   useEffect(() => {
-    if (isLoading) return;
+    if (!isInitialized) return;
     if (!token) {
       navigate(`/auth/login?redirect=${pathname}`);
     }
-  }, [navigate, token, pathname, isLoading]);
+  }, [navigate, token, pathname, isInitialized]);
 
   // const breadcrumbItems = generateBreadcrumb(dashboardLink, pathname);
 
@@ -69,8 +69,8 @@ const Dashboard = () => {
     token: { colorBgContainer }
   } = theme.useToken();
 
-  // Show loading skeleton while checking auth
-  if (isLoading) {
+  // Show loading skeleton while initializing auth
+  if (!isInitialized) {
     return (
       <Layout className="min-h-screen font-sans">
         <Skeleton active paragraph={{ rows: 10 }} className="p-8" />

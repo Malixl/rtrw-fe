@@ -78,8 +78,10 @@ async function customFetch(endpoint, method, body, token, file, abortController)
     options.body = JSON.stringify(body);
   }
 
-  if (abortController) options.signal = abortController.signal;
-  else if (controllers[endpoint]) options.signal = controllers[endpoint].signal;
+  // Hanya gunakan signal jika abortController explicitly diberikan
+  if (abortController) {
+    options.signal = abortController.signal;
+  }
 
   const response = await fetch(BASE_URL + endpoint, options);
 
@@ -111,9 +113,15 @@ async function customFetch(endpoint, method, body, token, file, abortController)
  */
 function createCustomFetch(method) {
   return (endpoint, { body, token, file, page, perPage = 10, params, abortController } = {}) => {
-    const cleanEndpoint = endpoint.split('?')[0];
-    if (!abortController) {
-      if (controllers[cleanEndpoint]) controllers[cleanEndpoint].abort();
+    // Untuk GET request, JANGAN gunakan abort controller sama sekali
+    // Ini mencegah race condition dari React Strict Mode
+    const shouldUseAbort = method !== 'GET' && !abortController;
+
+    if (shouldUseAbort) {
+      const cleanEndpoint = endpoint.split('?')[0];
+      if (controllers[cleanEndpoint]) {
+        controllers[cleanEndpoint].abort();
+      }
       controllers[cleanEndpoint] = new AbortController();
     }
 
