@@ -36,12 +36,13 @@ import BatchLoadingOverlay from '@/components/Map/BatchLoadingOverlay';
 // - Smooth 60FPS panning and zooming
 // - Reduced memory usage
 // - Disable interactivity during pan/zoom for buttery smooth experience
+// - HIDE layers completely during movement for maximum smoothness
 // ============================================================================
 
 /**
  * OptimizedLayerRenderer - High-performance GeoJSON layer renderer
  * Uses Canvas renderer for vector layers to achieve 60FPS performance
- * ENHANCED: Disable interactivity during map movement for smooth pan/zoom
+ * ENHANCED: Complete layer hiding during pan/zoom for maximum smoothness
  * ENHANCED: Support dynamic opacity per layer
  */
 const OptimizedLayerRenderer = React.memo(
@@ -50,28 +51,76 @@ const OptimizedLayerRenderer = React.memo(
     const layersRef = React.useRef({});
     const isMovingRef = React.useRef(false);
     const moveTimeoutRef = React.useRef(null);
+    const rafRef = React.useRef(null);
 
     // Create a single Canvas renderer instance - CRITICAL for performance
-    // This draws ALL vector geometries on one <canvas> element instead of
-    // creating thousands of individual SVG <path> DOM nodes
+    // Reduced padding for faster re-rendering, let hiding handle smoothness
     const canvasRenderer = React.useMemo(
       () =>
         L.canvas({
-          padding: 0.5, // Render with 50% padding to reduce re-rendering on pan
-          tolerance: 5 // Slightly larger hit area for better click detection
+          padding: 0.5, // Balanced padding
+          tolerance: 8 // Moderate hit area
         }),
       []
     );
 
     // ========================================================================
-    // PERFORMANCE: Disable layer interactivity during pan/zoom
+    // PERFORMANCE: Complete hide GeoJSON layers during pan/zoom
     // ========================================================================
-    // When user is panning or zooming, we temporarily disable all layer
-    // interactivity (hover, click) to prevent expensive hit detection
-    // calculations on every frame. This makes pan/zoom buttery smooth.
+    // Teknik ini membuat layer TIDAK TERLIHAT saat pan/zoom
+    // Sehingga browser tidak perlu repaint/reflow sama sekali
+    // Hasilnya: pan/zoom super smooth seperti website referensi
     // ========================================================================
     React.useEffect(() => {
       if (!map) return;
+
+      const hideAllLayers = () => {
+        // Hide canvas container (polygon/polyline)
+        const canvasContainer = map.getContainer().querySelector('.leaflet-canvas-container');
+        if (canvasContainer) {
+          canvasContainer.style.visibility = 'hidden';
+        }
+
+        // Hide marker pane
+        const markerPane = map.getPane('markerPane');
+        if (markerPane) {
+          markerPane.style.visibility = 'hidden';
+        }
+
+        // Hide overlay pane
+        const overlayPane = map.getPane('overlayPane');
+        if (overlayPane) {
+          overlayPane.style.opacity = '0';
+        }
+      };
+
+      const showAllLayers = () => {
+        // Use RAF for smooth showing
+        if (rafRef.current) {
+          cancelAnimationFrame(rafRef.current);
+        }
+
+        rafRef.current = requestAnimationFrame(() => {
+          // Show canvas container
+          const canvasContainer = map.getContainer().querySelector('.leaflet-canvas-container');
+          if (canvasContainer) {
+            canvasContainer.style.visibility = 'visible';
+          }
+
+          // Show marker pane
+          const markerPane = map.getPane('markerPane');
+          if (markerPane) {
+            markerPane.style.visibility = 'visible';
+          }
+
+          // Show overlay pane with transition
+          const overlayPane = map.getPane('overlayPane');
+          if (overlayPane) {
+            overlayPane.style.transition = 'opacity 0.15s ease-out';
+            overlayPane.style.opacity = '1';
+          }
+        });
+      };
 
       const setLayersInteractive = (interactive) => {
         Object.values(layersRef.current).forEach((layer) => {
@@ -92,25 +141,29 @@ const OptimizedLayerRenderer = React.memo(
         }
         if (!isMovingRef.current) {
           isMovingRef.current = true;
-          // Disable interactivity for smooth pan/zoom
+          // Disable interactivity
           setLayersInteractive(false);
-          // Add CSS class to hide labels during movement
+          // HIDE layers completely untuk smooth pan/zoom
+          hideAllLayers();
+          // Add CSS class
           map.getContainer().classList.add('map-moving');
         }
       };
 
       const handleMoveEnd = () => {
-        // Debounce: wait a bit before re-enabling to handle rapid movements
         if (moveTimeoutRef.current) {
           clearTimeout(moveTimeoutRef.current);
         }
+        // Short debounce - just enough to batch rapid events
         moveTimeoutRef.current = setTimeout(() => {
           isMovingRef.current = false;
-          // Re-enable interactivity after movement stops
+          // Re-enable interactivity
           setLayersInteractive(true);
-          // Remove CSS class to show labels again
+          // Show layers kembali
+          showAllLayers();
+          // Remove CSS class
           map.getContainer().classList.remove('map-moving');
-        }, 150); // 150ms debounce
+        }, 100); // 100ms debounce - faster feedback
       };
 
       // Listen to all movement events
@@ -126,6 +179,9 @@ const OptimizedLayerRenderer = React.memo(
         map.off('zoomend', handleMoveEnd);
         if (moveTimeoutRef.current) {
           clearTimeout(moveTimeoutRef.current);
+        }
+        if (rafRef.current) {
+          cancelAnimationFrame(rafRef.current);
         }
       };
     }, [map]);
@@ -373,12 +429,14 @@ const Maps = () => {
   }, []);
 
   // ============================================================================
-  // GEOJSON DATA CACHE - Prevents re-fetching when toggling layers on/off
+  // LAYER DATA CACHE - Prevents re-fetching when toggling layers on/off
   // ============================================================================
+  // Smart client-side cache for instant re-rendering (<1 second)
   // Once data is fetched, it's stored here forever (until page refresh)
   // Key: layer key (e.g., "pola-1", "batas-5")
   // Value: { data: enhancedGeoJSON, meta: pemetaan }
-  const geoJsonCacheRef = React.useRef(new Map());
+  // Using object instead of Map for faster access
+  const layerCache = React.useRef({});
 
   // Track if initial batas administrasi has been loaded to prevent race conditions
   const batasInitializedRef = React.useRef(false);
@@ -451,7 +509,7 @@ const Maps = () => {
 
       layers.forEach((l) => {
         if (selectedLayers[l.key]) return; // Already selected, skip
-        const cached = geoJsonCacheRef.current.get(l.key);
+        const cached = layerCache.current[l.key];
         if (cached) {
           cachedLayers.push({ ...l, cachedData: cached });
         } else {
@@ -545,8 +603,8 @@ const Maps = () => {
             simplifyTolerance: 0.00005 // Simplify untuk performa
           });
 
-          // Save to cache
-          geoJsonCacheRef.current.set(pemetaan.key, { data: enhanced, meta: pemetaan });
+          // Save to cache for instant re-enable
+          layerCache.current[pemetaan.key] = { data: enhanced, meta: pemetaan };
 
           processedResults.push({
             key: pemetaan.key,
@@ -643,7 +701,7 @@ const Maps = () => {
     }
 
     // CHECK CACHE FIRST - Instant render if already fetched before
-    const cached = geoJsonCacheRef.current.get(key);
+    const cached = layerCache.current[key];
     if (cached) {
       // Data is in cache - NO loading spinner, instant render!
       setSelectedLayers((prev) => ({
@@ -683,7 +741,7 @@ const Maps = () => {
       });
 
       // SAVE TO CACHE for future instant re-enable
-      geoJsonCacheRef.current.set(key, { data: enhanced, meta: pemetaan });
+      layerCache.current[key] = { data: enhanced, meta: pemetaan };
 
       // ADD TO SELECTED LAYERS (accumulative - uses functional update)
       setSelectedLayers((prev) => ({
@@ -752,7 +810,7 @@ const Maps = () => {
         const { pemetaan } = item;
 
         // Check cache first
-        const cached = geoJsonCacheRef.current.get(pemetaan.key);
+        const cached = layerCache.current[pemetaan.key];
         if (cached) {
           processedResults.push({
             key: pemetaan.key,
@@ -780,7 +838,7 @@ const Maps = () => {
           });
 
           // Store in cache
-          geoJsonCacheRef.current.set(pemetaan.key, { data: enhanced, meta: pemetaan });
+          layerCache.current[pemetaan.key] = { data: enhanced, meta: pemetaan };
 
           processedResults.push({
             key: pemetaan.key,
@@ -1283,8 +1341,7 @@ const Maps = () => {
              ================================================================ */
           .map-moving .batas-label,
           .map-moving .pulau-label {
-            opacity: 0 !important;
-            transition: none !important;
+            display: none !important;
           }
 
           /* Disable pointer events on all layers during movement */
@@ -1292,21 +1349,39 @@ const Maps = () => {
             pointer-events: none !important;
           }
 
-          /* Optimize canvas rendering during movement */
-          .map-moving .leaflet-canvas-container {
-            will-change: transform;
+          /* GPU acceleration for all panes */
+          .leaflet-overlay-pane,
+          .leaflet-marker-pane,
+          .leaflet-canvas-container {
+            will-change: auto;
+            transform: translateZ(0);
+            backface-visibility: hidden;
+          }
+
+          /* Hide all vector layers during movement */
+          .map-moving .leaflet-overlay-pane {
+            visibility: hidden !important;
           }
 
           /* Hide popups during movement */
           .map-moving .leaflet-popup {
-            opacity: 0 !important;
-            transition: none !important;
+            display: none !important;
+          }
+
+          /* Optimize tile layer */
+          .leaflet-tile-container {
+            will-change: transform;
+            transform: translateZ(0);
           }
 
           /* Smooth transition when movement ends */
           .batas-label,
-          .pulau-label,
-          .leaflet-popup {
+          .pulau-label {
+            transition: opacity 0.15s ease-out;
+          }
+
+          /* Overlay pane transition */
+          .leaflet-overlay-pane {
             transition: opacity 0.15s ease-out;
           }
 
@@ -1315,6 +1390,11 @@ const Maps = () => {
           .leaflet-marker-shadow,
           .custom-marker-image {
             transition: opacity 0.15s ease-out !important;
+          }
+
+          /* Marker pane transition */
+          .leaflet-marker-pane {
+            transition: opacity 0.15s ease-out;
           }
         `}
       </style>
@@ -1345,8 +1425,10 @@ const Maps = () => {
           // ============================================================
           // preferCanvas: Use Canvas renderer for ALL vector layers
           preferCanvas={true}
-          // Smooth zoom animation (keep enabled for UX)
-          zoomAnimation={true}
+          // Disable zoom animation for faster response
+          zoomAnimation={false}
+          // Disable fade animation (causes repaint)
+          fadeAnimation={false}
           // Disable marker animation during zoom (reduces CPU)
           markerZoomAnimation={false}
           // Don't update layers while zooming (major performance boost)

@@ -1,10 +1,29 @@
 /**
  * Web Worker untuk memproses GeoJSON di background thread
  * Mencegah blocking UI saat parsing dan transformasi data besar
+ * 
+ * OPTIMISASI AGRESIF:
+ * - Douglas-Peucker simplification dengan tolerance tinggi
+ * - Limit maksimum vertices per feature
+ * - Remove tiny features yang tidak akan terlihat
  */
 
+// Maximum vertices per feature untuk prevent memory bloat
+const MAX_VERTICES_PER_FEATURE = 2000;
+const MIN_FEATURE_AREA = 0.000001; // Skip features yang terlalu kecil
+
+// Calculate rough area of polygon (untuk filtering)
+const calculateRoughArea = (coords) => {
+    if (!coords || coords.length < 3) return 0;
+    let area = 0;
+    for (let i = 0, j = coords.length - 1; i < coords.length; j = i++) {
+        area += (coords[j][0] + coords[i][0]) * (coords[j][1] - coords[i][1]);
+    }
+    return Math.abs(area / 2);
+};
+
 // Simplify geometry dengan Douglas-Peucker algorithm
-const simplifyCoordinates = (coords, tolerance = 0.0001) => {
+const simplifyCoordinates = (coords, tolerance = 0.0001, maxPoints = MAX_VERTICES_PER_FEATURE) => {
     if (!coords || coords.length < 3) return coords;
 
     const sqTolerance = tolerance * tolerance;
@@ -86,6 +105,13 @@ const simplifyCoordinates = (coords, tolerance = 0.0001) => {
     // Apply simplification
     let result = simplifyRadialDist(coords, sqTolerance);
     result = simplifyDP(result, sqTolerance);
+
+    // If still too many points, apply more aggressive simplification
+    if (result.length > maxPoints) {
+        const increasedTolerance = tolerance * 2;
+        result = simplifyDP(simplifyRadialDist(result, increasedTolerance * increasedTolerance), increasedTolerance * increasedTolerance);
+    }
+
     return result;
 };
 
@@ -127,50 +153,80 @@ const simplifyGeometry = (geometry, tolerance) => {
 
 // Process GeoJSON dengan enhancement dan simplification
 const processGeoJSON = (json, options = {}) => {
-    const { warna, iconImageUrl, tipe_garis, fillOpacity = 0.8, simplifyTolerance = 0.0001 } = options;
+    const {
+        warna,
+        iconImageUrl,
+        tipe_garis,
+        fillOpacity = 0.8,
+        simplifyTolerance = 0.0002 // Increased default tolerance for better performance
+    } = options;
 
-    const features = (json.features || []).map((feature) => {
-        const props = { ...(feature.properties || {}) };
+    const features = (json.features || [])
+        // Filter out very small features that won't be visible
+        .filter((feature) => {
+            if (!feature.geometry) return false;
+            const type = feature.geometry.type;
 
-        // Apply styling
-        if (warna) {
-            props.stroke = warna;
-            props.fill = warna;
-            props['stroke-opacity'] = 1;
-            props['fill-opacity'] = fillOpacity;
-        }
+            // Always keep points
+            if (type === 'Point' || type === 'MultiPoint') return true;
 
-        // Apply line style
-        if (tipe_garis === 'dashed') {
-            props.dashArray = '6 6';
-            props['stroke-width'] = 3;
-        } else if (tipe_garis === 'solid') {
-            props.dashArray = null;
-            props['stroke-width'] = 3;
-        } else if (tipe_garis === 'bold') {
-            props.dashArray = null;
-            props['stroke-width'] = 6;
-        } else if (tipe_garis === 'dash-dot-dot') {
-            props.dashArray = '20 8 3 8 3 8';
-            props['stroke-width'] = 3;
-        } else if (tipe_garis === 'dash-dot-dash-dot-dot') {
-            props.dashArray = '15 5 3 5 15 5 3 5 3 5';
-            props['stroke-width'] = 3;
-        }
+            // For polygons, filter by area
+            if (type === 'Polygon') {
+                const coords = feature.geometry.coordinates[0];
+                return calculateRoughArea(coords) > MIN_FEATURE_AREA;
+            }
 
-        if (iconImageUrl) {
-            props.icon_image_url = iconImageUrl;
-        }
+            // For multi-polygons, keep if any ring is big enough
+            if (type === 'MultiPolygon') {
+                return feature.geometry.coordinates.some(polygon =>
+                    polygon.some(ring => calculateRoughArea(ring) > MIN_FEATURE_AREA)
+                );
+            }
 
-        // Simplify geometry untuk performa
-        const simplifiedGeometry = simplifyGeometry(feature.geometry, simplifyTolerance);
+            return true;
+        })
+        .map((feature) => {
+            const props = { ...(feature.properties || {}) };
 
-        return {
-            ...feature,
-            geometry: simplifiedGeometry,
-            properties: props
-        };
-    });
+            // Apply styling
+            if (warna) {
+                props.stroke = warna;
+                props.fill = warna;
+                props['stroke-opacity'] = 1;
+                props['fill-opacity'] = fillOpacity;
+            }
+
+            // Apply line style
+            if (tipe_garis === 'dashed') {
+                props.dashArray = '6 6';
+                props['stroke-width'] = 3;
+            } else if (tipe_garis === 'solid') {
+                props.dashArray = null;
+                props['stroke-width'] = 3;
+            } else if (tipe_garis === 'bold') {
+                props.dashArray = null;
+                props['stroke-width'] = 6;
+            } else if (tipe_garis === 'dash-dot-dot') {
+                props.dashArray = '20 8 3 8 3 8';
+                props['stroke-width'] = 3;
+            } else if (tipe_garis === 'dash-dot-dash-dot-dot') {
+                props.dashArray = '15 5 3 5 15 5 3 5 3 5';
+                props['stroke-width'] = 3;
+            }
+
+            if (iconImageUrl) {
+                props.icon_image_url = iconImageUrl;
+            }
+
+            // Simplify geometry untuk performa
+            const simplifiedGeometry = simplifyGeometry(feature.geometry, simplifyTolerance);
+
+            return {
+                ...feature,
+                geometry: simplifiedGeometry,
+                properties: props
+            };
+        });
 
     return { ...json, features };
 };
