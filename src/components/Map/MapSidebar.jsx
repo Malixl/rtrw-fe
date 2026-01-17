@@ -3,6 +3,7 @@ import { useCallback, useState, useEffect, useRef } from 'react';
 import { Button, Checkbox, Collapse, Skeleton, Typography, Tooltip, Input, Empty } from 'antd';
 import { highlightParts, filterTree as filterTreeUtil, filterList, fuzzyMatch } from './searchUtils';
 import LegendItem from './LegendItem';
+import OpacitySlider from './OpacitySlider';
 import { AimOutlined, InfoCircleOutlined, MenuOutlined, MenuFoldOutlined, MenuUnfoldOutlined, InboxOutlined, FileTextOutlined } from '@ant-design/icons';
 import { useCrudModal } from '@/hooks';
 import asset from '@/utils/asset';
@@ -132,6 +133,9 @@ const MapSidebar = ({
   // Handlers
   onToggleLayer,
   onBatchToggleLayers,
+  // Opacity handlers
+  layerOpacities,
+  onOpacityChange,
   // onReloadKlasifikasi,
   // Collapse control
   isCollapsed,
@@ -373,12 +377,15 @@ const MapSidebar = ({
 
                               // Fallback tipe_geometri jika tidak ada (default polygon)
                               const tipe_geometri = pemetaan.tipe_geometri || 'polygon';
+                              const isActive = !!selectedLayers[pemetaan.key];
+                              const currentOpacity = layerOpacities?.[pemetaan.key] ?? 80;
+
                               return (
                                 <div key={pemetaan.key} className="my-2 ml-4 md:ml-7">
                                   <LayerCheckbox
                                     pemetaan={pemetaan}
                                     label={highlightText(pemetaan.title || pemetaan.nama, debouncedSearch)}
-                                    isChecked={!!selectedLayers[pemetaan.key]}
+                                    isChecked={isActive}
                                     isLoading={loadingLayers[pemetaan.key]}
                                     onToggle={() => onToggleLayer(pemetaan)}
                                     onInfoClick={() =>
@@ -394,6 +401,8 @@ const MapSidebar = ({
                                   <div className="">
                                     <LegendItem tipe_geometri={tipe_geometri} icon_titik={pemetaan.icon_titik} warna={pemetaan.warna} tipe_garis={pemetaan.tipe_garis} />
                                   </div>
+                                  {/* Opacity Slider - hanya tampil jika layer aktif */}
+                                  {isActive && onOpacityChange && <OpacitySlider value={currentOpacity} onChange={(val) => onOpacityChange(pemetaan.key, val)} />}
                                 </div>
                               );
                             })}
@@ -415,12 +424,15 @@ const MapSidebar = ({
 
                   // Fallback tipe_geometri jika tidak ada (default polygon)
                   const tipe_geometri = pemetaan.tipe_geometri || 'polygon';
+                  const isActive = !!selectedLayers[pemetaan.key];
+                  const currentOpacity = layerOpacities?.[pemetaan.key] ?? 80;
+
                   return (
                     <div key={pemetaan.key} className="my-2 ml-4 md:ml-7">
                       <LayerCheckbox
                         pemetaan={pemetaan}
                         label={highlightText(pemetaan.title || pemetaan.nama, debouncedSearch)}
-                        isChecked={!!selectedLayers[pemetaan.key]}
+                        isChecked={isActive}
                         isLoading={loadingLayers[pemetaan.key]}
                         onToggle={() => onToggleLayer(pemetaan)}
                         onInfoClick={() =>
@@ -435,6 +447,8 @@ const MapSidebar = ({
                       <div className="">
                         <LegendItem tipe_geometri={tipe_geometri} icon_titik={pemetaan.icon_titik} warna={pemetaan.warna} tipe_garis={pemetaan.tipe_garis} />
                       </div>
+                      {/* Opacity Slider - hanya tampil jika layer aktif */}
+                      {isActive && onOpacityChange && <OpacitySlider value={currentOpacity} onChange={(val) => onOpacityChange(pemetaan.key, val)} />}
                     </div>
                   );
                 })}
@@ -443,7 +457,7 @@ const MapSidebar = ({
         );
       });
     },
-    [selectedLayers, loadingLayers, onToggleLayer, onBatchToggleLayers, showInfoModal, showDokumenModal, getTypeLabel, debouncedSearch, highlightText]
+    [selectedLayers, loadingLayers, onToggleLayer, onBatchToggleLayers, showInfoModal, showDokumenModal, getTypeLabel, debouncedSearch, highlightText, layerOpacities, onOpacityChange]
   );
 
   return (

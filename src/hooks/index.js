@@ -7,3 +7,4 @@ export { default as usePagination } from './usePagination';
 export { default as useService } from './useService';
 export { default as useSessionStorage } from './useSessionStorage';
 export { default as useTabs } from './useTabs';
+export { useGeoJSONWorker } from './useGeoJSONWorker';
