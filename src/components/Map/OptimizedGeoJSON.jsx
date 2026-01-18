@@ -87,10 +87,10 @@ const CanvasLayerGroup = memo(({
   getOnEachFeature 
 }) => {
   // Create a single canvas renderer instance - CRITICAL for performance
-  // padding: 0.5 means render tiles with 50% padding to reduce re-rendering on pan
+  // Lower padding = less area to render = faster
   const canvasRenderer = useMemo(() => L.canvas({ 
-    padding: 0.5,
-    tolerance: 5 // Slightly increase hit tolerance for better click detection
+    padding: 0.25, // REDUCED: Less area to render = faster performance
+    tolerance: 3 // Smaller hit area = less overhead
   }), []);
 
   // Memoize the layers array to prevent unnecessary renders

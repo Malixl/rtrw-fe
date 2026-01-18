@@ -54,73 +54,24 @@ const OptimizedLayerRenderer = React.memo(
     const rafRef = React.useRef(null);
 
     // Create a single Canvas renderer instance - CRITICAL for performance
-    // Reduced padding for faster re-rendering, let hiding handle smoothness
+    // Lower padding = less area to render = faster
     const canvasRenderer = React.useMemo(
       () =>
         L.canvas({
-          padding: 0.5, // Balanced padding
-          tolerance: 8 // Moderate hit area
+          padding: 0.25, // REDUCED: Less area to render = faster performance
+          tolerance: 3 // Smaller hit area = less overhead
         }),
       []
     );
 
     // ========================================================================
-    // PERFORMANCE: Complete hide GeoJSON layers during pan/zoom
+    // PERFORMANCE: Disable interactivity during pan/zoom (NO HIDING!)
     // ========================================================================
-    // Teknik ini membuat layer TIDAK TERLIHAT saat pan/zoom
-    // Sehingga browser tidak perlu repaint/reflow sama sekali
-    // Hasilnya: pan/zoom super smooth seperti website referensi
+    // Google Maps approach: Keep layers ALWAYS visible, just disable clicks
+    // This eliminates the "disappearing layer" problem completely
     // ========================================================================
     React.useEffect(() => {
       if (!map) return;
-
-      const hideAllLayers = () => {
-        // Hide canvas container (polygon/polyline)
-        const canvasContainer = map.getContainer().querySelector('.leaflet-canvas-container');
-        if (canvasContainer) {
-          canvasContainer.style.visibility = 'hidden';
-        }
-
-        // Hide marker pane
-        const markerPane = map.getPane('markerPane');
-        if (markerPane) {
-          markerPane.style.visibility = 'hidden';
-        }
-
-        // Hide overlay pane
-        const overlayPane = map.getPane('overlayPane');
-        if (overlayPane) {
-          overlayPane.style.opacity = '0';
-        }
-      };
-
-      const showAllLayers = () => {
-        // Use RAF for smooth showing
-        if (rafRef.current) {
-          cancelAnimationFrame(rafRef.current);
-        }
-
-        rafRef.current = requestAnimationFrame(() => {
-          // Show canvas container
-          const canvasContainer = map.getContainer().querySelector('.leaflet-canvas-container');
-          if (canvasContainer) {
-            canvasContainer.style.visibility = 'visible';
-          }
-
-          // Show marker pane
-          const markerPane = map.getPane('markerPane');
-          if (markerPane) {
-            markerPane.style.visibility = 'visible';
-          }
-
-          // Show overlay pane with transition
-          const overlayPane = map.getPane('overlayPane');
-          if (overlayPane) {
-            overlayPane.style.transition = 'opacity 0.15s ease-out';
-            overlayPane.style.opacity = '1';
-          }
-        });
-      };
 
       const setLayersInteractive = (interactive) => {
         Object.values(layersRef.current).forEach((layer) => {
@@ -141,12 +92,8 @@ const OptimizedLayerRenderer = React.memo(
         }
         if (!isMovingRef.current) {
           isMovingRef.current = true;
-          // Disable interactivity
+          // Only disable interactivity - NEVER hide layers
           setLayersInteractive(false);
-          // HIDE layers completely untuk smooth pan/zoom
-          hideAllLayers();
-          // Add CSS class
-          map.getContainer().classList.add('map-moving');
         }
       };
 
@@ -154,19 +101,15 @@ const OptimizedLayerRenderer = React.memo(
         if (moveTimeoutRef.current) {
           clearTimeout(moveTimeoutRef.current);
         }
-        // Short debounce - just enough to batch rapid events
+        // Short debounce for rapid pan/zoom
         moveTimeoutRef.current = setTimeout(() => {
           isMovingRef.current = false;
           // Re-enable interactivity
           setLayersInteractive(true);
-          // Show layers kembali
-          showAllLayers();
-          // Remove CSS class
-          map.getContainer().classList.remove('map-moving');
-        }, 100); // 100ms debounce - faster feedback
+        }, 50); // 50ms - very fast response
       };
 
-      // Listen to all movement events
+      // Listen to movement events
       map.on('movestart', handleMoveStart);
       map.on('zoomstart', handleMoveStart);
       map.on('moveend', handleMoveEnd);
@@ -267,6 +210,8 @@ const OptimizedLayerRenderer = React.memo(
           const geoJsonLayer = L.geoJSON(layer.data, {
             // Use Canvas renderer for vector layers (THE KEY OPTIMIZATION)
             renderer: canvasRenderer,
+            // PERFORMANCE: Aggressively simplify geometry during render
+            smoothFactor: 3, // Higher = more simplified = faster render
 
             // Style function with dynamic opacity
             style: (feature) => {
@@ -600,7 +545,7 @@ const Maps = () => {
             iconImageUrl,
             tipe_garis,
             fillOpacity,
-            simplifyTolerance: 0.00005 // Simplify untuk performa
+            simplifyTolerance: 0.0005 // INCREASED: More aggressive simplification for speed
           });
 
           // Save to cache for instant re-enable
@@ -737,7 +682,7 @@ const Maps = () => {
         iconImageUrl,
         tipe_garis,
         fillOpacity,
-        simplifyTolerance: 0.00005 // Simplify geometri untuk performa
+        simplifyTolerance: 0.0005 // INCREASED: More aggressive simplification for speed
       });
 
       // SAVE TO CACHE for future instant re-enable
@@ -834,7 +779,7 @@ const Maps = () => {
             warna,
             tipe_garis,
             fillOpacity,
-            simplifyTolerance: 0.00005
+            simplifyTolerance: 0.0005 // INCREASED: More aggressive simplification for speed
           });
 
           // Store in cache
@@ -1436,15 +1381,19 @@ const Maps = () => {
           // Only update when map is idle
           updateWhenIdle={true}
           // Smoother scroll wheel zoom (higher = slower/smoother)
-          wheelPxPerZoomLevel={120}
+          wheelPxPerZoomLevel={80}
+          // Fractional zoom for smoother zoom steps
+          zoomSnap={0.25}
+          zoomDelta={0.5}
           // Disable bounce at edges for snappier feel
           bounceAtZoomLimits={false}
           // Faster zoom animation
           zoomAnimationThreshold={4}
-          // Reduce inertia for snappier pan
+          // SMOOTH INERTIA: Higher values = smoother pan experience
           inertia={true}
-          inertiaDeceleration={3000}
-          inertiaMaxSpeed={1500}
+          inertiaDeceleration={2000}
+          inertiaMaxSpeed={2500}
+          easeLinearity={0.25}
           // Disable world copies (reduces rendering overhead)
           worldCopyJump={false}
         >
@@ -1466,7 +1415,8 @@ const Maps = () => {
                 // Tile loading optimizations
                 updateWhenZooming={false}
                 updateWhenIdle={true}
-                keepBuffer={2}
+                keepBuffer={4}
+                maxNativeZoom={19}
               />
             </BaseLayer>
             <BaseLayer name="Satelit (Esri)">
@@ -1475,7 +1425,8 @@ const Maps = () => {
                 url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                 updateWhenZooming={false}
                 updateWhenIdle={true}
-                keepBuffer={2}
+                keepBuffer={4}
+                maxNativeZoom={18}
               />
             </BaseLayer>
             <BaseLayer name="Terrain">
@@ -1484,7 +1435,8 @@ const Maps = () => {
                 url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
                 updateWhenZooming={false}
                 updateWhenIdle={true}
-                keepBuffer={2}
+                keepBuffer={4}
+                maxNativeZoom={17}
               />
             </BaseLayer>
           </LayersControl>
