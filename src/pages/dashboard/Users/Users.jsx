@@ -142,17 +142,17 @@ const Users = () => {
                       key: 'role',
                       label: 'Role',
                       children: <Tag color={ROLE_COLORS[roleName] || 'default'}>{ROLE_LABELS[roleName] || roleName}</Tag>
-                    },
-                    {
-                      key: 'created_at',
-                      label: 'Dibuat',
-                      children: record.created_at ? new Date(record.created_at).toLocaleString('id-ID') : '-'
-                    },
-                    {
-                      key: 'updated_at',
-                      label: 'Diperbarui',
-                      children: record.updated_at ? new Date(record.updated_at).toLocaleString('id-ID') : '-'
                     }
+                    // {
+                    //   key: 'created_at',
+                    //   label: 'Dibuat',
+                    //   children: record.created_at ? new Date(record.created_at).toLocaleString('id-ID') : '-'
+                    // },
+                    // {
+                    //   key: 'updated_at',
+                    //   label: 'Diperbarui',
+                    //   children: record.updated_at ? new Date(record.updated_at).toLocaleString('id-ID') : '-'
+                    // }
                   ]
                 });
               }}

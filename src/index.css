@@ -188,3 +188,46 @@
 .ant-collapse-item {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* ============================================================================
+   LEAFLET MAP PERFORMANCE OPTIMIZATIONS
+   ============================================================================ */
+
+/* GPU-accelerated transforms for smooth pan/zoom */
+.leaflet-canvas-container,
+.leaflet-overlay-pane,
+.leaflet-marker-pane,
+.leaflet-tile-pane {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Optimize canvas rendering */
+.leaflet-canvas-container canvas {
+  image-rendering: optimizeSpeed;
+  image-rendering: -webkit-optimize-contrast;
+}
+
+/* Disable transitions on Leaflet panes for instant response */
+.leaflet-pane,
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-tile-container,
+.leaflet-map-pane canvas {
+  transition: none !important;
+}
+
+/* Container isolation for better rendering performance */
+.leaflet-container {
+  contain: layout style;
+  touch-action: none;
+}
+
+/* Prevent text selection during pan */
+.leaflet-grab {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
