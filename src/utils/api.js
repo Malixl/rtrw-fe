@@ -67,8 +67,7 @@ async function customFetch(endpoint, method, body, token, file, abortController)
   const options = {
     method,
     headers: {
-      Authorization: token ? `Bearer ${token}` : '',
-      'ngrok-skip-browser-warning': 'true'
+      Authorization: token ? `Bearer ${token}` : ''
     }
   };
 
