@@ -100,7 +100,7 @@ const SignUpForm = ({ onSubmit, loading = false }) => {
 
       <p className="text-center text-sm text-gray-600">
         Sudah punya akun?{' '}
-        <Link to="/login" className="font-semibold text-primary-600 transition-colors hover:text-primary-700">
+        <Link to="/auth/login" className="font-semibold text-primary-600 transition-colors hover:text-primary-700">
           Masuk di sini
         </Link>
       </p>
