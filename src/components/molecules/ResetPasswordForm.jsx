@@ -47,7 +47,7 @@ const ResetPasswordForm = ({ onSubmit, loading = false }) => {
 
       <p className="text-center text-sm text-gray-600">
         Kembali ke{' '}
-        <Link to="/login" className="font-semibold text-primary-600 transition-colors hover:text-primary-700">
+        <Link to="/auth/login" className="font-semibold text-primary-600 transition-colors hover:text-primary-700">
           Halaman Login
         </Link>
       </p>

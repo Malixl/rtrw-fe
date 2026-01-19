@@ -67,7 +67,7 @@ const Navbar = () => {
             ))}
           </nav>
           <div className="mt-3 grid grid-cols-1 gap-3">
-            <Link to="/login" className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-center text-sm font-semibold hover:bg-gray-50">
+            <Link to="/auth/login" className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-center text-sm font-semibold hover:bg-gray-50">
               Masuk
             </Link>
           </div>
