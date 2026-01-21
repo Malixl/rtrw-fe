@@ -19,9 +19,24 @@ const pendingRequests = new Map();
  * @returns {Promise<Object>} - Parsed JSON response
  */
 export const fetchGeoJSON = async (url, options = {}) => {
-    const { signal, retries = 2, timeout = 30000 } = options;
+    const { signal, retries = 2, timeout = 30000, useCache = true } = options;
+    const CACHE_NAME = 'geojson-cache-v1';
 
-    // Request deduplication - jika URL yang sama sedang di-fetch, return promise yang sama
+    // 1. Cek Cache Browser (jika diaktifkan)
+    if (useCache && 'caches' in window) {
+        try {
+            const cache = await caches.open(CACHE_NAME);
+            const cachedResponse = await cache.match(url);
+            if (cachedResponse) {
+                // console.log(`[Cache Hit] ${url}`);
+                return cachedResponse.json();
+            }
+        } catch (error) {
+            console.warn('Cache check failed:', error);
+        }
+    }
+
+    // 2. Request deduplication - jika URL yang sama sedang di-fetch, return promise yang sama
     if (pendingRequests.has(url)) {
         return pendingRequests.get(url);
     }
@@ -44,7 +59,8 @@ export const fetchGeoJSON = async (url, options = {}) => {
                     'ngrok-skip-browser-warning': 'true'
                 },
                 signal,
-                // Gunakan cache jika tersedia
+                // Kita handle cache manual, jadi fetch policy 'no-cache' atau 'default'
+                // 'default' akan menggunakan HTTP cache headers standar
                 cache: 'default'
             });
 
@@ -52,6 +68,17 @@ export const fetchGeoJSON = async (url, options = {}) => {
 
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            // 3. Simpan ke Cache Browser (jika valid & diaktifkan)
+            if (useCache && 'caches' in window) {
+                try {
+                    const cache = await caches.open(CACHE_NAME);
+                    // Clone response karena body hanya bisa dibaca sekali
+                    await cache.put(url, response.clone());
+                } catch (error) {
+                    console.warn('Cache put failed:', error);
+                }
             }
 
             // Parse JSON
