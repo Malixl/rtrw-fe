@@ -40,7 +40,8 @@ export const fetchGeoJSON = async (url, options = {}) => {
                 headers: {
                     Accept: 'application/json',
                     // Request compressed response
-                    'Accept-Encoding': 'gzip, deflate, br'
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'ngrok-skip-browser-warning': 'true'
                 },
                 signal,
                 // Gunakan cache jika tersedia
