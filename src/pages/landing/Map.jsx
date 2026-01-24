@@ -1191,6 +1191,9 @@ const Maps = () => {
               right: ${isSidebarCollapsed ? '10px' : '410px'};
               transition: right 0.3s ease-in-out;
             }
+            .map-tools-control {
+              margin-top: 0 !important;
+            }
           }
           
           /* Tablet styles */
@@ -1198,6 +1201,9 @@ const Maps = () => {
             .leaflet-top.leaflet-right {
               right: ${isSidebarCollapsed ? '10px' : '320px'};
               transition: right 0.3s ease-in-out;
+            }
+            .map-tools-control {
+              margin-top: 0 !important;
             }
           }
           
@@ -1212,6 +1218,7 @@ const Maps = () => {
             }
             .map-tools-control {
               transform: scale(0.9);
+              margin-top: 70px !important;
             }
             .leaflet-bottom.leaflet-left,
             .leaflet-bottom.leaflet-right {
@@ -1465,9 +1472,11 @@ const Maps = () => {
             left: isSidebarCollapsed ? '50%' : isMobile ? '50%' : isTablet ? 'calc(50% - 160px)' : 'calc(50% - 200px)'
           }}
         >
-          <div style={{ backgroundColor: 'rgba(255,255,255,0.92)' }} className={`flex items-center rounded-xl border border-gray-300 shadow-lg ${isMobile ? 'max-w-[calc(100vw-32px)] gap-2 px-3 py-2' : 'gap-4 px-6 py-3'}`}>
-            <img src="/image_asset/gorontalo-logo.png" alt="Lambang Provinsi Gorontalo" className={`rounded object-contain ${isMobile ? 'h-6 w-6' : 'h-7 w-7'}`} />
-            <div className={`font-bold capitalize text-black ${isMobile ? 'text-xs leading-tight' : isTablet ? 'text-base' : 'text-lg'}`}>Peta Rencana Tata Ruang Wilayah Provinsi Gorontalo</div>
+          <div style={{ backgroundColor: 'rgba(255,255,255,0.92)' }} className={`flex items-center rounded-xl border border-gray-300 shadow-lg ${isMobile ? 'max-w-[280px] gap-2 px-2 py-1.5' : 'gap-4 px-6 py-3'}`}>
+            <img src="/image_asset/gorontalo-logo.png" alt="Lambang Provinsi Gorontalo" className={`rounded object-contain ${isMobile ? 'h-5 w-5' : 'h-7 w-7'}`} />
+            <div className={`font-bold capitalize text-black ${isMobile ? 'text-xs leading-tight' : isTablet ? 'text-base' : 'text-lg'}`}>
+              {isMobile ? 'RTRW Prov. Gorontalo' : 'Peta Rencana Tata Ruang Wilayah Provinsi Gorontalo'}
+            </div>
           </div>
         </div>
 
@@ -1475,7 +1484,8 @@ const Maps = () => {
       </div>
 
       {/* Collapsible Sidebar - Responsive */}
-      <div className={`absolute right-0 top-0 z-[1000] h-full transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-0' : isMobile ? 'w-full' : isTablet ? 'w-[340px]' : 'w-[420px]'}`}>
+      {/* Z-Index raised to 3000 to cover map controls including zoom buttons and title */}
+      <div className={`absolute right-0 top-0 z-[3000] h-full transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-0' : isMobile ? 'w-full' : isTablet ? 'w-[340px]' : 'w-[420px]'}`}>
         <MapSidebar
           // rtrws={rtrws}
           batasAdministrasi={batasAdministrasi}
@@ -1502,8 +1512,13 @@ const Maps = () => {
         />
       </div>
 
+      {/* Mobile Floating Button to Open Sidebar */}
+      {isMobile && isSidebarCollapsed && (
+        <Button type="primary" icon={<MenuUnfoldOutlined />} onClick={() => setIsSidebarCollapsed(false)} className="absolute right-4 top-4 z-[1001] h-12 w-12 rounded-full shadow-xl transition-transform hover:scale-110" size="large" />
+      )}
+
       {/* Mobile overlay when sidebar is open */}
-      {isMobile && !isSidebarCollapsed && <div className="absolute inset-0 z-[999] bg-black/60 backdrop-blur-sm transition-opacity duration-300" onClick={() => setIsSidebarCollapsed(true)} onTouchEnd={() => setIsSidebarCollapsed(true)} />}
+      {isMobile && !isSidebarCollapsed && <div className="absolute inset-0 z-[2999] bg-black/60 backdrop-blur-sm transition-opacity duration-300" onClick={() => setIsSidebarCollapsed(true)} onTouchEnd={() => setIsSidebarCollapsed(true)} />}
     </section>
   );
 };

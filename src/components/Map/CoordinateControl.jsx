@@ -57,6 +57,26 @@ const CoordinateControl = () => {
           backdrop-filter: blur(4px);
         `;
 
+        // HIDE ON MOBILE VIA INJECTED STYLE
+        // We inject a style tag to handle media queries for this specific control
+        if (!document.getElementById('coordinate-control-style')) {
+          const style = document.createElement('style');
+          style.id = 'coordinate-control-style';
+          style.innerHTML = `
+            @media (max-width: 767px) {
+              .coordinate-control {
+                display: none !important;
+              }
+              .coordinate-scale-wrapper {
+                bottom: 12px !important;
+                left: 12px !important;
+                transform: none !important;
+              }
+            }
+          `;
+          document.head.appendChild(style);
+        }
+
         // Green dot
         const dot = L.DomUtil.create('span', '', coordContainer);
         dot.style.cssText = `
@@ -145,6 +165,9 @@ const CoordinateControl = () => {
       map.off('zoomend', updateScale);
       map.off('moveend', updateScale);
       map.removeControl(control);
+      // Remove style if exists
+      // const style = document.getElementById('coordinate-control-style');
+      // if (style) style.remove(); // Keep it for now
     };
   }, [map]);
 
