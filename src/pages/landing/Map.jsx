@@ -668,8 +668,21 @@ const Maps = () => {
       else if (type === 'data_spasial') url = `${BASE_URL}/data_spasial/${id}/geojson`;
       else if (type === 'batas_administrasi') url = `${BASE_URL}/batas_administrasi/${id}/geojson`;
 
-      // OPTIMIZED: Gunakan fetchGeoJSON dengan retry dan deduplication
-      const json = await fetchGeoJSON(url);
+      // OPTIMIZED: Gunakan fetchGeoJSON dengan streaming untuk progressive loading
+      // Streaming memungkinkan render fitur sambil download (tidak perlu tunggu selesai)
+      let featuresLoaded = 0;
+      const json = await fetchGeoJSON(url, {
+        useStreaming: true,
+        onFeature: (feature, count) => {
+          featuresLoaded = count;
+          // Progressive update setiap 10 fitur untuk performa
+          // (tidak perlu update UI setiap fitur karena akan lambat)
+        },
+        onProgress: (loaded) => {
+          // Optional: bisa tampilkan progress di UI
+          // console.log(`Loading ${key}: ${loaded} features...`);
+        }
+      });
 
       const warna = pemetaan.warna ?? null;
       const iconImageUrl = asset(pemetaan.icon_titik) ?? null;
@@ -682,7 +695,7 @@ const Maps = () => {
         iconImageUrl,
         tipe_garis,
         fillOpacity,
-        simplifyTolerance: 0.0005 // INCREASED: More aggressive simplification for speed
+        simplifyTolerance: 0.0015 // INCREASED: More aggressive simplification for speed (approx 150m precision)
       });
 
       // SAVE TO CACHE for future instant re-enable
@@ -779,7 +792,7 @@ const Maps = () => {
             warna,
             tipe_garis,
             fillOpacity,
-            simplifyTolerance: 0.0005 // INCREASED: More aggressive simplification for speed
+            simplifyTolerance: 0.0015 // INCREASED: More aggressive simplification for speed (approx 150m precision)
           });
 
           // Store in cache

@@ -3,7 +3,8 @@
  * - AbortController untuk cancel request
  * - Request deduplication
  * - Retry dengan exponential backoff
- * - Response streaming untuk data besar
+ * - Response streaming untuk data besar (via oboe.js)
+ * - Browser Cache API untuk caching
  */
 
 // Store untuk pending requests (deduplication)
@@ -16,10 +17,22 @@ const pendingRequests = new Map();
  * @param {AbortSignal} options.signal - AbortController signal
  * @param {number} options.retries - Jumlah retry (default: 2)
  * @param {number} options.timeout - Timeout dalam ms (default: 30000)
+ * @param {boolean} options.useCache - Gunakan browser cache (default: true)
+ * @param {boolean} options.useStreaming - Gunakan streaming parser (default: false)
+ * @param {Function} options.onFeature - Callback per-feature saat streaming
+ * @param {Function} options.onProgress - Callback progress saat streaming
  * @returns {Promise<Object>} - Parsed JSON response
  */
 export const fetchGeoJSON = async (url, options = {}) => {
-    const { signal, retries = 2, timeout = 30000, useCache = true } = options;
+    const {
+        signal,
+        retries = 2,
+        timeout = 30000,
+        useCache = true,
+        useStreaming = false,
+        onFeature,
+        onProgress
+    } = options;
     const CACHE_NAME = 'geojson-cache-v1';
 
     // 1. Cek Cache Browser (jika diaktifkan)
@@ -41,6 +54,45 @@ export const fetchGeoJSON = async (url, options = {}) => {
         return pendingRequests.get(url);
     }
 
+    // 3. Jika streaming diaktifkan, gunakan oboe.js
+    if (useStreaming && onFeature) {
+        const streamingPromise = (async () => {
+            try {
+                const { streamGeoJSON } = await import('./streamingGeoJSON');
+                const result = await streamGeoJSON(url, {
+                    onFeature,
+                    onProgress,
+                    signal
+                });
+
+                // Simpan ke cache setelah selesai
+                if (useCache && 'caches' in window) {
+                    try {
+                        const cache = await caches.open(CACHE_NAME);
+                        const response = new Response(JSON.stringify(result), {
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+                        await cache.put(url, response);
+                    } catch (e) {
+                        console.warn('Cache put failed:', e);
+                    }
+                }
+
+                return result;
+            } catch (error) {
+                if (error.name === 'AbortError') throw error;
+                // Fallback ke fetch biasa jika streaming gagal
+                console.warn('Streaming failed, falling back to normal fetch');
+                return fetchWithTimeout(0);
+            }
+        })();
+
+        pendingRequests.set(url, streamingPromise);
+        streamingPromise.finally(() => pendingRequests.delete(url));
+        return streamingPromise;
+    }
+
+    // 4. Fetch biasa (tanpa streaming)
     const fetchWithTimeout = async (attempt = 0) => {
         // Create timeout abort
         const timeoutId = setTimeout(() => {
@@ -70,7 +122,7 @@ export const fetchGeoJSON = async (url, options = {}) => {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
 
-            // 3. Simpan ke Cache Browser (jika valid & diaktifkan)
+            // 5. Simpan ke Cache Browser (jika valid & diaktifkan)
             if (useCache && 'caches' in window) {
                 try {
                     const cache = await caches.open(CACHE_NAME);
