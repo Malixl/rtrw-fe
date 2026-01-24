@@ -7,7 +7,7 @@ import { message } from 'antd';
  * MapToolsControl - Custom Leaflet control with various map tools
  * Positioned at topleft, below zoom and other controls
  */
-const MapToolsControl = () => {
+const MapToolsControl = ({ onDrawStart, onDrawStop }) => {
   const map = useMap();
   const drawnItemsRef = useRef(null);
   const currentDrawRef = useRef(null);
@@ -59,7 +59,7 @@ const MapToolsControl = () => {
           { id: 'fitbounds', icon: 'fitbounds', title: 'Zoom ke Semua Layer' },
           { id: 'polyline', icon: 'polyline', title: 'Gambar Garis' },
           { id: 'polygon', icon: 'polygon', title: 'Gambar Polygon' },
-          { id: 'rectangle', icon: 'rectangle', title: 'Gambar Kotak' },
+          // { id: 'rectangle', icon: 'rectangle', title: 'Gambar Kotak' },
           { id: 'marker', icon: 'marker', title: 'Tambah Marker' },
           // { id: 'edit', icon: 'edit', title: 'Edit Gambar' },
           { id: 'delete', icon: 'delete', title: 'Hapus Gambar' }
@@ -448,6 +448,9 @@ const MapToolsControl = () => {
 
       drawHandler.enable();
       currentDrawRef.current = drawHandler;
+      
+      // Notify parent drawing started
+      onDrawStart?.();
     };
 
     // Clear all drawings
@@ -463,11 +466,16 @@ const MapToolsControl = () => {
       const layer = e.layer;
       drawnItemsRef.current.addLayer(layer);
 
+      // Notify parent drawing ended
+      onDrawStop?.();
+
       // Show area/length info
       if (e.layerType === 'polygon' || e.layerType === 'rectangle') {
         const area = L.GeometryUtil.geodesicArea(layer.getLatLngs()[0]);
         const areaStr = area > 10000 ? `${(area / 10000).toFixed(2)} ha` : `${area.toFixed(2)} m²`;
         layer.bindPopup(`Luas: ${areaStr}`).openPopup();
+        // Auto open popup after short delay
+        setTimeout(() => layer.openPopup(), 200);
       } else if (e.layerType === 'polyline') {
         let length = 0;
         const latlngs = layer.getLatLngs();
@@ -476,10 +484,17 @@ const MapToolsControl = () => {
         }
         const lengthStr = length > 1000 ? `${(length / 1000).toFixed(2)} km` : `${length.toFixed(2)} m`;
         layer.bindPopup(`Panjang: ${lengthStr}`).openPopup();
+        setTimeout(() => layer.openPopup(), 200);
       }
     };
 
+    // Listen for draw stop (e.g. escaped)
+    const onDrawStopped = () => {
+        onDrawStop?.();
+    };
+
     map.on(L.Draw.Event.CREATED, onDrawCreated);
+    map.on(L.Draw.Event.DRAWSTOP, onDrawStopped); // Handle cancel/escape
 
     const control = new MapToolsClass();
     controlRef.current = control;

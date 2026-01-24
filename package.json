@@ -16,16 +16,12 @@
     "generate:service": "node app generate service"
   },
   "dependencies": {
-    "@ant-design/charts": "^2.2.6",
     "@ant-design/icons": "^5.5.1",
-    "@antv/g-svg": "^2.0.34",
     "@tinymce/tinymce-react": "^5.1.1",
     "@turf/turf": "^7.3.1",
     "antd": "^5.21.1",
     "antd-style": "^3.7.0",
-    "chart.js": "^4.4.4",
     "dayjs": "^1.11.13",
-    "dotenv": "^16.4.7",
     "framer-motion": "^12.4.2",
     "html-react-parser": "^5.2.2",
     "html2canvas": "^1.4.1",
@@ -39,7 +35,6 @@
     "react-dom": "^18.3.1",
     "react-highlight-words": "^0.21.0",
     "react-leaflet": "^4.2.1",
-    "react-quill": "^2.0.0",
     "vitest": "^3.2.4"
   },
   "devDependencies": {

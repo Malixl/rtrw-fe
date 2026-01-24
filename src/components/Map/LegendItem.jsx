@@ -71,10 +71,12 @@ const renderPolyline = (warna, nama, tipe_garis) => {
   );
 };
 
+import SecureImage from '@/components/SecureImage';
+
 const renderPoint = (icon_titik, nama) => (
   <div className="mb-2 ml-6 mt-1 flex items-center gap-x-2">
     <div className="flex h-5 w-8 items-center justify-center">
-      <img className="h-5 w-5 object-contain" src={asset(icon_titik)} alt={nama} />
+      <SecureImage className="h-5 w-5 object-contain" src={asset(icon_titik)} alt={nama} />
     </div>
     <span className="text-xs font-medium text-gray-700">{nama}</span>
   </div>
