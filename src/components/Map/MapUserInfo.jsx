@@ -175,26 +175,28 @@ const MapUserInfo = () => {
 
   const containerStyle = {
     position: 'fixed',
-    bottom: isMobile ? 12 : 16,
+    bottom: isMobile ? 60 : 70,
     left: isMobile ? 12 : 16,
     zIndex: 1200,
     transition: 'all 220ms ease'
   };
 
   const node = (
-    <div style={{ ...containerStyle, left: `${(isMobile ? 12 : 16) + offsetLeft}px`, bottom: `${(isMobile ? 12 : 16) + offsetBottom}px` }}>
+    <div style={{ ...containerStyle, left: `${(isMobile ? 12 : 16) + offsetLeft}px`, bottom: `${(isMobile ? 60 : 70) + offsetBottom}px` }}>
       <Dropdown menu={{ items: dropdownItems }} placement={'topLeft'} trigger={['click']}>
         <div ref={wrapperRef} className={wrapperClass}>
-          <Avatar size={isMobile ? 'small' : 'default'} icon={<UserOutlined />} className="bg-blue-500" />
-          <div className="flex flex-col">
-            <span className={`font-medium leading-tight ${isMobile ? 'text-xs' : 'text-sm'}`}>{user.name}</span>
-            <span className={`text-gray-500 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
-              Login sebagai{' '}
-              <Tag color={getRoleColor()} className={`m-0 ${isMobile ? 'px-1 text-[10px]' : 'text-xs'}`}>
-                {getRoleLabel()}
-              </Tag>
-            </span>
-          </div>
+          <Avatar size={isMobile ? 'default' : 'default'} icon={<UserOutlined />} className="bg-blue-500" />
+          {!isMobile && (
+            <div className="flex flex-col">
+              <span className={`font-medium leading-tight text-sm`}>{user.name}</span>
+              <span className={`text-gray-500 text-xs`}>
+                Login sebagai{' '}
+                <Tag color={getRoleColor()} className={`m-0 text-xs`}>
+                  {getRoleLabel()}
+                </Tag>
+              </span>
+            </div>
+          )}
         </div>
       </Dropdown>
     </div>

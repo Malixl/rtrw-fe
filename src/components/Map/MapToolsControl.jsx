@@ -50,24 +50,24 @@ const MapToolsControl = () => {
 
         // Tool definitions
         const tools = [
+          { id: 'toggle-menu', icon: 'menu', title: 'Menu Alat', mobileOnly: true }, // New Toggle Button
           { id: 'fullscreen', icon: 'fullscreen', title: 'Layar Penuh' },
           // { id: 'screenshot', icon: 'screenshot', title: 'Screenshot Peta' },
           { id: 'location', icon: 'location', title: 'Lokasi Saya' },
           // { id: 'target', icon: 'target', title: 'Cari di Peta' },
           { id: 'search', icon: 'search', title: 'Zoom ke Pencarian' },
           { id: 'fitbounds', icon: 'fitbounds', title: 'Zoom ke Semua Layer' },
-          { id: 'divider1', type: 'divider' },
           { id: 'polyline', icon: 'polyline', title: 'Gambar Garis' },
           { id: 'polygon', icon: 'polygon', title: 'Gambar Polygon' },
           { id: 'rectangle', icon: 'rectangle', title: 'Gambar Kotak' },
           { id: 'marker', icon: 'marker', title: 'Tambah Marker' },
-          { id: 'divider2', type: 'divider' },
           // { id: 'edit', icon: 'edit', title: 'Edit Gambar' },
           { id: 'delete', icon: 'delete', title: 'Hapus Gambar' }
         ];
 
         // SVG Icons
         const icons = {
+          menu: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>`,
           fullscreen: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>`,
           // screenshot: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`,
           location: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4m10-10h-4M6 12H2"/></svg>`,
@@ -82,20 +82,42 @@ const MapToolsControl = () => {
           delete: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`
         };
 
+        let isExpanded = false;
+        const isMobile = window.innerWidth < 768;
+
+        // Toggle Expand Menu for Mobile
+        const toggleMenu = () => {
+          isExpanded = !isExpanded;
+          const btns = container.querySelectorAll('.map-tool-btn:not(.toggle-btn)');
+          const dividers = container.querySelectorAll('.tool-divider');
+          
+          btns.forEach(btn => {
+            btn.style.display = isExpanded ? 'flex' : 'none';
+          });
+          dividers.forEach(div => {
+            div.style.display = 'none'; // dividers always hidden in mobile collapsed/expanded to save space or adjust logic
+          });
+          
+          // Re-apply correct display for dividers if expanded, or just keep them hidden on mobile?
+          // Let's keep specific dividers hidden on mobile for cleaner look
+          if (isExpanded) {
+             dividers.forEach(div => div.style.display = 'block');
+          }
+        };
+
         tools.forEach((tool) => {
           if (tool.type === 'divider') {
-            const divider = L.DomUtil.create('div', '', container);
-            // divider.style.cssText = `
-            //   height: 1px;
-            //   background-color: #ddd;
-            //   margin: 2px 4px;
-            // `;
-            // Remove visible divider as requested ("hapus putih-putih")
-            divider.style.display = 'none';
+            const divider = L.DomUtil.create('div', 'tool-divider', container);
+             divider.style.cssText = `
+               height: 1px;
+               background-color: #eee;
+               margin: 2px 4px;
+               display: ${isMobile ? 'none' : 'block'}; /* Hidden by default on mobile */
+             `;
             return;
           }
 
-          const button = L.DomUtil.create('a', 'map-tool-btn', container);
+          const button = L.DomUtil.create('a', `map-tool-btn ${tool.mobileOnly ? 'toggle-btn' : ''}`, container);
           button.href = '#';
           button.title = tool.title;
           button.setAttribute('data-tool', tool.id);
@@ -108,6 +130,12 @@ const MapToolsControl = () => {
           let activeBg = '#e6f7ff';
 
           switch (tool.id) {
+            case 'toggle-menu':
+              textColor = '#333';
+              bgColor = '#fff';
+              hoverBg = '#f0f0f0';
+              button.style.fontWeight = 'bold';
+              break;
             case 'fullscreen':
               bgColor = '#1890ff'; // Blue
               hoverBg = '#40a9ff';
@@ -174,6 +202,19 @@ const MapToolsControl = () => {
             transition: all 0.2s;
           `;
 
+          // Handle Mobile Initial State
+          if (isMobile) {
+            if (tool.mobileOnly) {
+              button.style.display = 'flex'; // Show toggle button
+            } else {
+              button.style.display = 'none'; // Hide others initially
+            }
+          } else {
+            if (tool.mobileOnly) {
+              button.style.display = 'none'; // Hide toggle on desktop
+            }
+          }
+
           button.onmouseover = function () {
             this.style.backgroundColor = this.getAttribute('data-hover-bg');
           };
@@ -186,7 +227,14 @@ const MapToolsControl = () => {
           L.DomEvent.on(button, 'click', function (e) {
             L.DomEvent.stopPropagation(e);
             L.DomEvent.preventDefault(e);
-            handleToolClick(tool.id, button, container);
+            
+            if (tool.id === 'toggle-menu') {
+              toggleMenu();
+            } else {
+              handleToolClick(tool.id, button, container);
+              // On mobile, auto-collapse after selection (optional, maybe better UX to keep open?)
+              // toggleMenu(); 
+            }
           });
         });
 
