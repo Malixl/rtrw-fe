@@ -19,34 +19,14 @@ import FeaturePopup from '@/components/Map/FeaturePopup';
 import HomeControl from '@/components/Map/HomeControl';
 import CoordinateControl from '@/components/Map/CoordinateControl';
 import MapToolsControl from '@/components/Map/MapToolsControl';
+import { fetchMarkerImage } from '@/utils/fetchMarkerImage';
 import MapSidebar from '@/components/Map/MapSidebar';
 import MapUserInfo from '@/components/Map/MapUserInfo';
 import MapLoader from '@/components/Map/MapLoader';
 import BatchLoadingOverlay from '@/components/Map/BatchLoadingOverlay';
 
-// ============================================================================
-// PERFORMANCE OPTIMIZATION: Canvas-based GeoJSON Rendering
-// ============================================================================
-// This component uses Leaflet's Canvas renderer instead of SVG for massive
-// performance improvements when rendering complex GeoJSON layers.
-//
-// Key benefits:
-// - Single <canvas> element vs thousands of <path> SVG elements
-// - 10-50x faster rendering for complex polygons
-// - Smooth 60FPS panning and zooming
-// - Reduced memory usage
-// - Disable interactivity during pan/zoom for buttery smooth experience
-// - HIDE layers completely during movement for maximum smoothness
-// ============================================================================
-
-/**
- * OptimizedLayerRenderer - High-performance GeoJSON layer renderer
- * Uses Canvas renderer for vector layers to achieve 60FPS performance
- * ENHANCED: Complete layer hiding during pan/zoom for maximum smoothness
- * ENHANCED: Support dynamic opacity per layer
- */
 const OptimizedLayerRenderer = React.memo(
-  ({ selectedLayers, setPopupInfo, getFeatureStyle, layerOpacities }) => {
+  ({ selectedLayers, setPopupInfo, getFeatureStyle, layerOpacities, isDrawing }) => {
     const map = useMap();
     const layersRef = React.useRef({});
     const isMovingRef = React.useRef(false);
@@ -181,6 +161,22 @@ const OptimizedLayerRenderer = React.memo(
       return () => cancelAnimationFrame(rafId);
     }, [map, opacityKeys, layerOpacities]);
 
+    // Effect untuk update interaktivitas layer saat drawing active
+    // Saat drawing: Matikan interaksi layer agar tidak mengganggu draw handler
+    React.useEffect(() => {
+      Object.values(layersRef.current).forEach((layer) => {
+        if (layer && layer.eachLayer) {
+          layer.eachLayer((l) => {
+            if (l.options) {
+              // Jika drawing aktif = interactive FALSE
+              // Jika drawing mati = interactive TRUE (default)
+              l.options.interactive = !isDrawing;
+            }
+          });
+        }
+      });
+    }, [isDrawing, map]);
+
     React.useEffect(() => {
       if (!map) return;
 
@@ -199,13 +195,43 @@ const OptimizedLayerRenderer = React.memo(
       });
 
       // Add new layers
-      currentLayerKeys.forEach((key) => {
+      currentLayerKeys.forEach(async (key) => {
         if (!existingLayerKeys.has(key)) {
           const layer = selectedLayers[key];
           if (!layer?.data) return;
 
           // Get opacity for this layer (default 80%)
           const layerOpacity = (layerOpacities?.[key] ?? 80) / 100;
+
+          // PRE-LOADING IMAGES: Solusi untuk masalah "gambar load satu per satu" dan "gambar rusak"
+          // Kita scan semua URL icon di fitur, download semuanya (paralel) jadi Blob, baru render layer.
+          const uniqueIcons = new Set();
+          if (layer.data.features) {
+            layer.data.features.forEach(f => {
+              // Pastikan properti icon_image_url ada
+              if (f.properties && f.properties.icon_image_url) {
+                uniqueIcons.add(f.properties.icon_image_url);
+              }
+            });
+          }
+
+          // Object map: Original URL -> Blob URL
+          const iconBlobMap = {};
+          
+          if (uniqueIcons.size > 0) {
+            // Fetch semua icon secara paralel
+            await Promise.all(Array.from(uniqueIcons).map(async (url) => {
+              try {
+                // fetchMarkerImage otomatis handle caching & headers (ngrok bypass)
+                const blobUrl = await fetchMarkerImage(url);
+                iconBlobMap[url] = blobUrl;
+              } catch (err) {
+                console.error("Failed to preload icon:", url, err);
+                // Jika gagal, biarkan pakai URL asli (fallback)
+                iconBlobMap[url] = url;
+              }
+            }));
+          }
 
           const geoJsonLayer = L.geoJSON(layer.data, {
             // Use Canvas renderer for vector layers (THE KEY OPTIMIZATION)
@@ -232,9 +258,14 @@ const OptimizedLayerRenderer = React.memo(
             pointToLayer: (feature, latlng) => {
               const props = feature.properties || {};
               let marker;
+              
               if (props.icon_image_url) {
+                // GUNAKAN BLOB URL HASIL PRE-LOAD
+                // Ini kunci agar gambar tidak 'pop-in' satu per satu dan tidak 'rusak' kena block
+                const secureUrl = iconBlobMap[props.icon_image_url] || props.icon_image_url;
+
                 const icon = L.icon({
-                  iconUrl: props.icon_image_url,
+                  iconUrl: secureUrl,
                   iconSize: [32, 32],
                   iconAnchor: [16, 32],
                   className: `custom-marker-image layer-marker-${key}`
@@ -521,14 +552,14 @@ const Maps = () => {
         }
       );
 
-      // Process results dengan Web Worker untuk tidak blocking UI
-      const processedResults = [];
-
-      for (const result of fetchResults) {
-        if (result.status !== 'fulfilled') continue;
+      // OPTIMIZED: Parallel Processing using Promise.all
+      // Kirim semua layer ke worker sekaligus, jangan antri (Serial)
+      // Ini mempercepat loading data awal secara signifikan
+      const processingProps = fetchResults.map(async (result) => {
+        if (result.status !== 'fulfilled') return null;
 
         const item = fetchItems.find((f) => f.key === result.key);
-        if (!item) continue;
+        if (!item) return null;
 
         const { pemetaan } = item;
         const json = result.data;
@@ -540,29 +571,35 @@ const Maps = () => {
 
         try {
           // Process di Web Worker (non-blocking)
+          // Karena pakai map + Promise.all, ini dikirim ke worker secara paralel
           const enhanced = await workerProcessGeoJSON(json, {
             warna,
             iconImageUrl,
             tipe_garis,
             fillOpacity,
-            simplifyTolerance: 0.0005 // INCREASED: More aggressive simplification for speed
+            simplifyTolerance: 0.001 // Optimized tolerance
           });
 
-          // Save to cache for instant re-enable
+          // Save to cache
           layerCache.current[pemetaan.key] = { data: enhanced, meta: pemetaan };
 
-          processedResults.push({
+          return {
             key: pemetaan.key,
             id: pemetaan.id,
             type: pemetaan.type,
             data: enhanced,
             meta: pemetaan,
             status: 'fulfilled'
-          });
+          };
         } catch (error) {
           console.error(`Failed to process layer ${pemetaan.key}:`, error);
+          return null;
         }
-      }
+      });
+
+      // Tunggu semua proses selesai
+      const results = await Promise.all(processingProps);
+      const processedResults = results.filter(Boolean);
 
       // Update state sekali untuk semua hasil (accumulative)
       setSelectedLayers((prev) => {
