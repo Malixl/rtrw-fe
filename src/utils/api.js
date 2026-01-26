@@ -68,7 +68,8 @@ async function customFetch(endpoint, method, body, token, file, abortController)
     method,
     headers: {
       Authorization: token ? `Bearer ${token}` : '',
-      'ngrok-skip-browser-warning': 'true'
+      'ngrok-skip-browser-warning': 'true',
+      'bypass-tunnel-reminder': 'true' // For Localtunnel bypass
     }
   };
 
