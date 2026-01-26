@@ -234,10 +234,8 @@ const OptimizedLayerRenderer = React.memo(
           }
 
           const geoJsonLayer = L.geoJSON(layer.data, {
-            // Use Canvas renderer for vector layers (THE KEY OPTIMIZATION)
+            // Use Canvas renderer for vector layers (Default)
             renderer: canvasRenderer,
-            // PERFORMANCE: Aggressively simplify geometry during render
-            smoothFactor: 3, // Higher = more simplified = faster render
 
             // Style function with dynamic opacity
             style: (feature) => {
@@ -731,8 +729,7 @@ const Maps = () => {
         warna,
         iconImageUrl,
         tipe_garis,
-        fillOpacity,
-        simplifyTolerance: 0.0015 // INCREASED: More aggressive simplification for speed (approx 150m precision)
+        fillOpacity
       });
 
       // SAVE TO CACHE for future instant re-enable
