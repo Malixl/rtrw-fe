@@ -6,5 +6,5 @@ services:
     image: rtrw-fe:latest
     container_name: rtrw-fe
     ports:
-      - "3005:3005"
+      - "3000:3000"
     restart: unless-stopped
