@@ -459,7 +459,8 @@ const MapToolsControl = ({ onDrawStart, onDrawStop }) => {
           drawHandler = new L.Draw.Rectangle(map, drawOptions);
           break;
         case 'marker':
-          drawHandler = new L.Draw.Marker(map, {});
+          // FIX: Pass explicit icon to Leaflet Draw to prevent "broken image" in production
+          drawHandler = new L.Draw.Marker(map, { icon: DefaultIcon });
           break;
         default:
           return;
