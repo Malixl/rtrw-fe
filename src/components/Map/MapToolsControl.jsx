@@ -3,6 +3,25 @@ import { useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { message } from 'antd';
 
+// FIX: Explicitly fix marker path for MapTools
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
+
+let DefaultIcon = L.icon({
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconRetinaUrl: iconRetina,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  tooltipAnchor: [16, -28],
+  shadowSize: [41, 41]
+});
+
+// Enforce globally in this component scope
+L.Marker.prototype.options.icon = DefaultIcon;
+
 /**
  * MapToolsControl - Custom Leaflet control with various map tools
  * Positioned at topleft, below zoom and other controls
@@ -337,7 +356,7 @@ const MapToolsControl = ({ onDrawStart, onDrawStop }) => {
       message.loading('Mencari lokasi Anda...', 2);
       map.locate({ setView: true, maxZoom: 16 });
       map.once('locationfound', (e) => {
-        L.marker(e.latlng).addTo(drawnItemsRef.current).bindPopup('Lokasi Anda').openPopup();
+        L.marker(e.latlng, { icon: DefaultIcon }).addTo(drawnItemsRef.current).bindPopup('Lokasi Anda').openPopup();
         message.success('Lokasi ditemukan!');
       });
       map.once('locationerror', () => {
@@ -380,7 +399,7 @@ const MapToolsControl = ({ onDrawStart, onDrawStop }) => {
           if (data.length > 0) {
             const { lat, lon, display_name } = data[0];
             map.setView([parseFloat(lat), parseFloat(lon)], 15);
-            L.marker([parseFloat(lat), parseFloat(lon)])
+            L.marker([parseFloat(lat), parseFloat(lon)], { icon: DefaultIcon })
               .addTo(drawnItemsRef.current)
               .bindPopup(display_name)
               .openPopup();
