@@ -1,0 +1,10 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: rtrw-fe:latest
+    container_name: rtrw-fe
+    ports:
+      - "3005:3005"
+    restart: unless-stopped
