@@ -23,7 +23,10 @@ const calculateRoughArea = (coords) => {
 };
 
 // Simplify geometry dengan Douglas-Peucker algorithm
-const simplifyCoordinates = (coords, tolerance = 0.0001, maxPoints = MAX_VERTICES_PER_FEATURE) => {
+const simplifyCoordinates = (coords, tolerance = 0, maxPoints = MAX_VERTICES_PER_FEATURE) => {
+    // VISUAL FIX: If tolerance is 0, DO NOT SIMPLIFY. Return original 100%.
+    if (tolerance === 0) return coords;
+
     if (!coords || coords.length < 3) return coords;
 
     const sqTolerance = tolerance * tolerance;
@@ -158,7 +161,7 @@ const processGeoJSON = (json, options = {}) => {
         iconImageUrl,
         tipe_garis,
         fillOpacity = 0.8,
-        simplifyTolerance = 0.0002 // Increased default tolerance for better performance
+        simplifyTolerance = 0 // DEFAULT: 0 (DISABLED) - Render exact geometry by default
     } = options;
 
     const features = (json.features || [])
