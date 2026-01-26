@@ -751,11 +751,15 @@ const Maps = () => {
   };
 
   // ============================================================================
-  // INITIAL BATAS ADMINISTRASI LOADING - OPTIMIZED
+  // INITIAL BATAS ADMINISTRASI LOADING - DISABLED
   // ============================================================================
-  // Loads ALL batas administrasi polygons at once to prevent race conditions
-  // Uses batchFetchGeoJSON untuk concurrent fetch dan Web Worker untuk processing
+  // DISABLED: Auto-load causes loading stuck at 90% when using Localtunnel
+  // User can manually check the layers they need from sidebar
+  // Re-enable this when backend is stable (Cloudflare/Production server)
   React.useEffect(() => {
+    // DISABLED - Skip auto-load to prevent stuck loading
+    return;
+    
     // Guard: only run once when data is available
     if (batasInitializedRef.current || batasAdministrasi.length === 0) return;
     batasInitializedRef.current = true;
