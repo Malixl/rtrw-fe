@@ -9,5 +9,5 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 RUN npm i -g serve
 COPY --from=builder /app/dist ./dist
-EXPOSE 3005
-CMD ["serve", "-s", "dist", "-l", "3005"]
+EXPOSE 3000
+CMD ["serve", "-s", "dist", "-l", "3000"]
