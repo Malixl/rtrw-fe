@@ -1014,11 +1014,17 @@ const Maps = () => {
 
   const isDataReady = React.useMemo(() => {
     const apiReady = !authLoading && !getAllLayerGroups.isLoading && !isLoadingBatas;
+    // Allow map to load even when batasAdministrasi is empty (no data in database)
     const batasDataExists = batasAdministrasi.length > 0;
     const batasLayersLoaded = batasKeysInSelected === batasAdministrasi.length;
     const noLoadingLayers = Object.values(loadingLayers).every((loading) => !loading);
 
-    return apiReady && batasDataExists && batasLayersLoaded && noLoadingLayers;
+    // If no batas data exists, skip the batas layer requirement
+    if (!batasDataExists) {
+      return apiReady && noLoadingLayers;
+    }
+
+    return apiReady && batasLayersLoaded && noLoadingLayers;
   }, [authLoading, getAllLayerGroups.isLoading, isLoadingBatas, batasAdministrasi.length, batasKeysInSelected, loadingLayers]);
 
   const fetchLayerGroups = React.useCallback(() => {
