@@ -5,12 +5,15 @@ import { Avatar, Button, Dropdown, Layout, Result, Skeleton, Space, theme } from
 import { Content, Header } from 'antd/es/layout/layout';
 import { useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Grid } from 'antd';
 
 const Dashboard = () => {
   const [collapsed, setCollapsed] = useState(false);
   const { logout, token, user, isInitialized, canAccessDashboard, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const breakpoints = Grid.useBreakpoint();
+  const isMobile = !breakpoints.md;
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -116,7 +119,7 @@ const Dashboard = () => {
                 </>
               ) : (
                 <>
-                  <span>Hai, {user.name}</span>
+                  <span className="hidden sm:inline">Hai, {user.name}</span>
 
                   <Dropdown menu={{ items }}>
                     <a onClick={(e) => e.preventDefault()}>
@@ -131,7 +134,7 @@ const Dashboard = () => {
           </div>
         </Header>
 
-        <Content style={{ margin: '24px 16px 0' }}>
+        <Content style={{ margin: isMobile ? '12px 8px 0' : '24px 16px 0' }}>
           {/* <Breadcrumb
                         style={{ margin: '16px 0' }}
                         items={breadcrumbItems.map((item, index) => ({

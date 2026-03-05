@@ -68,8 +68,9 @@ const CoordinateControl = () => {
                 display: none !important;
               }
               .coordinate-scale-wrapper {
-                bottom: 12px !important;
-                left: 12px !important;
+                bottom: 20px !important;
+                left: auto !important;
+                right: 4px !important;
                 transform: none !important;
               }
             }

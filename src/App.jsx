@@ -7,7 +7,7 @@ import { RouterProvider } from 'react-router';
 import './index.css';
 import { flattenLandingLinks } from './utils/landingLink';
 import { Notfound } from './pages/result';
-import { CreateNews, EditNews, IndikasiPrograms, KetentuanKhusus, Pkkprl, Polaruang, StrukturRuang } from './pages/dashboard';
+import { CreateNews, EditNews, Dokumens, KetentuanKhusus, KawasanStrategiProvinsi, Polaruang, StrukturRuang } from './pages/dashboard';
 import { ReadNews } from './pages/landing';
 import { ProtectedRoute } from './components';
 // import { useEffect, useMemo } from 'react';
@@ -116,18 +116,18 @@ function App() {
               )
             },
             {
-              path: '/dashboard/pkkprl/:klasifikasi_id',
+              path: '/dashboard/kawasan_strategi_provinsi/:klasifikasi_id',
               element: (
                 <ProtectedRoute capability="can_crud_map">
-                  <Pkkprl />
+                  <KawasanStrategiProvinsi />
                 </ProtectedRoute>
               )
             },
             {
-              path: '/dashboard/indikasi_program/:klasifikasi_id',
+              path: '/dashboard/dokumen/:klasifikasi_id',
               element: (
                 <ProtectedRoute capability="can_crud_map">
-                  <IndikasiPrograms />
+                  <Dokumens />
                 </ProtectedRoute>
               )
             },

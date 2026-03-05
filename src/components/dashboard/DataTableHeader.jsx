@@ -13,7 +13,7 @@ export default function DataHeader({ modul, subtitle, selectedData, onStore, onD
   return (
     <>
       <div className="mb-6">
-        {modul ? <Title level={5}>Data {modul}</Title> : <Skeleton.Input size="small" />}
+        {modul ? <Title level={5} className="!text-base sm:!text-lg">Data {modul}</Title> : <Skeleton.Input size="small" />}
         {subtitle &&
           (typeof subtitle === 'string' ? (
             <Text type="secondary" style={{ display: 'block', marginTop: '10px' }}>

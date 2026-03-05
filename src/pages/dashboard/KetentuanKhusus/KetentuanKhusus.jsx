@@ -11,6 +11,7 @@ import { formFields } from './FormFields';
 import { KetentuanKhusus as KetentuanKhususModel } from '@/models';
 import { useParams } from 'react-router-dom';
 import { extractUploadFile, hasNewUploadFile, normalizeColorValue } from '@/utils/formData';
+import UploadProgress from '@/components/dashboard/UploadProgress';
 import { EnvironmentOutlined, ExpandAltOutlined, ExpandOutlined } from '@ant-design/icons';
 
 const { UPDATE, READ, DELETE } = Action;
@@ -132,6 +133,9 @@ const KetentuanKhusus = () => {
   const deleteKetentuanKhusus = useService(KetentuanKhususService.delete);
   const deleteBatchKetentuanKhusus = useService(KetentuanKhususService.deleteBatch);
   const [filterValues, setFilterValues] = React.useState({ search: '' });
+  const [uploadProgress, setUploadProgress] = React.useState({ visible: false, percent: 0, loaded: 0, total: 0 });
+  const resetProgress = () => setUploadProgress({ visible: false, percent: 0, loaded: 0, total: 0 });
+  const onProgress = (p) => setUploadProgress({ visible: true, ...p });
 
   const pagination = usePagination({ totalData: getAllKetentuanKhusus.totalData });
 
@@ -214,7 +218,7 @@ const KetentuanKhusus = () => {
 
                   const fileToSend = Object.keys(files).length ? files : null;
 
-                  const { message, isSuccess } = await updateKetentuanKhusus.execute(record.id, payload, token, fileToSend);
+                  const { message, isSuccess } = await updateKetentuanKhusus.execute(record.id, payload, token, fileToSend, onProgress);
 
                   if (isSuccess) {
                     success('Berhasil', message);
@@ -423,7 +427,7 @@ const KetentuanKhusus = () => {
           icon_titik: iconFile?.icon ?? iconFile
         };
 
-        const { message, isSuccess } = await storeKetentuanKhusus.execute(payload, token, fileToSend);
+        const { message, isSuccess } = await storeKetentuanKhusus.execute(payload, token, fileToSend, onProgress);
 
         if (isSuccess) {
           success('Berhasil', message);
@@ -509,6 +513,7 @@ const KetentuanKhusus = () => {
     <Card>
       <Skeleton loading={getAllKetentuanKhusus.isLoading}>
         <DataTableHeader onStore={onCreate} modul={Modul.KETENTUAN_KHUSUS} onDeleteBatch={onDeleteBatch} selectedData={selectedKetentuanKhusus} onSearch={(values) => setFilterValues({ search: values })} model={KetentuanKhususModel} />
+        <UploadProgress {...uploadProgress} onClose={resetProgress} />
         <div className="w-full max-w-full overflow-x-auto">
           <DataTable
             data={ketentuanKhusus}

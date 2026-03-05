@@ -27,7 +27,7 @@ export const fetchGeoJSON = async (url, options = {}) => {
     const {
         signal,
         retries = 2,
-        timeout = 30000,
+        timeout = 120000,
         useCache = true,
         useStreaming = false,
         onFeature,

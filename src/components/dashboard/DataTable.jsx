@@ -2,6 +2,7 @@ import { SearchOutlined } from '@ant-design/icons';
 import { Button, Input, Space, Table } from 'antd';
 import PropTypes from 'prop-types';
 import { useMemo, useRef, useState } from 'react';
+import { Grid } from 'antd';
 import Highlighter from 'react-highlight-words';
 
 export default function DataTable({ columns, data, loading, title = '', handleSelectedData, map = (data) => data, pagination, ...props }) {
@@ -9,15 +10,17 @@ export default function DataTable({ columns, data, loading, title = '', handleSe
   const [searchedColumn, setSearchedColumn] = useState('');
   const searchInput = useRef(null);
   const mappedData = useMemo(() => data.map(map), [data, map]);
+  const breakpoints = Grid.useBreakpoint();
+  const isMobile = !breakpoints.md;
 
   const columnsWithNumber = [
-    {
+    ...(!isMobile ? [{
       title: 'No',
       dataIndex: 'index',
       render: (_, __, index) => ((pagination?.page || 1) - 1) * (pagination?.per_page || 10) + (index + 1),
-      width: '5%',
+      width: 60,
       fixed: 'left'
-    },
+    }] : []),
     ...columns
   ];
 
@@ -149,13 +152,17 @@ export default function DataTable({ columns, data, loading, title = '', handleSe
       columns={columnsWithTitle}
       dataSource={mappedData}
       loading={loading}
+      scroll={{ x: 'max-content' }}
+      size={isMobile ? 'small' : 'middle'}
       pagination={
         pagination
           ? {
               current: pagination.page,
               pageSize: pagination.per_page,
               total: pagination.totalData,
-              onChange: pagination.onChange
+              onChange: pagination.onChange,
+              size: isMobile ? 'small' : 'default',
+              showSizeChanger: !isMobile
             }
           : false
       }

@@ -14,7 +14,12 @@ export const formFields = ({ options }) => [
     ],
     size: 'large'
   },
-
+  {
+    label: 'Deskripsi',
+    name: 'deskripsi',
+    type: InputType.LONGTEXT,
+    rules: [],
+  },
   {
     label: `Klasifkasi ${Modul.INDIKASI_PROGRAM}`,
     name: 'id_klasifikasi',

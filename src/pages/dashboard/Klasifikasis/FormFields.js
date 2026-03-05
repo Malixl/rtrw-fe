@@ -67,12 +67,12 @@ export const formFields = ({ options = {} } = {}) => [
         value: 'ketentuan_khusus'
       },
       {
-        label: 'Indikasi Program',
-        value: 'indikasi_program'
+        label: 'Dokumen',
+        value: 'dokumen'
       },
       {
-        label: 'PKKPRL',
-        value: 'pkkprl'
+        label: 'Kawasan Strategi Provinsi',
+        value: 'kawasan_strategi_provinsi'
       },
       {
         label: 'Data Spasial',

@@ -29,7 +29,7 @@ export default class KetentuanKhususService {
    *  errors?: { [key: string]: string[] };
    * }}
    */
-  static async store(data, token, file) {
+  static async store(data, token, file, onProgress) {
     const options = {
       body: KetentuanKhusus.toApiData(data),
       token
@@ -46,6 +46,7 @@ export default class KetentuanKhususService {
     if (file?.icon_titik) {
       options.file.icon_titik = file.icon_titik;
     }
+    if (onProgress) options.onProgress = onProgress;
     return await api.post('/ketentuan_khusus', options);
   }
   /**
@@ -59,7 +60,7 @@ export default class KetentuanKhususService {
    *  errors?: { [key: string]: string[] };
    * }>}
    */
-  static async update(id, data, token, file) {
+  static async update(id, data, token, file, onProgress) {
     const options = {
       body: KetentuanKhusus.toApiData(data),
       token
@@ -76,6 +77,7 @@ export default class KetentuanKhususService {
     if (file?.icon_titik) {
       options.file.icon_titik = file.icon_titik;
     }
+    if (onProgress) options.onProgress = onProgress;
     return await api.post(`/ketentuan_khusus/${id}`, options);
   }
 

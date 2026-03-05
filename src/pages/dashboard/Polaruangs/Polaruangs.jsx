@@ -11,6 +11,7 @@ import { formFields } from './FormFields';
 import { Polaruangs as PolaruangModel } from '@/models';
 import { useParams } from 'react-router-dom';
 import { extractUploadFile, hasNewUploadFile, normalizeColorValue } from '@/utils/formData';
+import UploadProgress from '@/components/dashboard/UploadProgress';
 
 const { UPDATE, READ, DELETE } = Action;
 
@@ -26,6 +27,10 @@ const Polaruangs = () => {
   const deletePolaruang = useService(PolaruangsService.delete);
   const deleteBatchPolaruangs = useService(PolaruangsService.deleteBatch);
   const [filterValues, setFilterValues] = React.useState({ search: '' });
+  const [uploadProgress, setUploadProgress] = React.useState({ visible: false, percent: 0, loaded: 0, total: 0 });
+
+  const resetProgress = () => setUploadProgress({ visible: false, percent: 0, loaded: 0, total: 0 });
+  const onProgress = (p) => setUploadProgress({ visible: true, ...p });
 
   const pagination = usePagination({ totalData: getAllPolaruangs.totalData });
 
@@ -93,7 +98,7 @@ const Polaruangs = () => {
 
                   const fileToSend = isFileUpdated ? extractUploadFile(values.geojson_file) : null;
 
-                  const { message, isSuccess } = await updatePolaruang.execute(record.id, payload, token, fileToSend);
+                  const { message, isSuccess } = await updatePolaruang.execute(record.id, payload, token, fileToSend, onProgress);
 
                   if (isSuccess) {
                     success('Berhasil', message);
@@ -103,7 +108,8 @@ const Polaruangs = () => {
                   }
 
                   return isSuccess;
-                }
+                },
+                afterClose: resetProgress
               });
             }}
           />
@@ -179,7 +185,7 @@ const Polaruangs = () => {
         const fileToSend = extractUploadFile(values.geojson_file);
         delete payload.geojson_file;
 
-        const { message, isSuccess } = await storePolaruang.execute(payload, token, fileToSend);
+        const { message, isSuccess } = await storePolaruang.execute(payload, token, fileToSend, onProgress);
         if (isSuccess) {
           success('Berhasil', message);
           fetchPolaruangs();
@@ -187,7 +193,8 @@ const Polaruangs = () => {
           error('Gagal', message);
         }
         return isSuccess;
-      }
+      },
+      afterClose: resetProgress
     });
   };
 
@@ -213,6 +220,7 @@ const Polaruangs = () => {
     <Card>
       <Skeleton loading={getAllPolaruangs.isLoading}>
         <DataTableHeader onStore={onCreate} modul={Modul.POLARUANG} onDeleteBatch={onDeleteBatch} selectedData={selectedPolaruangs} onSearch={(values) => setFilterValues({ search: values })} model={PolaruangModel} />
+        <UploadProgress {...uploadProgress} onClose={resetProgress} />
         <div className="w-full max-w-full overflow-x-auto">
           <DataTable
             data={polaRuangs}

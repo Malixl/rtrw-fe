@@ -58,7 +58,7 @@ export default class KetentuanKhusus extends Model {
 
   public static fromApiData<T extends IncomingApiData | IncomingApiData[]>(apiData: T): ReturnType<T, IncomingApiData, KetentuanKhusus> {
     if (Array.isArray(apiData)) return apiData.map((object) => this.fromApiData(object)) as ReturnType<T, IncomingApiData, KetentuanKhusus>;
-    return new KetentuanKhusus(apiData.id, apiData.klasifikasi_id, apiData.nama, apiData.warna, apiData.deskripsi, apiData.geojson_file, apiData.tipe_geometri, asset(apiData.icon_titik), apiData.tipe_garis) as ReturnType<
+    return new KetentuanKhusus(apiData.id, apiData.klasifikasi_id, apiData.nama, apiData.warna, apiData.deskripsi, apiData.geojson_file, apiData.tipe_geometri, asset(apiData.icon_titik) ?? '', apiData.tipe_garis) as ReturnType<
       T,
       IncomingApiData,
       KetentuanKhusus

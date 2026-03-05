@@ -15,6 +15,7 @@ import { AnimatePresence } from 'framer-motion';
 import L from 'leaflet';
 import 'leaflet-draw';
 import 'leaflet-draw/dist/leaflet.draw.css';
+import 'leaflet.vectorgrid';
 
 // FIX: Leaflet marker icons missing in production
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -56,76 +57,11 @@ const OptimizedLayerRenderer = React.memo(
     const canvasRenderer = React.useMemo(
       () =>
         L.canvas({
-          padding: 0.25, // REDUCED: Less area to render = faster performance
-          tolerance: 3 // Smaller hit area = less overhead
+          padding: 0.1, // OPTIMIZED: Tighter render area = faster performance (only what's visible)
+          tolerance: 5 // Smaller hit area = less CPU overhead for interaction
         }),
       []
     );
-
-    // ========================================================================
-    // PERFORMANCE: Disable interactivity during pan/zoom (NO HIDING!)
-    // ========================================================================
-    // Google Maps approach: Keep layers ALWAYS visible, just disable clicks
-    // This eliminates the "disappearing layer" problem completely
-    // ========================================================================
-    React.useEffect(() => {
-      if (!map) return;
-
-      const setLayersInteractive = (interactive) => {
-        Object.values(layersRef.current).forEach((layer) => {
-          if (layer && layer.eachLayer) {
-            layer.eachLayer((l) => {
-              if (l.options) {
-                l.options.interactive = interactive;
-              }
-            });
-          }
-        });
-      };
-
-      const handleMoveStart = () => {
-        if (moveTimeoutRef.current) {
-          clearTimeout(moveTimeoutRef.current);
-          moveTimeoutRef.current = null;
-        }
-        if (!isMovingRef.current) {
-          isMovingRef.current = true;
-          // Only disable interactivity - NEVER hide layers
-          setLayersInteractive(false);
-        }
-      };
-
-      const handleMoveEnd = () => {
-        if (moveTimeoutRef.current) {
-          clearTimeout(moveTimeoutRef.current);
-        }
-        // Short debounce for rapid pan/zoom
-        moveTimeoutRef.current = setTimeout(() => {
-          isMovingRef.current = false;
-          // Re-enable interactivity
-          setLayersInteractive(true);
-        }, 50); // 50ms - very fast response
-      };
-
-      // Listen to movement events
-      map.on('movestart', handleMoveStart);
-      map.on('zoomstart', handleMoveStart);
-      map.on('moveend', handleMoveEnd);
-      map.on('zoomend', handleMoveEnd);
-
-      return () => {
-        map.off('movestart', handleMoveStart);
-        map.off('zoomstart', handleMoveStart);
-        map.off('moveend', handleMoveEnd);
-        map.off('zoomend', handleMoveEnd);
-        if (moveTimeoutRef.current) {
-          clearTimeout(moveTimeoutRef.current);
-        }
-        if (rafRef.current) {
-          cancelAnimationFrame(rafRef.current);
-        }
-      };
-    }, [map]);
 
     // Memoize the layer keys to detect changes
     const layerKeys = React.useMemo(() => Object.keys(selectedLayers).sort().join(','), [selectedLayers]);
@@ -139,60 +75,43 @@ const OptimizedLayerRenderer = React.memo(
       [layerOpacities]
     );
 
-    // Effect untuk update opacity pada layer yang sudah ada (REAL-TIME)
+    // ========================================================================
+    // PERFORMANCE: O(1) Opacity Control via CSS Panes OR Canvas Redraw
+    // ========================================================================
     React.useEffect(() => {
       if (!map || !layerOpacities) return;
 
-      // Fungsi untuk apply opacity ke semua layer
-      const applyOpacity = () => {
-        Object.entries(layersRef.current).forEach(([key, layerGroup]) => {
-          const opacity = (layerOpacities[key] ?? 80) / 100;
-          if (layerGroup && layerGroup.eachLayer) {
-            layerGroup.eachLayer((layer) => {
-              // Untuk polygon/polyline - gunakan setStyle
-              if (layer.setStyle) {
-                layer.setStyle({
-                  fillOpacity: opacity * 0.8,
-                  opacity: opacity
-                });
-              }
-              // Untuk marker (point) - gunakan CSS opacity pada icon element
-              if (layer._icon) {
-                layer._icon.style.opacity = opacity;
-              }
-              // Untuk marker dengan shadow
-              if (layer._shadow) {
-                layer._shadow.style.opacity = opacity;
-              }
-            });
-          }
-        });
-      };
+      Object.entries(layerOpacities).forEach(([key, opacityValue]) => {
+        const opacity = (opacityValue ?? 80) / 100;
+        
+        // 1. Update CSS Opacity for markers (which still use panes)
+        const paneName = `pane-${key}`;
+        const pane = map.getPane(paneName);
+        if (pane) {
+          pane.style.opacity = opacity;
+        }
 
-      // Apply dengan requestAnimationFrame untuk memastikan DOM sudah ready
-      const rafId = requestAnimationFrame(() => {
-        applyOpacity();
-        // Apply lagi setelah delay kecil untuk marker yang baru di-render
-        setTimeout(applyOpacity, 100);
+        // 2. Update Canvas Layer Style 
+        // We look up the actual layer reference we stored when adding it:
+        const layerRef = layersRef.current[key];
+        if (layerRef && layerRef.setStyle) {
+          // If it's a vector layer (L.geoJSON / L.polygon etc) built on Canvas,
+          // we tell it to update its fill/stroke opacity. 
+          // Leaflet handles redrawing the canvas automatically.
+          layerRef.setStyle({ opacity: opacity, fillOpacity: opacity * 0.8 }); // Adjust fill slightly lighter
+        }
       });
-
-      return () => cancelAnimationFrame(rafId);
     }, [map, opacityKeys, layerOpacities]);
 
     // Effect untuk update interaktivitas layer saat drawing active
     // Saat drawing: Matikan interaksi layer agar tidak mengganggu draw handler
+    // OPTIMIZED: Use CSS pointer-events instead of iterating every feature
     React.useEffect(() => {
-      Object.values(layersRef.current).forEach((layer) => {
-        if (layer && layer.eachLayer) {
-          layer.eachLayer((l) => {
-            if (l.options) {
-              // Jika drawing aktif = interactive FALSE
-              // Jika drawing mati = interactive TRUE (default)
-              l.options.interactive = !isDrawing;
-            }
-          });
-        }
-      });
+      if (!map) return;
+      const container = map.getPane('overlayPane');
+      if (container) {
+        container.style.pointerEvents = isDrawing ? 'none' : 'auto';
+      }
     }, [isDrawing, map]);
 
     React.useEffect(() => {
@@ -221,9 +140,67 @@ const OptimizedLayerRenderer = React.memo(
           // Get opacity for this layer (default 80%)
           const layerOpacity = (layerOpacities?.[key] ?? 80) / 100;
 
-          // PRE-LOADING IMAGES: Solusi untuk masalah "gambar load satu per satu" dan "gambar rusak"
+          // ========================================================================
+          // PERFORMANCE: Create custom Pane for THIS layer but ONLY FOR MARKERS!
+          // ========================================================================
+          // Canvas rendering does not need Panes for opacity, but HTML Markers do.
+          const paneName = `pane-${key}`;
+          let pane = map.getPane(paneName);
+          if (!pane) {
+            pane = map.createPane(paneName);
+            pane.style.zIndex = 400; // overlay pane z-index
+          }
+          pane.style.opacity = layerOpacity;
+
           // Kita scan semua URL icon di fitur, download semuanya (paralel) jadi Blob, baru render layer.
           const uniqueIcons = new Set();
+
+          // ============================================
+          // BRANCH: VECTOR TILE RENDERING
+          // ============================================
+          if (layer.renderType === 'vectortile' && layer.tileUrl) {
+            const warna = layer.meta?.warna || '#3388ff';
+            const tipeGaris = layer.meta?.tipe_garis;
+            const tileName = layer.tileName || 'default';
+
+            const vectorGridLayer = L.vectorGrid.protobuf(layer.tileUrl, {
+              pane: paneName,
+              rendererFactory: L.svg.tile, // FIX: Use SVG so transparent tiles don't trap click events
+              vectorTileLayerStyles: {
+                [tileName]: {
+                  fill: true,
+                  fillColor: warna,
+                  fillOpacity: 0.7,
+                  stroke: true,
+                  color: warna,
+                  weight: tipeGaris === 'bold' ? 6 : 3,
+                  dashArray: tipeGaris === 'dashed' ? '6 6' :
+                             tipeGaris === 'dash-dot-dot' ? '20 8 3 8 3 8' :
+                             tipeGaris === 'dash-dot-dash-dot-dot' ? '15 5 3 5 15 5 3 5 3 5' : null,
+                }
+              },
+              interactive: true,
+              maxNativeZoom: 16,
+              getFeatureId: (f) => f.properties?.id || f.properties?._featureIndex,
+            });
+
+            // Popup support for vector tiles
+            vectorGridLayer.on('click', (e) => {
+              L.DomEvent.stopPropagation(e);
+              setPopupInfo({
+                position: e.latlng,
+                properties: e.layer.properties
+              });
+            });
+
+            vectorGridLayer.addTo(map);
+            layersRef.current[key] = vectorGridLayer;
+            return; // Skip GeoJSON rendering
+          }
+
+          // ============================================
+          // BRANCH: GEOJSON RENDERING (existing flow)
+          // ============================================
           if (layer.data.features) {
             layer.data.features.forEach(f => {
               // Pastikan properti icon_image_url ada
@@ -252,22 +229,26 @@ const OptimizedLayerRenderer = React.memo(
           }
 
           const geoJsonLayer = L.geoJSON(layer.data, {
-            // Use Canvas renderer for vector layers (Default)
+            // Gunakan global canvas renderer (sangat cepat, 0 DOM node untuk path)
             renderer: canvasRenderer,
+            // Hilangkan pane secara global agar dirender di overlayPane utama canvas
+            // pane khusus opacity HANYA diterapkan ke Marker (pointToLayer)
 
-            // Style function with dynamic opacity
+            // PERFORMANCE: smoothFactor controls rendering-only simplification
+            smoothFactor: 3,
+
+            // Style function (Fixed colors, opacity handled by DOM Pane wrapper)
             style: (feature) => {
               const props = feature.properties || {};
               let style = getFeatureStyle(feature);
               if (layer.type === 'struktur' && props['stroke-width']) {
                 style = { ...style, weight: props['stroke-width'] };
               }
-              // Apply layer opacity
-              return {
-                ...style,
-                fillOpacity: layerOpacity * (style.fillOpacity || 0.8),
-                opacity: layerOpacity
-              };
+              // Set initial opacity from slider value
+              style.opacity = layerOpacity;
+              // preserve standard behavior: fillOpacity is slightly less opaque than stroke
+              style.fillOpacity = layerOpacity * (style.fillOpacity ?? 0.8);
+              return style;
             },
 
             // Point rendering (markers) - with opacity support
@@ -286,24 +267,14 @@ const OptimizedLayerRenderer = React.memo(
                   iconAnchor: [16, 32],
                   className: `custom-marker-image layer-marker-${key}`
                 });
-                marker = L.marker(latlng, { icon });
+                marker = L.marker(latlng, { icon, pane: paneName });
               } else {
-                marker = L.marker(latlng);
+                marker = L.marker(latlng, { pane: paneName });
               }
 
               // Simpan layer key di marker untuk referensi
               marker._layerKey = key;
-
-              // Set opacity pada marker setelah ditambahkan ke map
-              marker.on('add', () => {
-                const currentOpacity = (layerOpacities?.[key] ?? 80) / 100;
-                if (marker._icon) {
-                  marker._icon.style.opacity = currentOpacity;
-                }
-                if (marker._shadow) {
-                  marker._shadow.style.opacity = currentOpacity;
-                }
-              });
+              // Opacity dihandle oleh effect opacityKeys yang sudah ada
               return marker;
             },
 
@@ -311,9 +282,8 @@ const OptimizedLayerRenderer = React.memo(
             onEachFeature: (feature, layerGeo) => {
               const props = feature.properties || {};
 
-              // Click event for popup - only when not moving
+              // Click event for popup
               layerGeo.on('click', (e) => {
-                if (isMovingRef.current) return; // Ignore clicks during movement
                 L.DomEvent.stopPropagation(e);
                 setPopupInfo({
                   position: e.latlng,
@@ -325,7 +295,8 @@ const OptimizedLayerRenderer = React.memo(
               if (layer.type === 'batas_administrasi') {
                 const geomType = feature.geometry.type;
                 const isArea = geomType === 'Polygon' || geomType === 'MultiPolygon';
-                const featureIndex = layer.data.features.findIndex((f) => JSON.stringify(f) === JSON.stringify(feature));
+                // OPTIMIZED: Use pre-computed index instead of O(n²) JSON.stringify comparison
+                const featureIndex = props._featureIndex ?? -1;
                 const keterangan = props.KETERANGAN || props.keterangan || '';
                 const isPulau = keterangan && keterangan.toLowerCase().includes('pulau');
 
@@ -361,7 +332,8 @@ const OptimizedLayerRenderer = React.memo(
           layersRef.current[key] = geoJsonLayer;
         }
       });
-    }, [map, layerKeys, selectedLayers, canvasRenderer, getFeatureStyle, setPopupInfo, layerOpacities]);
+    // OPTIMIZED: Removed layerOpacities from deps — opacity is handled by separate effect (opacityKeys)
+    }, [map, layerKeys, selectedLayers, canvasRenderer, getFeatureStyle, setPopupInfo]);
 
     // Cleanup on unmount - separate effect
     React.useEffect(() => {
@@ -462,6 +434,22 @@ const Maps = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Update CSS variable for global modals to center themselves relative to the map
+  React.useEffect(() => {
+    let sidebarWidth = 0;
+    if (!isSidebarCollapsed) {
+      if (isMobile) {
+        sidebarWidth = 0; // Covers whole screen or slides over
+      } else if (isTablet) {
+        sidebarWidth = 340;
+      } else {
+        sidebarWidth = 420;
+      }
+    }
+    document.body.style.setProperty('--map-sidebar-width', `${sidebarWidth}px`);
+    return () => document.body.style.removeProperty('--map-sidebar-width');
+  }, [isSidebarCollapsed, isMobile, isTablet]);
+
   const hasMapAccess = canAccessMap();
   const showBlurMap = capabilities?.show_blur_map ?? !hasMapAccess;
   const loginMessage = capabilities?.login_message || 'Silakan login untuk melihat peta interaktif';
@@ -550,7 +538,7 @@ const Maps = () => {
         if (type === 'pola') url = `${BASE_URL}/polaruang/${id}/geojson`;
         else if (type === 'struktur') url = `${BASE_URL}/struktur_ruang/${id}/geojson`;
         else if (type === 'ketentuan_khusus') url = `${BASE_URL}/ketentuan_khusus/${id}/geojson`;
-        else if (type === 'pkkprl') url = `${BASE_URL}/pkkprl/${id}/geojson`;
+        else if (type === 'kawasan_strategi_provinsi') url = `${BASE_URL}/kawasan_strategi_provinsi/${id}/geojson`;
         else if (type === 'data_spasial') url = `${BASE_URL}/data_spasial/${id}/geojson`;
         else if (type === 'batas_administrasi') url = `${BASE_URL}/batas_administrasi/${id}/geojson`;
         return { url, key, pemetaan };
@@ -593,7 +581,7 @@ const Maps = () => {
             iconImageUrl,
             tipe_garis,
             fillOpacity,
-            simplifyTolerance: 0.001 // Optimized tolerance
+            simplifyTolerance: 0 // DISABLED: Render exact geometry from QGIS
           });
 
           // Save to cache
@@ -713,11 +701,46 @@ const Maps = () => {
     setLoadingLayers((prev) => ({ ...prev, [key]: true }));
 
     try {
+      // ============================================
+      // VECTOR TILE SHORTCUT: Skip GeoJSON fetch!
+      // ============================================
+      const renderType = pemetaan.render_type || 'geojson';
+
+      if (renderType === 'vectortile' && pemetaan.tile_name) {
+        const tileUrl = `${BASE_URL}/tiles/${pemetaan.tile_name}/{z}/{x}/{y}.pbf`;
+
+        // Cache for instant re-enable
+        layerCache.current[key] = {
+          data: null,
+          meta: pemetaan,
+          renderType: 'vectortile',
+          tileUrl: tileUrl,
+          tileName: pemetaan.tile_name
+        };
+
+        // Add to selected layers (NO GeoJSON download needed!)
+        setSelectedLayers((prev) => ({
+          ...prev,
+          [key]: {
+            id, type,
+            renderType: 'vectortile',
+            tileUrl: tileUrl,
+            tileName: pemetaan.tile_name,
+            meta: pemetaan
+          }
+        }));
+        setLoadingLayers((prev) => ({ ...prev, [key]: false }));
+        return;
+      }
+
+      // ============================================
+      // GEOJSON FLOW (existing - unchanged)
+      // ============================================
       let url = '';
       if (type === 'pola') url = `${BASE_URL}/polaruang/${id}/geojson`;
       else if (type === 'struktur') url = `${BASE_URL}/struktur_ruang/${id}/geojson`;
       else if (type === 'ketentuan_khusus') url = `${BASE_URL}/ketentuan_khusus/${id}/geojson`;
-      else if (type === 'pkkprl') url = `${BASE_URL}/pkkprl/${id}/geojson`;
+      else if (type === 'kawasan_strategi_provinsi') url = `${BASE_URL}/kawasan_strategi_provinsi/${id}/geojson`;
       else if (type === 'data_spasial') url = `${BASE_URL}/data_spasial/${id}/geojson`;
       else if (type === 'batas_administrasi') url = `${BASE_URL}/batas_administrasi/${id}/geojson`;
 
@@ -747,7 +770,9 @@ const Maps = () => {
         warna,
         iconImageUrl,
         tipe_garis,
-        fillOpacity
+        fillOpacity,
+        // OPTIMIZED: Trim collinear straight-line points to save memory and parsing time (approx 5-10 meters accuracy)
+        simplifyTolerance: 0.00005
       });
 
       // SAVE TO CACHE for future instant re-enable
@@ -844,7 +869,7 @@ const Maps = () => {
             warna,
             tipe_garis,
             fillOpacity,
-            simplifyTolerance: 0.0015 // INCREASED: More aggressive simplification for speed (approx 150m precision)
+            simplifyTolerance: 0 // DISABLED: Render exact geometry from QGIS
           });
 
           // Store in cache
@@ -936,32 +961,32 @@ const Maps = () => {
     }));
   }, []);
 
-  const mapPkkprl = React.useCallback((data) => {
+  const mapKawasanStrategiProvinsi = React.useCallback((data) => {
     return data.map((klasifikasi) => ({
       title: klasifikasi.nama,
-      key: `pkkprl-root-${klasifikasi.id}`,
+      key: `kawasan-strategi-provinsi-root-${klasifikasi.id}`,
       ...klasifikasi,
-      children: (klasifikasi.pkkprl || []).map((pkkprl) => ({
-        ...pkkprl,
-        type: 'pkkprl',
-        title: pkkprl.nama,
-        key: `pkkprl-${pkkprl.id}`,
-        geojson_file: asset(pkkprl.geojson_file),
+      children: (klasifikasi.kawasan_strategi_provinsi || []).map((ksp) => ({
+        ...ksp,
+        type: 'kawasan_strategi_provinsi',
+        title: ksp.nama,
+        key: `kawasan-strategi-provinsi-${ksp.id}`,
+        geojson_file: asset(ksp.geojson_file),
         isLeaf: true
       }))
     }));
   }, []);
 
-  const mapIndikasiProgram = React.useCallback((data) => {
+  const mapDokumen = React.useCallback((data) => {
     return data.map((klasifikasi) => ({
       title: klasifikasi.nama,
-      key: `indikasi_program-root-${klasifikasi.id}`,
+      key: `dokumen-root-${klasifikasi.id}`,
       ...klasifikasi,
-      children: (klasifikasi.indikasi_program || []).map((indikasi_program) => ({
-        ...indikasi_program,
-        type: 'indikasi_program',
-        title: indikasi_program.nama,
-        key: `indikasi_program-${indikasi_program.id}`,
+      children: (klasifikasi.dokumen || []).map((dokumen) => ({
+        ...dokumen,
+        type: 'dokumen',
+        title: dokumen.nama,
+        key: `dokumen-${dokumen.id}`,
         isLeaf: true
       }))
     }));
@@ -1041,9 +1066,9 @@ const Maps = () => {
         const pola_ruang_list = klasifikasis.klasifikasi_pola_ruang ?? [];
         const struktur_ruang_list = klasifikasis.klasifikasi_struktur_ruang ?? [];
         const ketentuan_khusus_list = klasifikasis.klasifikasi_ketentuan_khusus ?? [];
-        const pkkprl_list = klasifikasis.klasifikasi_pkkprl ?? [];
+        const kawasan_strategi_provinsi_list = klasifikasis.klasifikasi_kawasan_strategi_provinsi ?? [];
         const data_spasial = klasifikasis.klasifikasi_data_spasial ?? [];
-        const indikasi_program_list = klasifikasis.klasifikasi_indikasi_program ?? [];
+        const dokumen_list = klasifikasis.klasifikasi_dokumen ?? [];
         // For backwards compatibility if backend stores batas_administrasi under data_spasial
         const batas_list = klasifikasis.klasifikasi_batas_administrasi ?? klasifikasis.klasifikasi_data_spasial ?? [];
 
@@ -1093,18 +1118,18 @@ const Maps = () => {
           treeStructure.ketentuan = [];
         }
 
-        // 4. PKKPRL - Virtual Folder
-        if (pkkprl_list.length > 0) {
-          treeStructure.pkkprl = [
+        // 4. Kawasan Strategi Provinsi - Virtual Folder
+        if (kawasan_strategi_provinsi_list.length > 0) {
+          treeStructure.kawasan_strategi_provinsi = [
             {
-              title: 'PKKPRL',
-              key: `virtual-pkkprl-${group.id}`,
+              title: 'Kawasan Strategi Provinsi',
+              key: `virtual-kawasan-strategi-provinsi-${group.id}`,
               selectable: false,
-              children: mapPkkprl(pkkprl_list)
+              children: mapKawasanStrategiProvinsi(kawasan_strategi_provinsi_list)
             }
           ];
         } else {
-          treeStructure.pkkprl = [];
+          treeStructure.kawasan_strategi_provinsi = [];
         }
 
         // KELOMPOK B: TETAP FLAT (Tanpa Folder)
@@ -1114,8 +1139,8 @@ const Maps = () => {
         // 6. Data Spasial - FLAT (tidak dibungkus folder)
         treeStructure.data_spasial = mapDataSpasial(data_spasial);
 
-        // 7. Indikasi Program - FLAT (tidak dibungkus folder)
-        treeStructure.indikasi = mapIndikasiProgram(indikasi_program_list);
+        // 7. Dokumen - FLAT (tidak dibungkus folder)
+        treeStructure.dokumen = mapDokumen(dokumen_list);
 
         return {
           id: group.id,
@@ -1134,7 +1159,7 @@ const Maps = () => {
       if (typeof window !== 'undefined' && window.__DEBUG_MAPLAYERS__) console.debug('Mapped layer groups:', result);
       setLayerGroupTrees(result);
     }
-  }, [layerGroupData, mapDataSpasial, mapIndikasiProgram, mapKetentuanKhusus, mapPkkprl, mapPolaRuang, mapStrukturRuang, mapBatasAdministrasi]);
+  }, [layerGroupData, mapDataSpasial, mapDokumen, mapKetentuanKhusus, mapKawasanStrategiProvinsi, mapPolaRuang, mapStrukturRuang, mapBatasAdministrasi]);
 
   // Cleanup selectedLayers: remove layers that no longer exist in tree
   React.useEffect(() => {
@@ -1162,10 +1187,10 @@ const Maps = () => {
       extractKeys(tree.pola || []);
       extractKeys(tree.struktur || []);
       extractKeys(tree.ketentuan || []);
-      extractKeys(tree.pkkprl || []);
+      extractKeys(tree.kawasan_strategi_provinsi || []);
       extractKeys(tree.batas || []);
       extractKeys(tree.data_spasial || []);
-      extractKeys(tree.indikasi || []);
+      extractKeys(tree.dokumen || []);
     });
 
     // Check if any selected layer is no longer valid
@@ -1359,19 +1384,6 @@ const Maps = () => {
             pointer-events: none;
           }
 
-          /* ================================================================
-             PERFORMANCE: Hide labels and reduce rendering during pan/zoom
-             ================================================================ */
-          .map-moving .batas-label,
-          .map-moving .pulau-label {
-            display: none !important;
-          }
-
-          /* Disable pointer events on all layers during movement */
-          .map-moving .leaflet-interactive {
-            pointer-events: none !important;
-          }
-
           /* GPU acceleration for all panes */
           .leaflet-overlay-pane,
           .leaflet-marker-pane,
@@ -1381,34 +1393,13 @@ const Maps = () => {
             backface-visibility: hidden;
           }
 
-          /* Hide all vector layers during movement */
-          .map-moving .leaflet-overlay-pane {
-            visibility: hidden !important;
-          }
-
-          /* Hide popups during movement */
-          .map-moving .leaflet-popup {
-            display: none !important;
-          }
-
           /* Optimize tile layer */
           .leaflet-tile-container {
             will-change: transform;
             transform: translateZ(0);
           }
 
-          /* Smooth transition when movement ends */
-          .batas-label,
-          .pulau-label {
-            transition: opacity 0.15s ease-out;
-          }
-
-          /* Overlay pane transition */
-          .leaflet-overlay-pane {
-            transition: opacity 0.15s ease-out;
-          }
-
-          /* === MARKER OPACITY TRANSITION === */
+          /* Smooth transition when movement ends - exclusively for marker logic */
           .leaflet-marker-icon,
           .leaflet-marker-shadow,
           .custom-marker-image {
@@ -1448,8 +1439,8 @@ const Maps = () => {
           // ============================================================
           // preferCanvas: Use Canvas renderer for ALL vector layers
           preferCanvas={true}
-          // Disable zoom animation for faster response
-          zoomAnimation={false}
+          // OPTIMIZED: Enable zoom animation so Leaflet scales a snapshot instead of synchronus CPU redraws
+          zoomAnimation={true}
           // Disable fade animation (causes repaint)
           fadeAnimation={false}
           // Disable marker animation during zoom (reduces CPU)
@@ -1563,7 +1554,7 @@ const Maps = () => {
           // treePolaRuangData={treePolaRuangData}
           // treeStrukturRuangData={treeStrukturRuangData}
           // treeKetentuanKhususData={treeKetentuanKhususData}
-          // treePkkprlData={treePkkprlData}
+          // treeKawasanStrategiProvinsiData={treeKawasanStrategiProvinsiData}
           // treeIndikasiProgramData={treeIndikasiProgramData}
           treeLayerGroup={layerGroupTrees}
           selectedLayers={selectedLayers}

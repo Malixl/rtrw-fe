@@ -22,20 +22,9 @@ function handleUnauthorized() {
 }
 
 /**
- * @param {string} endpoint
- * @param {'GET' | 'POST' | 'PATCH' | 'DELETE'} method
- * @param {object} body
- * @param {string} token
- * @param {object} file
- * @param {AbortController} abortController
- * @returns {Promise<{
- *  code: number;
- *  status: boolean;
- *  message: string;
- *  data: any;
- * }>}
+ * Build FormData from body and file objects
  */
-async function customFetch(endpoint, method, body, token, file, abortController) {
+function buildFormData(body, file) {
   const formData = new FormData();
   for (const key in body) {
     if (file && key in file) continue;
@@ -43,7 +32,6 @@ async function customFetch(endpoint, method, body, token, file, abortController)
     // Handle color picker objects (convert to hex string)
     let value = body[key];
     if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-      // If it's a color picker object, extract the hex value
       if (value.toHexString) {
         value = value.toHexString();
       } else if (value.hex) {
@@ -51,7 +39,6 @@ async function customFetch(endpoint, method, body, token, file, abortController)
       } else if (value.value) {
         value = value.value;
       } else {
-        // If it's an unknown object, stringify it
         value = JSON.stringify(value);
       }
     }
@@ -64,12 +51,97 @@ async function customFetch(endpoint, method, body, token, file, abortController)
     formData.append(key, file[key], file[key].name);
   }
 
+  return formData;
+}
+
+/**
+ * Upload file with progress tracking using XMLHttpRequest
+ * @param {string} url - Full URL to upload to
+ * @param {FormData} formData - Form data with file
+ * @param {string} token - Auth token
+ * @param {(progress: { percent: number, loaded: number, total: number }) => void} onProgress
+ * @returns {Promise<object>} - Parsed JSON response
+ */
+function uploadWithProgress(url, formData, token, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+
+    // Track upload progress
+    xhr.upload.addEventListener('progress', (event) => {
+      if (event.lengthComputable && onProgress) {
+        onProgress({
+          percent: Math.round((event.loaded / event.total) * 100),
+          loaded: event.loaded,
+          total: event.total
+        });
+      }
+    });
+
+    xhr.addEventListener('load', () => {
+      if (xhr.status === 401) {
+        handleUnauthorized();
+        resolve({
+          code: 401,
+          status: false,
+          message: 'Unauthorized - Session expired',
+          data: null
+        });
+        return;
+      }
+
+      try {
+        const response = JSON.parse(xhr.responseText);
+        resolve(response);
+      } catch {
+        reject(new Error('Failed to parse response'));
+      }
+    });
+
+    xhr.addEventListener('error', () => {
+      reject(new Error('Upload failed - network error'));
+    });
+
+    xhr.addEventListener('abort', () => {
+      reject(new Error('Upload cancelled'));
+    });
+
+    xhr.open('POST', url);
+    xhr.setRequestHeader('Authorization', token ? `Bearer ${token}` : '');
+    xhr.setRequestHeader('ngrok-skip-browser-warning', 'true');
+    xhr.setRequestHeader('bypass-tunnel-reminder', 'true');
+    xhr.send(formData);
+  });
+}
+
+/**
+ * @param {string} endpoint
+ * @param {'GET' | 'POST' | 'PATCH' | 'DELETE'} method
+ * @param {object} body
+ * @param {string} token
+ * @param {object} file
+ * @param {AbortController} abortController
+ * @param {Function} onProgress
+ * @returns {Promise<{
+ *  code: number;
+ *  status: boolean;
+ *  message: string;
+ *  data: any;
+ * }>}
+ */
+async function customFetch(endpoint, method, body, token, file, abortController, onProgress) {
+  const formData = buildFormData(body, file);
+
+  // Use XMLHttpRequest for file uploads with progress tracking
+  if (file && onProgress) {
+    return uploadWithProgress(BASE_URL + endpoint, formData, token, onProgress);
+  }
+
   const options = {
     method,
     headers: {
       Authorization: token ? `Bearer ${token}` : '',
       'ngrok-skip-browser-warning': 'true',
-      'bypass-tunnel-reminder': 'true' // For Localtunnel bypass
+      'bypass-tunnel-reminder': 'true'
     }
   };
 
@@ -80,14 +152,12 @@ async function customFetch(endpoint, method, body, token, file, abortController)
     options.body = JSON.stringify(body);
   }
 
-  // Hanya gunakan signal jika abortController explicitly diberikan
   if (abortController) {
     options.signal = abortController.signal;
   }
 
   const response = await fetch(BASE_URL + endpoint, options);
 
-  // Handle 401 Unauthorized - clear token and redirect to login
   if (response.status === 401) {
     handleUnauthorized();
     return {
@@ -111,12 +181,11 @@ async function customFetch(endpoint, method, body, token, file, abortController)
  *  perPage?: number;
  *  params?: Record<string, string | number>;
  *  abortController?: AbortController;
+ *  onProgress?: (progress: { percent: number, loaded: number, total: number }) => void;
  * }) => ReturnType<typeof customFetch>}
  */
 function createCustomFetch(method) {
-  return (endpoint, { body, token, file, page, perPage = 10, params, abortController } = {}) => {
-    // Untuk GET request, JANGAN gunakan abort controller sama sekali
-    // Ini mencegah race condition dari React Strict Mode
+  return (endpoint, { body, token, file, page, perPage = 10, params, abortController, onProgress } = {}) => {
     const shouldUseAbort = method !== 'GET' && !abortController;
 
     if (shouldUseAbort) {
@@ -146,7 +215,7 @@ function createCustomFetch(method) {
       else concatenatedEndpoint += '?';
       concatenatedEndpoint += searchParamsString;
     }
-    return customFetch(concatenatedEndpoint, method, body, token, file, abortController);
+    return customFetch(concatenatedEndpoint, method, body, token, file, abortController, onProgress);
   };
 }
 

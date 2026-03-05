@@ -9,6 +9,7 @@ import Modul from '@/constants/Modul';
 import { formFields } from './FormFields';
 import { DeleteOutlined, ExpandAltOutlined, ExpandOutlined, PlusOutlined } from '@ant-design/icons';
 import { extractUploadFile, hasNewUploadFile } from '@/utils/formData';
+import UploadProgress from '@/components/dashboard/UploadProgress';
 import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -78,6 +79,9 @@ const BatasAdministrasi = () => {
   const { execute: fetchKlasifikasis, ...getAllKlasifikasis } = useService(KlasifikasisService.getAll);
 
   const [filterValues, setFilterValues] = React.useState({ search: '' });
+  const [uploadProgress, setUploadProgress] = React.useState({ visible: false, percent: 0, loaded: 0, total: 0 });
+  const resetProgress = () => setUploadProgress({ visible: false, percent: 0, loaded: 0, total: 0 });
+  const onProgress = (p) => setUploadProgress({ visible: true, ...p });
   const [previewItem, setPreviewItem] = React.useState(null);
   const [previewVisible, setPreviewVisible] = React.useState(false);
   const [geojson, setGeojson] = React.useState(null);
@@ -173,7 +177,7 @@ const BatasAdministrasi = () => {
                     fileToSend = extractUploadFile(values.geojson_file);
                   }
 
-                  const { message, isSuccess } = await updateBatasAdministrasi.execute(record.id, payload, token, fileToSend);
+                  const { message, isSuccess } = await updateBatasAdministrasi.execute(record.id, payload, token, fileToSend, onProgress);
 
                   if (isSuccess) {
                     success('Berhasil', message);
@@ -312,7 +316,7 @@ const BatasAdministrasi = () => {
 
         const geojsonFile = extractUploadFile(values.geojson_file);
 
-        const { message, isSuccess } = await storeBatasAdministrasi.execute(payload, token, geojsonFile);
+        const { message, isSuccess } = await storeBatasAdministrasi.execute(payload, token, geojsonFile, onProgress);
 
         if (isSuccess) {
           success('Berhasil', message);
@@ -392,6 +396,7 @@ const BatasAdministrasi = () => {
             Tambah
           </Button>
         </DataTableHeader>
+        <UploadProgress {...uploadProgress} />
         <div className="w-full max-w-full overflow-x-auto">
           <DataTable
             data={batasAdministrasiData}

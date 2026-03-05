@@ -11,6 +11,7 @@ import { formFields } from './FormFields';
 import { DataSpasials as DataSpasialModel } from '@/models';
 import { useParams } from 'react-router-dom';
 import { extractUploadFile, hasNewUploadFile, normalizeColorValue } from '@/utils/formData';
+import UploadProgress from '@/components/dashboard/UploadProgress';
 import { EnvironmentOutlined, ExpandAltOutlined, ExpandOutlined } from '@ant-design/icons';
 
 const { UPDATE, READ, DELETE } = Action;
@@ -132,6 +133,9 @@ const DataSpasials = () => {
   const deleteDataSpasials = useService(DataSpasialsService.delete);
   const deleteBatchDataSpasials = useService(DataSpasialsService.deleteBatch);
   const [filterValues, setFilterValues] = React.useState({ search: '' });
+  const [uploadProgress, setUploadProgress] = React.useState({ visible: false, percent: 0, loaded: 0, total: 0 });
+  const resetProgress = () => setUploadProgress({ visible: false, percent: 0, loaded: 0, total: 0 });
+  const onProgress = (p) => setUploadProgress({ visible: true, ...p });
 
   const pagination = usePagination({ totalData: getAllDataSpasials.totalData });
 
@@ -213,7 +217,7 @@ const DataSpasials = () => {
 
                   const fileToSend = Object.keys(files).length ? files : null;
 
-                  const { message, isSuccess } = await updateDataSpasials.execute(record.id, payload, token, fileToSend);
+                  const { message, isSuccess } = await updateDataSpasials.execute(record.id, payload, token, fileToSend, onProgress);
 
                   if (isSuccess) {
                     success('Berhasil', message);
@@ -418,7 +422,7 @@ const DataSpasials = () => {
           icon_titik: iconFile?.icon ?? iconFile
         };
 
-        const { message, isSuccess } = await storeDataSpasials.execute(payload, token, fileToSend);
+        const { message, isSuccess } = await storeDataSpasials.execute(payload, token, fileToSend, onProgress);
 
         if (isSuccess) {
           success('Berhasil', message);
@@ -504,6 +508,7 @@ const DataSpasials = () => {
     <Card>
       <Skeleton loading={getAllDataSpasials.isLoading}>
         <DataTableHeader onStore={onCreate} modul={Modul.DATA_SPASIAL} onDeleteBatch={onDeleteBatch} selectedData={selectedDataSpasials} onSearch={(values) => setFilterValues({ search: values })} model={DataSpasialModel} />
+        <UploadProgress {...uploadProgress} onClose={resetProgress} />
         <div className="w-full max-w-full overflow-x-auto">
           <DataTable
             data={dataSpasials}

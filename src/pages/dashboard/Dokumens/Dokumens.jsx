@@ -1,9 +1,9 @@
 import { DataTable, DataTableHeader } from '@/components';
 import { Action } from '@/constants';
 import { useAuth, useCrudModal, useNotification, usePagination, useService } from '@/hooks';
-import { IndikasiProgramService, KlasifikasisService } from '@/services';
+import { DokumenService, KlasifikasisService } from '@/services';
 import { Button, Card, Skeleton, Space } from 'antd';
-import { IndikasiProgram as IndikasiProgramModel } from '@/models';
+import { Dokumen as DokumenModel } from '@/models';
 import React from 'react';
 import { Delete, Detail, Edit } from '@/components/dashboard/button';
 import Modul from '@/constants/Modul';
@@ -13,23 +13,23 @@ import { extractUploadFile, hasNewUploadFile } from '@/utils/formData';
 
 const { UPDATE, READ, DELETE } = Action;
 
-const IndikasiPrograms = () => {
+const Dokumens = () => {
   const { token, user } = useAuth();
   const modal = useCrudModal();
   const { success, error } = useNotification();
-  const { execute, ...getAllIndikasiPrograms } = useService(IndikasiProgramService.getAll);
+  const { execute, ...getAllDokumens } = useService(DokumenService.getAll);
   const { execute: fetchKlasifikasis, ...getAllKlasifikasis } = useService(KlasifikasisService.getAll);
-  const storeIndikasiProgram = useService(IndikasiProgramService.store);
-  const updateIndikasiProgram = useService(IndikasiProgramService.update);
-  const deleteIndikasiProgram = useService(IndikasiProgramService.delete);
-  const deleteBatchIndikasiProgram = useService(IndikasiProgramService.deleteBatch);
+  const storeDokumen = useService(DokumenService.store);
+  const updateDokumen = useService(DokumenService.update);
+  const deleteDokumen = useService(DokumenService.delete);
+  const deleteBatchDokumen = useService(DokumenService.deleteBatch);
   const [filterValues, setFilterValues] = React.useState({ search: '' });
 
-  const pagination = usePagination({ totalData: getAllIndikasiPrograms.totalData });
+  const pagination = usePagination({ totalData: getAllDokumens.totalData });
 
-  const [selectedIndikasiPrograms, setSelectedIndikasiPrograms] = React.useState([]);
+  const [selectedDokumens, setSelectedDokumens] = React.useState([]);
 
-  const fetchIndikasiPrograms = React.useCallback(() => {
+  const fetchDokumens = React.useCallback(() => {
     execute({
       token: token,
       page: pagination.page,
@@ -39,11 +39,11 @@ const IndikasiPrograms = () => {
   }, [execute, filterValues.search, pagination.page, pagination.per_page, token]);
 
   React.useEffect(() => {
-    fetchIndikasiPrograms();
-    fetchKlasifikasis({ token: token, tipe: 'indikasi_program' });
-  }, [fetchIndikasiPrograms, fetchKlasifikasis, pagination.page, pagination.per_page, token]);
+    fetchDokumens();
+    fetchKlasifikasis({ token: token, tipe: 'dokumen' });
+  }, [fetchDokumens, fetchKlasifikasis, pagination.page, pagination.per_page, token]);
 
-  const indikasiPrograms = getAllIndikasiPrograms.data ?? [];
+  const dokumens = getAllDokumens.data ?? [];
   const klasifikasis = getAllKlasifikasis.data ?? [];
 
   const column = [
@@ -60,17 +60,17 @@ const IndikasiPrograms = () => {
     }
   ];
 
-  if (user && user.eitherCan([UPDATE, IndikasiProgramModel], [DELETE, IndikasiProgramModel], [READ, IndikasiProgramModel])) {
+  if (user && user.eitherCan([UPDATE, DokumenModel], [DELETE, DokumenModel], [READ, DokumenModel])) {
     column.push({
       title: 'Aksi',
       render: (_, record) => (
         <Space size="small">
           <Edit
-            title={`Edit ${Modul.INDIKASI_PROGRAM}`}
-            model={IndikasiProgramModel}
+            title={`Edit ${Modul.DOKUMEN}`}
+            model={DokumenModel}
             onClick={() => {
               modal.edit({
-                title: `Edit ${Modul.INDIKASI_PROGRAM}`,
+                title: `Edit ${Modul.DOKUMEN}`,
                 data: {
                   ...record,
                   id_klasifikasi: record.klasifikasi_id
@@ -83,10 +83,10 @@ const IndikasiPrograms = () => {
                   delete payload.doc;
                   const fileToSend = isFileUpdated ? extractUploadFile(values.doc) : null;
 
-                  const { message, isSuccess } = await updateIndikasiProgram.execute(record.id, payload, token, fileToSend);
+                  const { message, isSuccess } = await updateDokumen.execute(record.id, payload, token, fileToSend);
                   if (isSuccess) {
                     success('Berhasil', message);
-                    fetchIndikasiPrograms();
+                    fetchDokumens();
                   } else {
                     error('Gagal', message);
                   }
@@ -96,8 +96,8 @@ const IndikasiPrograms = () => {
             }}
           />
           <Detail
-            title={`Detail ${Modul.INDIKASI_PROGRAM}`}
-            model={IndikasiProgramModel}
+            title={`Detail ${Modul.DOKUMEN}`}
+            model={DokumenModel}
             onClick={() => {
               modal.show.description({
                 title: record.name,
@@ -114,7 +114,7 @@ const IndikasiPrograms = () => {
                   },
                   {
                     key: 'file_dokumen',
-                    label: `File Dokumen Dasar Hukum`,
+                    label: `File Dokumen`,
                     children: record.doc ? (
                       <Button icon={<DownloadOutlined />} onClick={() => window.open(record.doc, '_blank')}>
                         Download
@@ -128,17 +128,17 @@ const IndikasiPrograms = () => {
             }}
           />
           <Delete
-            title={`Delete ${Modul.INDIKASI_PROGRAM}`}
-            model={IndikasiProgramModel}
+            title={`Delete ${Modul.DOKUMEN}`}
+            model={DokumenModel}
             onClick={() => {
               modal.delete.default({
-                title: `Delete ${Modul.INDIKASI_PROGRAM}`,
+                title: `Delete ${Modul.DOKUMEN}`,
                 data: record,
                 onSubmit: async () => {
-                  const { isSuccess, message } = await deleteIndikasiProgram.execute(record.id, token);
+                  const { isSuccess, message } = await deleteDokumen.execute(record.id, token);
                   if (isSuccess) {
                     success('Berhasil', message);
-                    fetchIndikasiPrograms({ token: token, page: pagination.page, per_page: pagination.per_page });
+                    fetchDokumens({ token: token, page: pagination.page, per_page: pagination.per_page });
                   } else {
                     error('Gagal', message);
                   }
@@ -154,17 +154,17 @@ const IndikasiPrograms = () => {
 
   const onCreate = () => {
     modal.create({
-      title: `Tambah ${Modul.INDIKASI_PROGRAM}`,
+      title: `Tambah ${Modul.DOKUMEN}`,
       formFields: formFields({ options: { klasifikasi: klasifikasis } }),
       onSubmit: async (values) => {
         const payload = { ...values };
         const fileToSend = extractUploadFile(values.doc);
         delete payload.doc;
 
-        const { message, isSuccess } = await storeIndikasiProgram.execute(payload, token, fileToSend);
+        const { message, isSuccess } = await storeDokumen.execute(payload, token, fileToSend);
         if (isSuccess) {
           success('Berhasil', message);
-          fetchIndikasiPrograms();
+          fetchDokumens();
         } else {
           error('Gagal', message);
         }
@@ -175,14 +175,14 @@ const IndikasiPrograms = () => {
 
   const onDeleteBatch = () => {
     modal.delete.batch({
-      title: `Hapus ${selectedIndikasiPrograms.length} ${Modul.INDIKASI_PROGRAM} Yang Dipilih ? `,
+      title: `Hapus ${selectedDokumens.length} ${Modul.DOKUMEN} Yang Dipilih ? `,
       onSubmit: async () => {
-        const ids = selectedIndikasiPrograms.map((item) => item.id);
-        const { message, isSuccess } = await deleteBatchIndikasiProgram.execute(ids, token);
+        const ids = selectedDokumens.map((item) => item.id);
+        const { message, isSuccess } = await deleteBatchDokumen.execute(ids, token);
         if (isSuccess) {
           success('Berhasil', message);
-          fetchIndikasiPrograms();
-          setSelectedIndikasiPrograms([]);
+          fetchDokumens();
+          setSelectedDokumens([]);
         } else {
           error('Gagal', message);
         }
@@ -193,16 +193,16 @@ const IndikasiPrograms = () => {
 
   return (
     <Card>
-      <Skeleton loading={getAllIndikasiPrograms.isLoading}>
-        <DataTableHeader onStore={onCreate} modul={Modul.INDIKASI_PROGRAM} onDeleteBatch={onDeleteBatch} selectedData={selectedIndikasiPrograms} onSearch={(values) => setFilterValues({ search: values })} model={IndikasiProgramModel} />
+      <Skeleton loading={getAllDokumens.isLoading}>
+        <DataTableHeader onStore={onCreate} modul={Modul.DOKUMEN} onDeleteBatch={onDeleteBatch} selectedData={selectedDokumens} onSearch={(values) => setFilterValues({ search: values })} model={DokumenModel} />
         <div className="w-full max-w-full overflow-x-auto">
           <DataTable
-            data={indikasiPrograms}
+            data={dokumens}
             columns={column}
-            loading={getAllIndikasiPrograms.isLoading}
+            loading={getAllDokumens.isLoading}
             map={(registrant) => ({ key: registrant.id, ...registrant })}
             pagination={pagination}
-            handleSelectedData={(_, selectedRows) => setSelectedIndikasiPrograms(selectedRows)}
+            handleSelectedData={(_, selectedRows) => setSelectedDokumens(selectedRows)}
           />
         </div>
       </Skeleton>
@@ -210,4 +210,4 @@ const IndikasiPrograms = () => {
   );
 };
 
-export default IndikasiPrograms;
+export default Dokumens;

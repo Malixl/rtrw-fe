@@ -17,7 +17,7 @@ export const formFields = ({ options }) => [
   {
     label: `Deskripsi ${Modul.STRUKTUR}`,
     name: 'desc',
-    type: InputType.LONGTEXT,
+    type: InputType.CONTENT_EDITOR,
     rules: [
       {
         required: true,
