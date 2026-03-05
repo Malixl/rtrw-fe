@@ -231,3 +231,100 @@
   -webkit-user-select: none;
 }
 
+/* ============================================================================
+   RESPONSIVE DASHBOARD OVERRIDES
+   ============================================================================ */
+
+/* Mobile: < 768px */
+@media (max-width: 767px) {
+  /* Compact card padding */
+  .ant-card-body {
+    padding: 12px !important;
+  }
+
+  /* Full width modal on mobile */
+  .ant-modal {
+    max-width: calc(100vw - 16px) !important;
+    margin: 8px auto !important;
+  }
+
+  .ant-modal-body {
+    padding: 12px !important;
+  }
+
+  /* Compact table cells */
+  .ant-table-cell {
+    padding: 8px 8px !important;
+    font-size: 13px !important;
+  }
+
+  /* Full width buttons in header actions */
+  .ant-card .ant-btn {
+    font-size: 13px;
+  }
+
+  /* Form items compact */
+  .ant-form-item {
+    margin-bottom: 12px !important;
+  }
+
+  /* Dropdown menu responsive */
+  .ant-dropdown-menu {
+    min-width: 150px !important;
+  }
+}
+
+/* Tablet: 768px - 1023px */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .ant-card-body {
+    padding: 16px !important;
+  }
+
+  .ant-modal {
+    max-width: calc(100vw - 48px) !important;
+  }
+}
+
+/* ============================================================================
+   LEAFLET RESPONSIVE FIXES
+   ============================================================================ */
+
+/* Mobile: Fix Leaflet attribution floating */
+@media (max-width: 767px) {
+  .leaflet-control-attribution {
+    font-size: 9px !important;
+    max-width: 200px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    padding: 2px 6px !important;
+    opacity: 0.8;
+    position: fixed !important;
+    bottom: 0 !important;
+    right: 0 !important;
+    left: auto !important;
+    z-index: 999;
+    margin: 0 !important;
+    border-radius: 4px 0 0 0 !important;
+  }
+
+  /* Make zoom controls smaller on mobile */
+  .leaflet-control-zoom a {
+    width: 30px !important;
+    height: 30px !important;
+    line-height: 30px !important;
+    font-size: 16px !important;
+  }
+
+  /* Coordinate bar compact on mobile */
+  .coordinate-scale-wrapper {
+    gap: 8px !important;
+  }
+
+  .scale-control {
+    padding: 4px 8px !important;
+    font-size: 11px !important;
+  }
+}
+
+

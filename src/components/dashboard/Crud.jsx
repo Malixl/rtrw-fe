@@ -16,9 +16,9 @@ const Crud = ({ formFields, initialData, onSubmit = () => {}, type = '', isLoadi
   const naviagte = useNavigate();
   ('');
 
-  const handleEditorChange = (editor) => {
+  const handleEditorChange = (editor, fieldName) => {
     const content = editor.getContent();
-    form.setFieldsValue({ content });
+    form.setFieldsValue({ [fieldName]: content });
   };
 
   useEffect(() => {
@@ -80,7 +80,7 @@ const Crud = ({ formFields, initialData, onSubmit = () => {}, type = '', isLoadi
         return (
           <Editor
             apiKey="ltsdik9bjzzfm8i8g4ve5b32ii5sz0t7j6g2ag5khxm0bn1y"
-            initialValue={initialData?.content ?? ''}
+            initialValue={initialData?.[field.name] ?? ''}
             init={{
               referrer_policy: 'no-referrer',
               allow_script_urls: true,
@@ -91,10 +91,10 @@ const Crud = ({ formFields, initialData, onSubmit = () => {}, type = '', isLoadi
               content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:14px }'
             }}
             onInit={(evt, editor) => {
-              editor.on('change', () => handleEditorChange(editor));
+              editor.on('change', () => handleEditorChange(editor, field.name));
             }}
             onEditorChange={(content) => {
-              form.setFieldsValue({ content }); // Sinkronisasi dengan form
+              form.setFieldsValue({ [field.name]: content }); // Sinkronisasi dengan form dinamis
             }}
           />
         );

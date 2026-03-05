@@ -12,6 +12,7 @@ import { EnvironmentOutlined, ExpandAltOutlined } from '@ant-design/icons';
 import { formFields } from './FormFields';
 import { useParams } from 'react-router-dom';
 import { extractUploadFile, hasNewUploadFile, normalizeColorValue } from '@/utils/formData';
+import UploadProgress from '@/components/dashboard/UploadProgress';
 
 const { UPDATE, READ, DELETE } = Action;
 
@@ -20,7 +21,7 @@ const buildEditFieldsByGeometry = (record, klasifikasis) => {
 
   if (record.geometry_type === 'point') {
     fields.push({
-      label: `Gambar Icon ${Modul.PKKPRL}`,
+      label: `Gambar Icon ${Modul.KAWASAN_STRATEGI_PROVINSI}`,
       name: 'icon',
       type: InputType.UPLOAD,
       max: 1,
@@ -88,13 +89,13 @@ const buildEditFieldsByGeometry = (record, klasifikasis) => {
         ]
       },
       {
-        label: `Warna ${Modul.PKKPRL}`,
+        label: `Warna ${Modul.KAWASAN_STRATEGI_PROVINSI}`,
         name: 'color',
         type: InputType.COLOR,
         rules: [
           {
             required: true,
-            message: `Warna ${Modul.PKKPRL} harus diisi`
+            message: `Warna ${Modul.KAWASAN_STRATEGI_PROVINSI} harus diisi`
           }
         ],
         size: 'large'
@@ -117,6 +118,10 @@ const StrukturRuangs = () => {
   const deleteStrukturRuang = useService(StrukturRuangsService.delete);
   const deleteBatchStrukturRuangs = useService(StrukturRuangsService.deleteBatch);
   const [filterValues, setFilterValues] = React.useState({ search: '' });
+  const [uploadProgress, setUploadProgress] = React.useState({ visible: false, percent: 0, loaded: 0, total: 0 });
+
+  const resetProgress = () => setUploadProgress({ visible: false, percent: 0, loaded: 0, total: 0 });
+  const onProgress = (p) => setUploadProgress({ visible: true, ...p });
 
   const pagination = usePagination({ totalData: getAllStrukturRuangs.totalData });
 
@@ -167,7 +172,7 @@ const StrukturRuangs = () => {
             model={StrukturRuangModel}
             onClick={() => {
               modal.edit({
-                title: `Edit ${Modul.PKKPRL}`,
+                title: `Edit ${Modul.KAWASAN_STRATEGI_PROVINSI}`,
                 data: {
                   ...record,
                   id_klasifikasi: record.klasifikasi_id,
@@ -198,7 +203,7 @@ const StrukturRuangs = () => {
 
                   const fileToSend = Object.keys(files).length ? files : null;
 
-                  const { message, isSuccess } = await updateStrukturRuang.execute(record.id, payload, token, fileToSend);
+                  const { message, isSuccess } = await updateStrukturRuang.execute(record.id, payload, token, fileToSend, onProgress);
 
                   if (isSuccess) {
                     success('Berhasil', message);
@@ -208,7 +213,8 @@ const StrukturRuangs = () => {
                   }
 
                   return isSuccess;
-                }
+                },
+                afterClose: resetProgress
               });
             }}
           />
@@ -280,7 +286,7 @@ const StrukturRuangs = () => {
 
     if (type === 'point') {
       fields.push({
-        label: `Gambar Icon ${Modul.PKKPRL}`,
+        label: `Gambar Icon ${Modul.KAWASAN_STRATEGI_PROVINSI}`,
         name: 'icon',
         type: InputType.UPLOAD,
         max: 1,
@@ -299,7 +305,7 @@ const StrukturRuangs = () => {
         rules: [
           {
             required: true,
-            message: `Icon ${Modul.PKKPRL} harus diisi`
+            message: `Icon ${Modul.KAWASAN_STRATEGI_PROVINSI} harus diisi`
           }
         ]
       });
@@ -394,7 +400,7 @@ const StrukturRuangs = () => {
           icon_titik: iconFile?.icon ?? iconFile
         };
 
-        const { message, isSuccess } = await storeStrukturRuang.execute(payload, token, fileToSend);
+        const { message, isSuccess } = await storeStrukturRuang.execute(payload, token, fileToSend, onProgress);
 
         if (isSuccess) {
           success('Berhasil', message);
@@ -404,7 +410,8 @@ const StrukturRuangs = () => {
         }
 
         return isSuccess;
-      }
+      },
+      afterClose: resetProgress
     });
   };
 
@@ -467,6 +474,7 @@ const StrukturRuangs = () => {
     <Card>
       <Skeleton loading={getAllStrukturRuangs.isLoading}>
         <DataTableHeader onStore={onCreate} modul={Modul.STRUKTUR} onDeleteBatch={onDeleteBatch} selectedData={selectedStrukturRuangs} onSearch={(values) => setFilterValues({ search: values })} model={StrukturRuangModel} />
+        <UploadProgress {...uploadProgress} onClose={resetProgress} />
         <div className="w-full max-w-full overflow-x-auto">
           <DataTable
             data={strukturRuangs}

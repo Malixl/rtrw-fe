@@ -3,37 +3,37 @@ import Modul from '@/constants/Modul';
 
 export const formFields = ({ options }) => [
   {
-    label: `Nama ${Modul.PKKPRL}`,
+    label: `Nama ${Modul.KAWASAN_STRATEGI_PROVINSI}`,
     name: 'name',
     type: InputType.TEXT,
     rules: [
       {
         required: true,
-        message: `Nama ${Modul.PKKPRL} harus diisi`
+        message: `Nama ${Modul.KAWASAN_STRATEGI_PROVINSI} harus diisi`
       }
     ],
     size: 'large'
   },
   {
-    label: `Deskripsi ${Modul.PKKPRL}`,
+    label: `Deskripsi ${Modul.KAWASAN_STRATEGI_PROVINSI}`,
     name: 'desc',
-    type: InputType.LONGTEXT,
+    type: InputType.CONTENT_EDITOR,
     rules: [
       {
         required: true,
-        message: `Deskripsi ${Modul.PKKPRL} harus diisi`
+        message: `Deskripsi ${Modul.KAWASAN_STRATEGI_PROVINSI} harus diisi`
       }
     ],
     size: 'large'
   },
   {
-    label: `Klasifkasi ${Modul.PKKPRL}`,
+    label: `Klasifikasi ${Modul.KAWASAN_STRATEGI_PROVINSI}`,
     name: 'id_klasifikasi',
     type: InputType.SELECT,
     rules: [
       {
         required: true,
-        message: `Klasifikasi ${Modul.PKKPRL} harus diisi`
+        message: `Klasifikasi ${Modul.KAWASAN_STRATEGI_PROVINSI} harus diisi`
       }
     ],
     size: 'large',
@@ -43,7 +43,7 @@ export const formFields = ({ options }) => [
     }))
   },
   {
-    label: `File Dokumen ${Modul.PKKPRL}`,
+    label: `File Dokumen ${Modul.KAWASAN_STRATEGI_PROVINSI}`,
     name: 'geojson_file',
     type: InputType.UPLOAD,
     max: 1,
@@ -62,7 +62,7 @@ export const formFields = ({ options }) => [
     rules: [
       {
         required: true,
-        message: `File dokumen ${Modul.PKKPRL} harus diisi`
+        message: `File dokumen ${Modul.KAWASAN_STRATEGI_PROVINSI} harus diisi`
       }
     ]
   }

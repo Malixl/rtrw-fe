@@ -58,7 +58,7 @@ export default class StrukturRuangs extends Model {
 
   public static fromApiData<T extends IncomingApiData | IncomingApiData[]>(apiData: T): ReturnType<T, IncomingApiData, StrukturRuangs> {
     if (Array.isArray(apiData)) return apiData.map((object) => this.fromApiData(object)) as ReturnType<T, IncomingApiData, StrukturRuangs>;
-    return new StrukturRuangs(apiData.id, apiData.klasifikasi_id, apiData.nama, apiData.deskripsi, apiData.geojson_file, apiData.tipe_geometri, asset(apiData.icon_titik), apiData.tipe_garis, apiData.warna) as ReturnType<
+    return new StrukturRuangs(apiData.id, apiData.klasifikasi_id, apiData.nama, apiData.deskripsi, apiData.geojson_file, apiData.tipe_geometri, asset(apiData.icon_titik) ?? '', apiData.tipe_garis, apiData.warna) as ReturnType<
       T,
       IncomingApiData,
       StrukturRuangs

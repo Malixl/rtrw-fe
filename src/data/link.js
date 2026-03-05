@@ -104,9 +104,9 @@ export const dashboardLink = [
         capability: 'can_crud_map'
       },
       {
-        path: '/dashboard/pkkprl',
-        label: 'PKKPRL',
-        element: Dashboard.Pkkprl,
+        path: '/dashboard/kawasan_strategi_provinsi',
+        label: 'Kawasan Strategi Provinsi',
+        element: Dashboard.KawasanStrategiProvinsi,
         capability: 'can_crud_map'
       },
       {
@@ -116,9 +116,9 @@ export const dashboardLink = [
         capability: 'can_crud_map'
       },
       {
-        path: '/dashboard/indikasi_program',
-        label: 'Indikasi Program',
-        element: Dashboard.IndikasiPrograms,
+        path: '/dashboard/dokumen',
+        label: 'Dokumen',
+        element: Dashboard.Dokumens,
         capability: 'can_crud_map'
       },
       {

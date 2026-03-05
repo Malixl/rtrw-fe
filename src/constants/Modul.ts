@@ -5,10 +5,10 @@ enum Modul {
   POLARUANG = 'Polaruang',
   STRUKTUR = 'Struktur Ruang',
   KETENTUAN_KHUSUS = 'Ketentuan Khusus',
-  PKKPRL = 'PKKPRL',
+  KAWASAN_STRATEGI_PROVINSI = 'Kawasan Strategi Provinsi',
   DATA_SPASIAL = 'Data Spasial',
   PERIODE = 'Periode',
-  INDIKASI_PROGRAM = 'Indikasi Program',
+  DOKUMEN = 'Dokumen',
   NEWS = 'Berita',
   BATAS_ADMINISTRASI = 'Batas Administrasi'
 }

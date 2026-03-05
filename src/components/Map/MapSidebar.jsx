@@ -27,7 +27,7 @@ const LayerCheckbox = ({ pemetaan, isChecked, isLoading, onToggle, onInfoClick, 
 /**
  * CollapsibleSection - Reusable collapsible panel for layer categories
  */
-const CollapsibleSection = ({ title, panelKey, children, defaultActiveKey, isVirtualFolder = false, checked, indeterminate, onCheck, isIndikasiProgram = false }) => (
+const CollapsibleSection = ({ title, panelKey, children, defaultActiveKey, isVirtualFolder = false, checked, indeterminate, onCheck, isDokumen = false }) => (
   <Collapse className={isVirtualFolder ? 'layer-group-collapse' : ''} ghost expandIconPosition="end" defaultActiveKey={defaultActiveKey}>
     <Panel
       key={panelKey}
@@ -51,7 +51,7 @@ const CollapsibleSection = ({ title, panelKey, children, defaultActiveKey, isVir
                 }}
                 style={{ cursor: onCheck ? 'pointer' : 'default' }}
               >
-                {isIndikasiProgram ? <FileTextOutlined className="text-base text-blue-500 md:text-lg" /> : <Checkbox checked={checked} indeterminate={indeterminate} disabled={!onCheck} />}
+                {isDokumen ? <FileTextOutlined className="text-base text-blue-500 md:text-lg" /> : <Checkbox checked={checked} indeterminate={indeterminate} disabled={!onCheck} />}
               </div>
               <span className="text-sm leading-relaxed md:text-base">{title}</span>
             </div>
@@ -104,8 +104,8 @@ const getAllLeaves = (nodes) => {
     if (node.children && node.children.length > 0 && !node.isLeaf) {
       leaves = leaves.concat(getAllLeaves(node.children));
     } else {
-      // If leaf, check type. Exclude documents/info-only items like 'indikasi_program'
-      if (node.type !== 'indikasi_program') {
+      // If leaf, check type. Exclude documents/info-only items like 'dokumen'
+      if (node.type !== 'dokumen') {
         leaves.push(node);
       }
     }
@@ -123,7 +123,7 @@ const MapSidebar = ({
   // treePolaRuangData,
   // treeStrukturRuangData,
   // treeKetentuanKhususData,
-  // treePkkprlData,
+  // treeKawasanStrategiProvinsiData,
   // treeIndikasiProgramData,
   selectedLayers,
   loadingLayers,
@@ -197,8 +197,8 @@ const MapSidebar = ({
       pola_ruang: 'Pola Ruang',
       struktur_ruang: 'Struktur Ruang',
       ketentuan_khusus: 'Ketentuan Khusus',
-      pkkprl: 'PKKPRL',
-      indikasi_program: 'Indikasi Program',
+      kawasan_strategi_provinsi: 'Kawasan Strategi Provinsi',
+      dokumen: '',
       batas_administrasi: 'Batas Administrasi'
     };
     return labels[tipe] || '';
@@ -271,8 +271,8 @@ const MapSidebar = ({
         const typeLabel = getTypeLabel(item.tipe);
         const titleText = isVirtualFolder ? item.title : typeLabel ? `${item.title} (${typeLabel})` : item.title;
 
-        // Detect if this is Indikasi Program klasifikasi
-        const isIndikasiProgram = item.tipe === 'indikasi_program' || item.key?.includes('indikasi_program');
+        // Detect if this is Dokumen klasifikasi
+        const isDokumen = item.tipe === 'dokumen' || item.key?.includes('dokumen');
 
         // Calculate toggle state for group
         const leaves = getAllLeaves(item.children || []);
@@ -299,11 +299,11 @@ const MapSidebar = ({
               isVirtualFolder={isVirtualFolder}
               checked={isChecked}
               indeterminate={false}
-              onCheck={!isIndikasiProgram && totalCount > 0 ? handleGroupToggle : undefined}
-              isIndikasiProgram={isIndikasiProgram}
+              onCheck={!isDokumen && totalCount > 0 ? handleGroupToggle : undefined}
+              isDokumen={isDokumen}
             >
               {/* Empty state jika tidak ada children atau semua children kosong */}
-              {(!item.children || item.children.length === 0 || totalCount === 0) && (
+              {(!item.children || item.children.length === 0 || (!isDokumen && totalCount === 0)) && (
                 <div className="flex items-center justify-center gap-x-2 py-4 text-xs text-gray-400 md:text-sm">
                   <InboxOutlined style={{ fontSize: '16px' }} className="md:text-lg" />
                   <span>Belum ada data</span>
@@ -350,10 +350,10 @@ const MapSidebar = ({
                           checked={subIsChecked}
                           indeterminate={false}
                           onCheck={subTotalCount > 0 ? handleSubGroupToggle : undefined}
-                          isIndikasiProgram={false}
+                          isDokumen={false}
                         >
                           {/* Empty state jika tidak ada children atau semua children kosong */}
-                          {(!child.children || child.children.length === 0 || subTotalCount === 0) && (
+                          {(!child.children || child.children.length === 0 || (!isDokumen && subTotalCount === 0)) && (
                             <div className="flex items-center justify-center gap-x-2 py-4 text-xs text-gray-400 md:text-sm">
                               <InboxOutlined style={{ fontSize: '16px' }} className="md:text-lg" />
                               <span>Belum ada data</span>
@@ -366,7 +366,7 @@ const MapSidebar = ({
                               return hasTitle;
                             })
                             .map((pemetaan) => {
-                              if (pemetaan.type === 'indikasi_program') {
+                              if (pemetaan.type === 'dokumen') {
                                 return (
                                   <div key={pemetaan.key} className="inline-flex w-full items-center gap-x-2 py-1">
                                     <span className="text-sm">{highlightText(pemetaan.title, debouncedSearch)}</span>
@@ -388,12 +388,22 @@ const MapSidebar = ({
                                     isChecked={isActive}
                                     isLoading={loadingLayers[pemetaan.key]}
                                     onToggle={() => onToggleLayer(pemetaan)}
-                                    onInfoClick={() =>
-                                      showInfoModal(pemetaan.nama, [
+                                    onInfoClick={() => {
+                                      const modalData = [
                                         { key: 'name', label: `Nama ${labelKey}`, children: pemetaan.nama },
-                                        { key: 'desc', label: 'Deskripsi', children: pemetaan.deskripsi }
-                                      ])
-                                    }
+                                        { 
+                                          key: 'desc', 
+                                          label: 'Deskripsi', 
+                                          children: pemetaan.deskripsi ? (
+                                            <div className="prose prose-sm max-w-none text-gray-700" dangerouslySetInnerHTML={{ __html: pemetaan.deskripsi }} />
+                                          ) : (
+                                            '-'
+                                          ) 
+                                        }
+                                      ];
+
+                                      showInfoModal(pemetaan.nama, modalData);
+                                    }}
                                     className="mb-1"
                                   />
                                   {/* Legend SELALU tampil di bawah checkbox, baik dicentang maupun tidak */}
@@ -413,7 +423,7 @@ const MapSidebar = ({
 
                   // 🔥 LEAF NODE: Jika child adalah layer (pemetaan) langsung
                   const pemetaan = child;
-                  if (pemetaan.type === 'indikasi_program') {
+                  if (pemetaan.type === 'dokumen') {
                     return (
                       <div key={pemetaan.key} className="inline-flex w-full items-center gap-x-2 py-1">
                         <span className="text-sm">{highlightText(pemetaan.title, debouncedSearch)}</span>
@@ -435,12 +445,22 @@ const MapSidebar = ({
                         isChecked={isActive}
                         isLoading={loadingLayers[pemetaan.key]}
                         onToggle={() => onToggleLayer(pemetaan)}
-                        onInfoClick={() =>
-                          showInfoModal(pemetaan.nama, [
+                        onInfoClick={() => {
+                          const modalData = [
                             { key: 'name', label: `Nama ${labelKey}`, children: pemetaan.nama },
-                            { key: 'desc', label: 'Deskripsi', children: pemetaan.deskripsi }
-                          ])
-                        }
+                            { 
+                              key: 'desc', 
+                              label: 'Deskripsi', 
+                              children: pemetaan.deskripsi ? (
+                                <div className="prose prose-sm max-w-none text-gray-700" dangerouslySetInnerHTML={{ __html: pemetaan.deskripsi }} />
+                              ) : (
+                                '-'
+                              ) 
+                            }
+                          ];
+
+                          showInfoModal(pemetaan.nama, modalData);
+                        }}
                       />
                       {/* Legend SELALU tampil di bawah checkbox, baik dicentang maupun tidak */}
                       {/* PERBAIKAN: Kirim prop tipe_garis ke LegendItem */}
@@ -624,7 +644,7 @@ const MapSidebar = ({
                       filterTree(t.pola || []).length > 0 ||
                       filterTree(t.struktur || []).length > 0 ||
                       filterTree(t.ketentuan || []).length > 0 ||
-                      filterTree(t.pkkprl || []).length > 0 ||
+                      filterTree(t.kawasan_strategi_provinsi || []).length > 0 ||
                       filterTree(t.indikasi || []).length > 0 ||
                       filterTree(t.data_spasial || []).length > 0 ||
                       filterTree(t.batas || []).length > 0
@@ -662,8 +682,8 @@ const MapSidebar = ({
                               (layer.tree.pola && layer.tree.pola.length > 0) ||
                               (layer.tree.struktur && layer.tree.struktur.length > 0) ||
                               (layer.tree.ketentuan && layer.tree.ketentuan.length > 0) ||
-                              (layer.tree.pkkprl && layer.tree.pkkprl.length > 0) ||
-                              (layer.tree.indikasi && layer.tree.indikasi.length > 0) ||
+                              (layer.tree.kawasan_strategi_provinsi && layer.tree.kawasan_strategi_provinsi.length > 0) ||
+                              (layer.tree.dokumen && layer.tree.dokumen.length > 0) ||
                               (layer.tree.data_spasial && layer.tree.data_spasial.length > 0);
 
                             // Jika tidak ada data sama sekali, tampilkan empty state
@@ -685,8 +705,8 @@ const MapSidebar = ({
                                 {renderLayerTree(debouncedSearch ? filterTree(layer.tree.struktur || []) : layer.tree.struktur || [], 'Struktur Ruang')}
                                 {renderLayerTree(debouncedSearch ? filterTree(layer.tree.pola || []) : layer.tree.pola || [], 'Pola Ruang')}
                                 {renderLayerTree(debouncedSearch ? filterTree(layer.tree.ketentuan || []) : layer.tree.ketentuan || [], 'Ketentuan Khusus')}
-                                {renderLayerTree(debouncedSearch ? filterTree(layer.tree.pkkprl || []) : layer.tree.pkkprl || [], 'PKKPRL')}
-                                {renderLayerTree(debouncedSearch ? filterTree(layer.tree.indikasi || []) : layer.tree.indikasi || [], 'Indikasi Program')}
+                                {renderLayerTree(debouncedSearch ? filterTree(layer.tree.kawasan_strategi_provinsi || []) : layer.tree.kawasan_strategi_provinsi || [], 'Kawasan Strategi Provinsi')}
+                                {renderLayerTree(debouncedSearch ? filterTree(layer.tree.dokumen || []) : layer.tree.dokumen || [], 'Dokumen')}
                                 {renderLayerTree(debouncedSearch ? filterTree(layer.tree.data_spasial || []) : layer.tree.data_spasial || [], 'Data Spasial')}
                               </div>
                             );

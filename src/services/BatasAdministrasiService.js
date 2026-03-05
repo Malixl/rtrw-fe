@@ -29,8 +29,8 @@ export default class BatasAdministrasiService {
    *  errors?: { [key: string]: string[] };
    * }}
    */
-  static async store(data, token, file) {
-    return await api.post('/batas_administrasi', { body: BatasAdministrasi.toApiData(data), token, file: { geojson_file: file } });
+  static async store(data, token, file, onProgress) {
+    return await api.post('/batas_administrasi', { body: BatasAdministrasi.toApiData(data), token, file: { geojson_file: file }, onProgress });
   }
 
   /**
@@ -44,8 +44,8 @@ export default class BatasAdministrasiService {
    *  errors?: { [key: string]: string[] };
    * }>}
    */
-  static async update(id, data, token, file) {
-    return await api.post(`/batas_administrasi/${id}`, { body: BatasAdministrasi.toApiData(data), token, file: { geojson_file: file } });
+  static async update(id, data, token, file, onProgress) {
+    return await api.post(`/batas_administrasi/${id}`, { body: BatasAdministrasi.toApiData(data), token, file: { geojson_file: file }, onProgress });
   }
 
   /**

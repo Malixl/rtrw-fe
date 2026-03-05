@@ -2,15 +2,16 @@
 import { DataTable, DataTableHeader } from '@/components';
 import { Action, InputType } from '@/constants';
 import { useAuth, useCrudModal, useNotification, usePagination, useService } from '@/hooks';
-import { KlasifikasisService, PkkprlService } from '@/services';
+import { KlasifikasisService, KawasanStrategiProvinsiService } from '@/services';
 import { Card, ColorPicker, Skeleton, Space } from 'antd';
 import React from 'react';
 import { Delete, Detail, Edit } from '@/components/dashboard/button';
 import Modul from '@/constants/Modul';
 import { formFields } from './FormFields';
-import { Pkkprl as PkkprlModel } from '@/models';
+import { KawasanStrategiProvinsi as KawasanStrategiProvinsiModel } from '@/models';
 import { useParams } from 'react-router-dom';
 import { extractUploadFile, hasNewUploadFile, normalizeColorValue } from '@/utils/formData';
+import UploadProgress from '@/components/dashboard/UploadProgress';
 import { EnvironmentOutlined, ExpandAltOutlined, ExpandOutlined } from '@ant-design/icons';
 
 const { UPDATE, READ, DELETE } = Action;
@@ -20,7 +21,7 @@ const buildEditFieldsByGeometry = (record, klasifikasis) => {
 
   if (record.geometry_type === 'point') {
     fields.push({
-      label: `Gambar Icon ${Modul.PKKPRL}`,
+      label: `Gambar Icon ${Modul.KAWASAN_STRATEGI_PROVINSI}`,
       name: 'icon',
       type: InputType.UPLOAD,
       max: 1,
@@ -88,13 +89,13 @@ const buildEditFieldsByGeometry = (record, klasifikasis) => {
         ]
       },
       {
-        label: `Warna ${Modul.PKKPRL}`,
+        label: `Warna ${Modul.KAWASAN_STRATEGI_PROVINSI}`,
         name: 'color',
         type: InputType.COLOR,
         rules: [
           {
             required: true,
-            message: `Warna ${Modul.PKKPRL} harus diisi`
+            message: `Warna ${Modul.KAWASAN_STRATEGI_PROVINSI} harus diisi`
           }
         ],
         size: 'large'
@@ -104,13 +105,13 @@ const buildEditFieldsByGeometry = (record, klasifikasis) => {
 
   if (record.geometry_type === 'plygon') {
     fields.push({
-      label: `Warna ${Modul.PKKPRL}`,
+      label: `Warna ${Modul.KAWASAN_STRATEGI_PROVINSI}`,
       name: 'color',
       type: InputType.COLOR,
       rules: [
         {
           required: true,
-          message: `Warna ${Modul.PKKPRL} harus diisi`
+          message: `Warna ${Modul.KAWASAN_STRATEGI_PROVINSI} harus diisi`
         }
       ],
       size: 'large'
@@ -120,24 +121,27 @@ const buildEditFieldsByGeometry = (record, klasifikasis) => {
   return fields;
 };
 
-const Pkkprls = () => {
+const KawasanStrategiProvinsiPage = () => {
   const { token, user } = useAuth();
   const params = useParams();
   const modal = useCrudModal();
   const { success, error } = useNotification();
-  const { execute, ...getAllPkkprls } = useService(PkkprlService.getAll);
+  const { execute, ...getAllKawasanStrategiProvinsi } = useService(KawasanStrategiProvinsiService.getAll);
   const { execute: fetchKlasifikasis, ...getAllKlasifikasis } = useService(KlasifikasisService.getAll);
-  const storePkkprl = useService(PkkprlService.store);
-  const updatePkkprl = useService(PkkprlService.update);
-  const deletePkkprl = useService(PkkprlService.delete);
-  const deleteBatchPkkprl = useService(PkkprlService.deleteBatch);
+  const storeKawasanStrategiProvinsi = useService(KawasanStrategiProvinsiService.store);
+  const updateKawasanStrategiProvinsi = useService(KawasanStrategiProvinsiService.update);
+  const deleteKawasanStrategiProvinsi = useService(KawasanStrategiProvinsiService.delete);
+  const deleteBatchKawasanStrategiProvinsi = useService(KawasanStrategiProvinsiService.deleteBatch);
   const [filterValues, setFilterValues] = React.useState({ search: '' });
+  const [uploadProgress, setUploadProgress] = React.useState({ visible: false, percent: 0, loaded: 0, total: 0 });
+  const resetProgress = () => setUploadProgress({ visible: false, percent: 0, loaded: 0, total: 0 });
+  const onProgress = (p) => setUploadProgress({ visible: true, ...p });
 
-  const pagination = usePagination({ totalData: getAllPkkprls.totalData });
+  const pagination = usePagination({ totalData: getAllKawasanStrategiProvinsi.totalData });
 
-  const [selectedPkkprl, setSelectedPkkprl] = React.useState([]);
+  const [selectedKawasanStrategiProvinsi, setSelectedKawasanStrategiProvinsi] = React.useState([]);
 
-  const fetchPkkprl = React.useCallback(() => {
+  const fetchKawasanStrategiProvinsi = React.useCallback(() => {
     execute({
       token: token,
       page: pagination.page,
@@ -148,11 +152,11 @@ const Pkkprls = () => {
   }, [execute, filterValues.search, pagination.page, pagination.per_page, params.klasifikasi_id, token]);
 
   React.useEffect(() => {
-    fetchPkkprl();
-    fetchKlasifikasis({ token: token, tipe: 'pkkprl' });
-  }, [fetchKlasifikasis, fetchPkkprl, pagination.page, pagination.per_page, token]);
+    fetchKawasanStrategiProvinsi();
+    fetchKlasifikasis({ token: token, tipe: 'kawasan_strategi_provinsi' });
+  }, [fetchKlasifikasis, fetchKawasanStrategiProvinsi, pagination.page, pagination.per_page, token]);
 
-  const pkkprl = getAllPkkprls.data ?? [];
+  const kawasanStrategiProvinsi = getAllKawasanStrategiProvinsi.data ?? [];
   const klasifikasis = getAllKlasifikasis.data ?? [];
 
   const column = [
@@ -163,7 +167,7 @@ const Pkkprls = () => {
       searchable: true
     },
     {
-      title: 'Klasifikasi PKKPRL',
+      title: 'Klasifikasi Kawasan Strategi Provinsi',
       render: (_, record) => {
         const id = record.klasifikasi_id ?? record.klasifikasi?.id ?? record.klasifikasi;
         const klas = klasifikasis.find((k) => k.id === id);
@@ -172,17 +176,17 @@ const Pkkprls = () => {
     }
   ];
 
-  if (user && user.eitherCan([UPDATE, PkkprlModel], [DELETE, PkkprlModel], [READ, PkkprlModel])) {
+  if (user && user.eitherCan([UPDATE, KawasanStrategiProvinsiModel], [DELETE, KawasanStrategiProvinsiModel], [READ, KawasanStrategiProvinsiModel])) {
     column.push({
       title: 'Aksi',
       render: (_, record) => (
         <Space size="small">
           <Edit
-            title={`Edit ${Modul.PKKPRL}`}
-            model={PkkprlModel}
+            title={`Edit ${Modul.KAWASAN_STRATEGI_PROVINSI}`}
+            model={KawasanStrategiProvinsiModel}
             onClick={() => {
               modal.edit({
-                title: `Edit ${Modul.PKKPRL}`,
+                title: `Edit ${Modul.KAWASAN_STRATEGI_PROVINSI}`,
                 data: {
                   ...record,
                   id_klasifikasi: record.klasifikasi_id,
@@ -213,11 +217,11 @@ const Pkkprls = () => {
 
                   const fileToSend = Object.keys(files).length ? files : null;
 
-                  const { message, isSuccess } = await updatePkkprl.execute(record.id, payload, token, fileToSend);
+                  const { message, isSuccess } = await updateKawasanStrategiProvinsi.execute(record.id, payload, token, fileToSend, onProgress);
 
                   if (isSuccess) {
                     success('Berhasil', message);
-                    fetchPkkprl();
+                    fetchKawasanStrategiProvinsi();
                   } else {
                     error('Gagal', message);
                   }
@@ -229,8 +233,8 @@ const Pkkprls = () => {
           />
 
           <Detail
-            title={`Detail ${Modul.PKKPRL}`}
-            model={PkkprlModel}
+            title={`Detail ${Modul.KAWASAN_STRATEGI_PROVINSI}`}
+            model={KawasanStrategiProvinsiModel}
             disabled
             style={{ display: 'none' }}
             onClick={() => {
@@ -239,7 +243,7 @@ const Pkkprls = () => {
                 data: [
                   {
                     key: 'name',
-                    label: `Nama PKKPRL`,
+                    label: `Nama Kawasan Strategi Provinsi`,
                     children: record.name
                   },
                   {
@@ -267,17 +271,17 @@ const Pkkprls = () => {
             }}
           />
           <Delete
-            title={`Delete ${Modul.PKKPRL}`}
-            model={PkkprlModel}
+            title={`Delete ${Modul.KAWASAN_STRATEGI_PROVINSI}`}
+            model={KawasanStrategiProvinsiModel}
             onClick={() => {
               modal.delete.default({
-                title: `Delete ${Modul.PKKPRL}`,
+                title: `Delete ${Modul.KAWASAN_STRATEGI_PROVINSI}`,
                 data: record,
                 onSubmit: async () => {
-                  const { isSuccess, message } = await deletePkkprl.execute(record.id, token);
+                  const { isSuccess, message } = await deleteKawasanStrategiProvinsi.execute(record.id, token);
                   if (isSuccess) {
                     success('Berhasil', message);
-                    fetchPkkprl();
+                    fetchKawasanStrategiProvinsi();
                   } else {
                     error('Gagal', message);
                   }
@@ -296,7 +300,7 @@ const Pkkprls = () => {
 
     if (type === 'point') {
       fields.push({
-        label: `Gambar Icon ${Modul.PKKPRL}`,
+        label: `Gambar Icon ${Modul.KAWASAN_STRATEGI_PROVINSI}`,
         name: 'icon',
         type: InputType.UPLOAD,
         max: 1,
@@ -315,7 +319,7 @@ const Pkkprls = () => {
         rules: [
           {
             required: true,
-            message: `Icon ${Modul.PKKPRL} harus diisi`
+            message: `Icon ${Modul.KAWASAN_STRATEGI_PROVINSI} harus diisi`
           }
         ]
       });
@@ -375,13 +379,13 @@ const Pkkprls = () => {
           ]
         },
         {
-          label: `Warna ${Modul.PKKPRL}`,
+          label: `Warna ${Modul.KAWASAN_STRATEGI_PROVINSI}`,
           name: 'color',
           type: InputType.COLOR,
           rules: [
             {
               required: true,
-              message: `Warna ${Modul.PKKPRL} harus diisi`
+              message: `Warna ${Modul.KAWASAN_STRATEGI_PROVINSI} harus diisi`
             }
           ],
           size: 'large'
@@ -389,13 +393,13 @@ const Pkkprls = () => {
       );
     } else if (type === 'polygon') {
       fields.push({
-        label: `Warna ${Modul.PKKPRL}`,
+        label: `Warna ${Modul.KAWASAN_STRATEGI_PROVINSI}`,
         name: 'color',
         type: InputType.COLOR,
         rules: [
           {
             required: true,
-            message: `Warna ${Modul.PKKPRL} harus diisi`
+            message: `Warna ${Modul.KAWASAN_STRATEGI_PROVINSI} harus diisi`
           }
         ],
         size: 'large'
@@ -403,7 +407,7 @@ const Pkkprls = () => {
     }
 
     modal.create({
-      title: `Tambah ${Modul.PKKPRL}`,
+      title: `Tambah ${Modul.KAWASAN_STRATEGI_PROVINSI}`,
       formFields: fields,
       onSubmit: async (values) => {
         const payload = {
@@ -423,11 +427,11 @@ const Pkkprls = () => {
           icon_titik: iconFile?.icon ?? iconFile
         };
 
-        const { message, isSuccess } = await storePkkprl.execute(payload, token, fileToSend);
+        const { message, isSuccess } = await storeKawasanStrategiProvinsi.execute(payload, token, fileToSend, onProgress);
 
         if (isSuccess) {
           success('Berhasil', message);
-          fetchPkkprl();
+          fetchKawasanStrategiProvinsi();
         } else {
           error('Gagal', message);
         }
@@ -489,14 +493,14 @@ const Pkkprls = () => {
 
   const onDeleteBatch = () => {
     modal.delete.batch({
-      title: `Hapus ${selectedPkkprl.length} ${Modul.PKKPRL} Yang Dipilih ? `,
+      title: `Hapus ${selectedKawasanStrategiProvinsi.length} ${Modul.KAWASAN_STRATEGI_PROVINSI} Yang Dipilih ? `,
       onSubmit: async () => {
-        const ids = selectedPkkprl.map((item) => item.id);
-        const { message, isSuccess } = await deleteBatchPkkprl.execute(ids, token);
+        const ids = selectedKawasanStrategiProvinsi.map((item) => item.id);
+        const { message, isSuccess } = await deleteBatchKawasanStrategiProvinsi.execute(ids, token);
         if (isSuccess) {
           success('Berhasil', message);
           fetchKlasifikasis(token, pagination.page, pagination.per_page);
-          setSelectedPkkprl([]);
+          setSelectedKawasanStrategiProvinsi([]);
         } else {
           error('Gagal', message);
         }
@@ -507,14 +511,15 @@ const Pkkprls = () => {
 
   return (
     <Card>
-      <Skeleton loading={getAllPkkprls.isLoading}>
-        <DataTableHeader onStore={onCreate} modul={Modul.PKKPRL} onDeleteBatch={onDeleteBatch} selectedData={selectedPkkprl} onSearch={(values) => setFilterValues({ search: values })} model={PkkprlModel} />
+      <Skeleton loading={getAllKawasanStrategiProvinsi.isLoading}>
+        <DataTableHeader onStore={onCreate} modul={Modul.KAWASAN_STRATEGI_PROVINSI} onDeleteBatch={onDeleteBatch} selectedData={selectedKawasanStrategiProvinsi} onSearch={(values) => setFilterValues({ search: values })} model={KawasanStrategiProvinsiModel} />
+        <UploadProgress {...uploadProgress} onClose={resetProgress} />
         <div className="w-full max-w-full overflow-x-auto">
-          <DataTable data={pkkprl} columns={column} loading={getAllPkkprls.isLoading} map={(registrant) => ({ key: registrant.id, ...registrant })} pagination={pagination} handleSelectedData={(_, selectedRows) => setSelectedPkkprl(selectedRows)} />
+          <DataTable data={kawasanStrategiProvinsi} columns={column} loading={getAllKawasanStrategiProvinsi.isLoading} map={(registrant) => ({ key: registrant.id, ...registrant })} pagination={pagination} handleSelectedData={(_, selectedRows) => setSelectedKawasanStrategiProvinsi(selectedRows)} />
         </div>
       </Skeleton>
     </Card>
   );
 };
 
-export default Pkkprls;
+export default KawasanStrategiProvinsiPage;

@@ -8,21 +8,21 @@ export interface IncomingApiData {
   };
   nama: string;
   deskripsi: string;
-  tipe: 'pola_ruang' | 'struktur_ruang' | 'ketentuan_khusus' | 'pkkprl' | 'indikasi_program';
+  tipe: 'pola_ruang' | 'struktur_ruang' | 'ketentuan_khusus' | 'kawasan_strategi_provinsi' | 'dokumen';
 }
 
 export interface OutgoingApiData {
   nama: string;
   deskripsi: string;
   layer_group_id: number;
-  tipe: 'pola_ruang' | 'struktur_ruang' | 'ketentuan_khusus' | 'pkkprl' | 'indikasi_program';
+  tipe: 'pola_ruang' | 'struktur_ruang' | 'ketentuan_khusus' | 'kawasan_strategi_provinsi' | 'dokumen';
 }
 
 interface FormValue {
   name: string;
   desc: string;
   layer_group_id: number;
-  type: 'pola_ruang' | 'struktur_ruang' | 'ketentuan_khusus' | 'pkkprl' | 'indikasi_program';
+  type: 'pola_ruang' | 'struktur_ruang' | 'ketentuan_khusus' | 'kawasan_strategi_provinsi' | 'dokumen';
 }
 
 type ReturnType<S, From, To> = S extends From[] ? To[] : To;
@@ -36,7 +36,7 @@ export default class Klasifikasis extends Model {
     },
     public name: string,
     public desc: string,
-    public type: 'pola_ruang' | 'struktur_ruang' | 'ketentuan_khusus' | 'pkkprl' | 'indikasi_program'
+    public type: 'pola_ruang' | 'struktur_ruang' | 'ketentuan_khusus' | 'kawasan_strategi_provinsi' | 'dokumen'
   ) {
     super();
   }

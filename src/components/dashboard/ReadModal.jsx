@@ -12,12 +12,12 @@ export default function ReadModal({ title, isModalOpen, close, data, type = Read
     ),
     [ReadModalType.LIST]: <List bordered dataSource={data} renderItem={(item) => <List.Item>{item}</List.Item>} />,
     [ReadModalType.TABLE]: <Table columns={columns} dataSource={data} loading={isLoading} />,
-    [ReadModalType.DESCRIPTION]: <Descriptions bordered column={1} items={data ?? []} layout="horizontal" />
+    [ReadModalType.DESCRIPTION]: <Descriptions bordered column={1} items={data ?? []} layout="vertical" />
   };
 
   return (
-    <Modal title={title} open={isModalOpen} onClose={close} onCancel={close} footer={null} {...props}>
-      <div className="mt-4">{jsxs[type]}</div>
+    <Modal centered width={650} title={title} open={isModalOpen} onClose={close} onCancel={close} footer={null} destroyOnClose wrapClassName="!fixed !inset-0 !flex !items-center !justify-center pt-8 pr-[var(--map-sidebar-width,0px)] transition-[padding-right] duration-300 ease-in-out" {...props}>
+      <div className="mt-4 max-h-[70vh] overflow-y-auto pr-2">{jsxs[type]}</div>
     </Modal>
   );
 }

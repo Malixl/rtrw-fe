@@ -188,8 +188,10 @@ const processGeoJSON = (json, options = {}) => {
 
             return true;
         })
-        .map((feature) => {
+        .map((feature, index) => {
             const props = { ...(feature.properties || {}) };
+            // Store index for O(1) lookup in map renderer (avoids JSON.stringify comparison)
+            props._featureIndex = index;
 
             // Apply styling
             if (warna) {

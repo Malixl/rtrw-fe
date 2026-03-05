@@ -29,9 +29,10 @@ export default class PolaruangsService {
    *  errors?: { [key: string]: string[] };
    * }}
    */
-  static async store(data, token, file) {
+  static async store(data, token, file, onProgress) {
     const options = { body: Polaruangs.toApiData(data), token };
     if (file) options.file = { geojson_file: file };
+    if (onProgress) options.onProgress = onProgress;
     return await api.post('/polaruang', options);
   }
 
@@ -46,9 +47,10 @@ export default class PolaruangsService {
    *  errors?: { [key: string]: string[] };
    * }>}
    */
-  static async update(id, data, token, file) {
+  static async update(id, data, token, file, onProgress) {
     const options = { body: Polaruangs.toApiData(data), token };
     if (file) options.file = { geojson_file: file };
+    if (onProgress) options.onProgress = onProgress;
     return await api.post(`/polaruang/${id}`, options);
   }
 

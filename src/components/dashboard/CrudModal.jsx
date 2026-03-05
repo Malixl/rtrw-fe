@@ -9,6 +9,7 @@ import PropTypes from 'prop-types';
 import React, { useEffect, useState } from 'react';
 import { MapPicker, Select } from './input';
 import { debounce } from 'lodash';
+import { Editor } from '@tinymce/tinymce-react';
 import { useAuth } from '@/hooks';
 import * as Icons from '@ant-design/icons';
 
@@ -180,6 +181,33 @@ export default function CrudModal({ isModalOpen, data: initialData, close, title
           </div>
         );
 
+      case InputType.CONTENT_EDITOR:
+        return (
+          <Editor
+            apiKey="ltsdik9bjzzfm8i8g4ve5b32ii5sz0t7j6g2ag5khxm0bn1y"
+            initialValue={initialData?.[field.name] ?? ''}
+            init={{
+              referrer_policy: 'no-referrer',
+              allow_script_urls: true,
+              height: 500,
+              menubar: false,
+              plugins: ['advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview', 'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen', 'insertdatetime', 'media', 'table', 'code', 'help', 'wordcount'],
+              toolbar: 'undo redo | blocks | ' + 'bold italic forecolor | alignleft aligncenter ' + 'alignright alignjustify | bullist numlist outdent indent | ' + 'removeformat | help',
+              content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:14px }'
+            }}
+            onInit={(evt, editor) => {
+              editor.on('change', () => {
+                form.setFieldsValue({ [field.name]: editor.getContent() });
+                handleValuesChange({ [field.name]: editor.getContent() });
+              });
+            }}
+            onEditorChange={(content) => {
+              form.setFieldsValue({ [field.name]: content });
+              handleValuesChange({ [field.name]: content });
+            }}
+          />
+        );
+
       case InputType.MAP_PICKER:
         return <MapPicker form={form} handleValuesChange={handleValuesChange} realtimeData={realtimeData} />;
       default:
@@ -187,8 +215,10 @@ export default function CrudModal({ isModalOpen, data: initialData, close, title
     }
   };
 
+  const hasContentEditor = formFields.some((f) => f.type === InputType.CONTENT_EDITOR);
+
   return (
-    <Modal title={![CrudModalType.CONFIRM_DELETE, CrudModalType.DELETE].includes(type) ? title : ''} open={isModalOpen} onClose={close} onCancel={close} footer={null} {...props}>
+    <Modal width={hasContentEditor ? 1000 : undefined} title={![CrudModalType.CONFIRM_DELETE, CrudModalType.DELETE].includes(type) ? title : ''} open={isModalOpen} onClose={close} onCancel={close} footer={null} {...props}>
       {type === CrudModalType.CONFIRM_DELETE || type === CrudModalType.DELETE ? (
         <div className="flex flex-col items-center justify-center gap-y-2 py-4">
           <DeleteOutlined style={{ fontSize: '32px' }} />

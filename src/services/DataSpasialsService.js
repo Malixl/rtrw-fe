@@ -29,7 +29,7 @@ export default class DataSpasialsService {
    *  errors?: { [key: string]: string[] };
    * }}
    */
-  static async store(data, token, file) {
+  static async store(data, token, file, onProgress) {
     const options = {
       body: DataSpasials.toApiData(data),
       token
@@ -46,6 +46,7 @@ export default class DataSpasialsService {
     if (file?.icon_titik) {
       options.file.icon_titik = file.icon_titik;
     }
+    if (onProgress) options.onProgress = onProgress;
     return await api.post('/data_spasial', options);
   }
 
@@ -60,7 +61,7 @@ export default class DataSpasialsService {
    *  errors?: { [key: string]: string[] };
    * }>}
    */
-  static async update(id, data, token, file) {
+  static async update(id, data, token, file, onProgress) {
     const options = {
       body: DataSpasials.toApiData(data),
       token
@@ -77,6 +78,7 @@ export default class DataSpasialsService {
     if (file?.icon_titik) {
       options.file.icon_titik = file.icon_titik;
     }
+    if (onProgress) options.onProgress = onProgress;
     return await api.post(`/data_spasial/${id}`, options);
   }
 

@@ -21,7 +21,7 @@ const Dashboard = () => {
   const summary = getAllSummary.data ?? [];
 
   return (
-    <div className="grid w-full grid-cols-5 gap-x-2">
+    <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
       <Card className="col-span-1">
         <div className="flex items-center justify-between">
           <div className="flex flex-col gap-y-1">
@@ -58,8 +58,8 @@ const Dashboard = () => {
       <Card className="col-span-1">
         <div className="flex items-center justify-between">
           <div className="flex flex-col gap-y-1">
-            <p className="font-semibold capitalize">Indikasi Program</p>
-            <span className="text-xl font-semibold">{summary.indikasi_program}</span>
+            <p className="font-semibold capitalize">Dokumen</p>
+            <span className="text-xl font-semibold">{summary.dokumen}</span>
           </div>
           <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-500 p-2 text-2xl text-white">
             <SettingOutlined />
@@ -69,8 +69,8 @@ const Dashboard = () => {
       <Card className="col-span-1">
         <div className="flex items-center justify-between">
           <div className="flex flex-col gap-y-1">
-            <p className="font-semibold capitalize">PKKPRL</p>
-            <span className="text-xl font-semibold">{summary.pkkprl}</span>
+            <p className="font-semibold capitalize">Kawasan Strategi Provinsi</p>
+            <span className="text-xl font-semibold">{summary.kawasan_strategi_provinsi}</span>
           </div>
           <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-500 p-2 text-2xl text-white">
             <RadarChartOutlined />
