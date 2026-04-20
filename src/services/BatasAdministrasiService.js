@@ -84,4 +84,31 @@ export default class BatasAdministrasiService {
   static async deleteBatch(ids, token) {
     return await api.delete(`/batas_administrasi/multi-delete?ids=${ids.join(',')}`, { token });
   }
+
+  /**
+   * @param {BatasAdministrasi} data
+   * @param {string} token
+   * @param {string} mergedPath
+   */
+  static async storeWithMergedFile(data, token, mergedPath) {
+    const body = {
+      ...BatasAdministrasi.toApiData(data),
+      geojson_file_path: mergedPath,
+    };
+    return await api.post('/batas_administrasi', { body, token });
+  }
+
+  /**
+   * @param {number} id
+   * @param {BatasAdministrasi} data
+   * @param {string} token
+   * @param {string} mergedPath
+   */
+  static async updateWithMergedFile(id, data, token, mergedPath) {
+    const body = {
+      ...BatasAdministrasi.toApiData(data),
+      geojson_file_path: mergedPath,
+    };
+    return await api.post(`/batas_administrasi/${id}`, { body, token });
+  }
 }

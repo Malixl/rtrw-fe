@@ -1,9 +1,10 @@
 /* eslint-disable no-unused-vars */
 import { DataTable, DataTableHeader } from '@/components';
 import { Action, InputType } from '@/constants';
-import { useAuth, useCrudModal, useNotification, usePagination, useService } from '@/hooks';
+import { useAuth, useChunkedUpload, useCrudModal, useNotification, usePagination, useService } from '@/hooks';
+import { CHUNKED_UPLOAD_THRESHOLD } from '@/hooks/useChunkedUpload';
 import { KlasifikasisService, DataSpasialsService } from '@/services';
-import { Card, ColorPicker, Skeleton, Space } from 'antd';
+import { Button, Card, ColorPicker, Skeleton, Space } from 'antd';
 import React from 'react';
 import { Delete, Detail, Edit } from '@/components/dashboard/button';
 import Modul from '@/constants/Modul';
@@ -12,7 +13,7 @@ import { DataSpasials as DataSpasialModel } from '@/models';
 import { useParams } from 'react-router-dom';
 import { extractUploadFile, hasNewUploadFile, normalizeColorValue } from '@/utils/formData';
 import UploadProgress from '@/components/dashboard/UploadProgress';
-import { EnvironmentOutlined, ExpandAltOutlined, ExpandOutlined } from '@ant-design/icons';
+import { EnvironmentOutlined, ExpandAltOutlined, ExpandOutlined, ReloadOutlined } from '@ant-design/icons';
 
 const { UPDATE, READ, DELETE } = Action;
 
@@ -129,13 +130,20 @@ const DataSpasials = () => {
   const { execute, ...getAllDataSpasials } = useService(DataSpasialsService.getAll);
   const { execute: fetchKlasifikasis, ...getAllKlasifikasis } = useService(KlasifikasisService.getAll);
   const storeDataSpasials = useService(DataSpasialsService.store);
+  const storeWithMerged = useService(DataSpasialsService.storeWithMergedFile);
   const updateDataSpasials = useService(DataSpasialsService.update);
+  const updateWithMerged = useService(DataSpasialsService.updateWithMergedFile);
   const deleteDataSpasials = useService(DataSpasialsService.delete);
   const deleteBatchDataSpasials = useService(DataSpasialsService.deleteBatch);
   const [filterValues, setFilterValues] = React.useState({ search: '' });
-  const [uploadProgress, setUploadProgress] = React.useState({ visible: false, percent: 0, loaded: 0, total: 0 });
-  const resetProgress = () => setUploadProgress({ visible: false, percent: 0, loaded: 0, total: 0 });
+  const [uploadProgress, setUploadProgress] = React.useState({ visible: false, percent: 0, loaded: 0, total: 0, phaseText: '' });
+  const resetProgress = () => setUploadProgress({ visible: false, percent: 0, loaded: 0, total: 0, phaseText: '' });
   const onProgress = (p) => setUploadProgress({ visible: true, ...p });
+
+  // Chunked upload hook untuk file GeoJSON besar (≥10MB)
+  const chunkedUpload = useChunkedUpload();
+  // Ref untuk menyimpan file GeoJSON saat retry diperlukan
+  const pendingGeoJsonFileRef = React.useRef(null);
 
   const pagination = usePagination({ totalData: getAllDataSpasials.totalData });
 
@@ -203,21 +211,49 @@ const DataSpasials = () => {
                   delete payload.geojson_file;
                   delete payload.icon;
 
-                  const files = {};
-
-                  if (hasNewUploadFile(values.geojson_file)) {
-                    const geo = extractUploadFile(values.geojson_file);
-                    files.geojson_file = geo?.geojson_file ?? geo;
-                  }
-
+                  // Extract icon file jika tipe point
+                  let iconFile = null;
                   if (record.geometry_type === 'point' && hasNewUploadFile(values.icon)) {
                     const icon = extractUploadFile(values.icon);
-                    files.icon_titik = icon?.icon ?? icon;
+                    iconFile = icon?.icon ?? icon;
                   }
 
-                  const fileToSend = Object.keys(files).length ? files : null;
+                  // Cek apakah ada file GeoJSON baru yang diupload
+                  let geoFile = null;
+                  if (hasNewUploadFile(values.geojson_file)) {
+                    const geo = extractUploadFile(values.geojson_file);
+                    geoFile = geo?.geojson_file ?? geo;
+                  }
 
-                  const { message, isSuccess } = await updateDataSpasials.execute(record.id, payload, token, fileToSend, onProgress);
+                  let result;
+
+                  // AUTO-SWITCH: File besar → chunked upload, file kecil → upload biasa
+                  if (geoFile && geoFile.size >= CHUNKED_UPLOAD_THRESHOLD) {
+                    // ======= CHUNKED UPLOAD (≥10MB) =======
+                    pendingGeoJsonFileRef.current = geoFile;
+                    setUploadProgress({ visible: true, percent: 0, loaded: 0, total: geoFile.size, phaseText: 'Memulai chunked upload...' });
+
+                    const mergedPath = await chunkedUpload.startUpload(geoFile, token);
+
+                    if (!mergedPath) {
+                      setUploadProgress((prev) => ({ ...prev, phaseText: chunkedUpload.error || 'Upload gagal' }));
+                      return false;
+                    }
+
+                    result = await updateWithMerged.execute(record.id, payload, token, mergedPath, iconFile);
+                  } else {
+                    // ======= UPLOAD BIASA (<10MB) =======
+                    const files = {};
+                    if (geoFile) files.geojson_file = geoFile;
+                    if (iconFile) files.icon_titik = iconFile;
+                    const fileToSend = Object.keys(files).length ? files : null;
+
+                    result = await updateDataSpasials.execute(record.id, payload, token, fileToSend, onProgress);
+                  }
+
+                  const { message, isSuccess } = result;
+
+                  resetProgress();
 
                   if (isSuccess) {
                     success('Berhasil', message);
@@ -415,14 +451,39 @@ const DataSpasials = () => {
         delete payload.icon;
 
         const geojsonFile = extractUploadFile(values.geojson_file);
-        const iconFile = type === 'point' ? extractUploadFile(values.icon) : null;
+        const geoFile = geojsonFile?.geojson_file ?? geojsonFile;
+        const iconExtracted = type === 'point' ? extractUploadFile(values.icon) : null;
+        const iconFile = iconExtracted?.icon ?? iconExtracted;
 
-        const fileToSend = {
-          geojson_file: geojsonFile?.geojson_file ?? geojsonFile,
-          icon_titik: iconFile?.icon ?? iconFile
-        };
+        let result;
 
-        const { message, isSuccess } = await storeDataSpasials.execute(payload, token, fileToSend, onProgress);
+        // AUTO-SWITCH: File besar → chunked upload, file kecil → upload biasa
+        if (geoFile && geoFile.size >= CHUNKED_UPLOAD_THRESHOLD) {
+          // ======= CHUNKED UPLOAD (≥10MB) =======
+          pendingGeoJsonFileRef.current = geoFile;
+          setUploadProgress({ visible: true, percent: 0, loaded: 0, total: geoFile.size, phaseText: 'Memulai chunked upload...' });
+
+          const mergedPath = await chunkedUpload.startUpload(geoFile, token);
+
+          if (!mergedPath) {
+            setUploadProgress((prev) => ({ ...prev, phaseText: chunkedUpload.error || 'Upload gagal' }));
+            return false;
+          }
+
+          result = await storeWithMerged.execute(payload, token, mergedPath, iconFile);
+        } else {
+          // ======= UPLOAD BIASA (<10MB) =======
+          const fileToSend = {
+            geojson_file: geoFile,
+            icon_titik: iconFile
+          };
+
+          result = await storeDataSpasials.execute(payload, token, fileToSend, onProgress);
+        }
+
+        const { message, isSuccess } = result;
+
+        resetProgress();
 
         if (isSuccess) {
           success('Berhasil', message);
@@ -504,11 +565,59 @@ const DataSpasials = () => {
     });
   };
 
+  // Sync chunked upload progress ke UploadProgress modal
+  React.useEffect(() => {
+    if (chunkedUpload.isUploading || chunkedUpload.progress.phase === 'merging') {
+      setUploadProgress({
+        visible: true,
+        percent: chunkedUpload.progress.percent,
+        loaded: 0,
+        total: 0,
+        phaseText: chunkedUpload.progress.phaseText,
+      });
+    } else if (chunkedUpload.progress.phase === 'done' || chunkedUpload.progress.phase === 'idle') {
+      resetProgress();
+    }
+  }, [chunkedUpload.isUploading, chunkedUpload.progress]);
+
+  // Handler retry untuk chunked upload
+  const handleRetryChunkedUpload = React.useCallback(async () => {
+    if (!pendingGeoJsonFileRef.current) return;
+    await chunkedUpload.retry(pendingGeoJsonFileRef.current, token);
+  }, [chunkedUpload, token]);
+
   return (
     <Card>
       <Skeleton loading={getAllDataSpasials.isLoading}>
         <DataTableHeader onStore={onCreate} modul={Modul.DATA_SPASIAL} onDeleteBatch={onDeleteBatch} selectedData={selectedDataSpasials} onSearch={(values) => setFilterValues({ search: values })} model={DataSpasialModel} />
-        <UploadProgress {...uploadProgress} onClose={resetProgress} />
+
+        {/* Upload Progress — menampilkan progress upload biasa ATAU chunked upload */}
+        <UploadProgress
+          {...uploadProgress}
+          onClose={resetProgress}
+        />
+
+        {/* Chunked upload error state — tombol Retry */}
+        {chunkedUpload.progress.phase === 'error' && (
+          <div className="my-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-red-600">
+                {chunkedUpload.error || 'Upload gagal. Klik Retry untuk melanjutkan dari chunk terakhir.'}
+              </span>
+              <Button
+                type="primary"
+                danger
+                icon={<ReloadOutlined />}
+                size="small"
+                onClick={handleRetryChunkedUpload}
+                loading={chunkedUpload.isUploading}
+              >
+                Retry
+              </Button>
+            </div>
+          </div>
+        )}
+
         <div className="w-full max-w-full overflow-x-auto">
           <DataTable
             data={dataSpasials}

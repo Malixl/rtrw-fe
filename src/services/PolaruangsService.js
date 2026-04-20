@@ -79,4 +79,31 @@ export default class PolaruangsService {
   static async deleteBatch(ids, token) {
     return await api.delete(`/polaruang/multi-delete?ids=${ids.join(',')}`, { token });
   }
+
+  /**
+   * @param {Polaruangs} data
+   * @param {string} token
+   * @param {string} mergedPath
+   */
+  static async storeWithMergedFile(data, token, mergedPath) {
+    const body = {
+      ...Polaruangs.toApiData(data),
+      geojson_file_path: mergedPath,
+    };
+    return await api.post('/polaruang', { body, token });
+  }
+
+  /**
+   * @param {number} id
+   * @param {Polaruangs} data
+   * @param {string} token
+   * @param {string} mergedPath
+   */
+  static async updateWithMergedFile(id, data, token, mergedPath) {
+    const body = {
+      ...Polaruangs.toApiData(data),
+      geojson_file_path: mergedPath,
+    };
+    return await api.post(`/polaruang/${id}`, { body, token });
+  }
 }

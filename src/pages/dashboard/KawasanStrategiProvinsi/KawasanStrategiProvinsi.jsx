@@ -12,7 +12,9 @@ import { KawasanStrategiProvinsi as KawasanStrategiProvinsiModel } from '@/model
 import { useParams } from 'react-router-dom';
 import { extractUploadFile, hasNewUploadFile, normalizeColorValue } from '@/utils/formData';
 import UploadProgress from '@/components/dashboard/UploadProgress';
-import { EnvironmentOutlined, ExpandAltOutlined, ExpandOutlined } from '@ant-design/icons';
+import { EnvironmentOutlined, ExpandAltOutlined, ExpandOutlined, ReloadOutlined } from '@ant-design/icons';
+import { useChunkedUpload } from '@/hooks';
+import { CHUNKED_UPLOAD_THRESHOLD } from '@/hooks/useChunkedUpload';
 
 const { UPDATE, READ, DELETE } = Action;
 
@@ -130,12 +132,17 @@ const KawasanStrategiProvinsiPage = () => {
   const { execute: fetchKlasifikasis, ...getAllKlasifikasis } = useService(KlasifikasisService.getAll);
   const storeKawasanStrategiProvinsi = useService(KawasanStrategiProvinsiService.store);
   const updateKawasanStrategiProvinsi = useService(KawasanStrategiProvinsiService.update);
+  const storeWithMerged = useService(KawasanStrategiProvinsiService.storeWithMergedFile);
+  const updateWithMerged = useService(KawasanStrategiProvinsiService.updateWithMergedFile);
   const deleteKawasanStrategiProvinsi = useService(KawasanStrategiProvinsiService.delete);
   const deleteBatchKawasanStrategiProvinsi = useService(KawasanStrategiProvinsiService.deleteBatch);
   const [filterValues, setFilterValues] = React.useState({ search: '' });
-  const [uploadProgress, setUploadProgress] = React.useState({ visible: false, percent: 0, loaded: 0, total: 0 });
-  const resetProgress = () => setUploadProgress({ visible: false, percent: 0, loaded: 0, total: 0 });
+  const [uploadProgress, setUploadProgress] = React.useState({ visible: false, percent: 0, loaded: 0, total: 0, phaseText: '' });
+  const resetProgress = () => setUploadProgress({ visible: false, percent: 0, loaded: 0, total: 0, phaseText: '' });
   const onProgress = (p) => setUploadProgress({ visible: true, ...p });
+
+  const chunkedUpload = useChunkedUpload();
+  const pendingGeoJsonFileRef = React.useRef(null);
 
   const pagination = usePagination({ totalData: getAllKawasanStrategiProvinsi.totalData });
 
@@ -205,19 +212,42 @@ const KawasanStrategiProvinsiPage = () => {
 
                   const files = {};
 
+                  let geoFile = null;
                   if (hasNewUploadFile(values.geojson_file)) {
                     const geo = extractUploadFile(values.geojson_file);
-                    files.geojson_file = geo?.geojson_file ?? geo;
+                    geoFile = geo?.geojson_file ?? geo;
+                    files.geojson_file = geoFile;
                   }
 
+                  let iconFile = null;
                   if (record.geometry_type === 'point' && hasNewUploadFile(values.icon)) {
                     const icon = extractUploadFile(values.icon);
-                    files.icon_titik = icon?.icon ?? icon;
+                    iconFile = icon?.icon ?? icon;
+                    files.icon_titik = iconFile;
                   }
 
-                  const fileToSend = Object.keys(files).length ? files : null;
+                  let result;
 
-                  const { message, isSuccess } = await updateKawasanStrategiProvinsi.execute(record.id, payload, token, fileToSend, onProgress);
+                  if (geoFile && geoFile.size >= CHUNKED_UPLOAD_THRESHOLD) {
+                    pendingGeoJsonFileRef.current = geoFile;
+                    setUploadProgress({ visible: true, percent: 0, loaded: 0, total: geoFile.size, phaseText: 'Memulai chunked upload...' });
+
+                    const mergedPath = await chunkedUpload.startUpload(geoFile, token);
+
+                    if (!mergedPath) {
+                      setUploadProgress((prev) => ({ ...prev, phaseText: chunkedUpload.error || 'Upload gagal' }));
+                      return false;
+                    }
+
+                    result = await updateWithMerged.execute(record.id, payload, token, mergedPath, iconFile);
+                  } else {
+                    const fileToSend = Object.keys(files).length ? files : null;
+                    result = await updateKawasanStrategiProvinsi.execute(record.id, payload, token, fileToSend, onProgress);
+                  }
+
+                  const { message, isSuccess } = result;
+
+                  resetProgress();
 
                   if (isSuccess) {
                     success('Berhasil', message);
@@ -420,14 +450,36 @@ const KawasanStrategiProvinsiPage = () => {
         delete payload.icon;
 
         const geojsonFile = extractUploadFile(values.geojson_file);
-        const iconFile = type === 'point' ? extractUploadFile(values.icon) : null;
+        const geoFile = geojsonFile?.geojson_file ?? geojsonFile;
 
-        const fileToSend = {
-          geojson_file: geojsonFile?.geojson_file ?? geojsonFile,
-          icon_titik: iconFile?.icon ?? iconFile
-        };
+        const iconExtracted = type === 'point' ? extractUploadFile(values.icon) : null;
+        const iconFile = iconExtracted?.icon ?? iconExtracted;
 
-        const { message, isSuccess } = await storeKawasanStrategiProvinsi.execute(payload, token, fileToSend, onProgress);
+        let result;
+
+        if (geoFile && geoFile.size >= CHUNKED_UPLOAD_THRESHOLD) {
+          pendingGeoJsonFileRef.current = geoFile;
+          setUploadProgress({ visible: true, percent: 0, loaded: 0, total: geoFile.size, phaseText: 'Memulai chunked upload...' });
+
+          const mergedPath = await chunkedUpload.startUpload(geoFile, token);
+
+          if (!mergedPath) {
+            setUploadProgress((prev) => ({ ...prev, phaseText: chunkedUpload.error || 'Upload gagal' }));
+            return false;
+          }
+
+          result = await storeWithMerged.execute(payload, token, mergedPath, iconFile);
+        } else {
+          const fileToSend = {
+            geojson_file: geoFile,
+            icon_titik: iconFile
+          };
+          result = await storeKawasanStrategiProvinsi.execute(payload, token, fileToSend, onProgress);
+        }
+
+        const { message, isSuccess } = result;
+
+        resetProgress();
 
         if (isSuccess) {
           success('Berhasil', message);
@@ -509,11 +561,52 @@ const KawasanStrategiProvinsiPage = () => {
     });
   };
 
+  // Sync chunked upload progress
+  React.useEffect(() => {
+    if (chunkedUpload.isUploading || chunkedUpload.progress.phase === 'merging') {
+      setUploadProgress({
+        visible: true,
+        percent: chunkedUpload.progress.percent,
+        loaded: 0,
+        total: 0,
+        phaseText: chunkedUpload.progress.phaseText,
+      });
+    } else if (chunkedUpload.progress.phase === 'done' || chunkedUpload.progress.phase === 'idle') {
+      resetProgress();
+    }
+  }, [chunkedUpload.isUploading, chunkedUpload.progress]);
+
+  const handleRetryChunkedUpload = React.useCallback(async () => {
+    if (!pendingGeoJsonFileRef.current) return;
+    await chunkedUpload.retry(pendingGeoJsonFileRef.current, token);
+  }, [chunkedUpload, token]);
+
   return (
     <Card>
       <Skeleton loading={getAllKawasanStrategiProvinsi.isLoading}>
         <DataTableHeader onStore={onCreate} modul={Modul.KAWASAN_STRATEGI_PROVINSI} onDeleteBatch={onDeleteBatch} selectedData={selectedKawasanStrategiProvinsi} onSearch={(values) => setFilterValues({ search: values })} model={KawasanStrategiProvinsiModel} />
         <UploadProgress {...uploadProgress} onClose={resetProgress} />
+
+        {chunkedUpload.progress.phase === 'error' && (
+          <div className="my-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-red-600">
+                {chunkedUpload.error || 'Upload gagal. Klik Retry untuk melanjutkan dari chunk terakhir.'}
+              </span>
+              <Button
+                type="primary"
+                danger
+                icon={<ReloadOutlined />}
+                size="small"
+                onClick={handleRetryChunkedUpload}
+                loading={chunkedUpload.isUploading}
+              >
+                Retry
+              </Button>
+            </div>
+          </div>
+        )}
+
         <div className="w-full max-w-full overflow-x-auto">
           <DataTable data={kawasanStrategiProvinsi} columns={column} loading={getAllKawasanStrategiProvinsi.isLoading} map={(registrant) => ({ key: registrant.id, ...registrant })} pagination={pagination} handleSelectedData={(_, selectedRows) => setSelectedKawasanStrategiProvinsi(selectedRows)} />
         </div>

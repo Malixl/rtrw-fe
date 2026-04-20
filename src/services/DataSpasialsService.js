@@ -107,4 +107,52 @@ export default class DataSpasialsService {
   static async deleteBatch(ids, token) {
     return await api.delete(`/data_spasial/multi-delete/?ids=${ids.join(',')}`, { token });
   }
+
+  /**
+   * Store data spasial dengan file GeoJSON yang sudah di-merge via chunked upload.
+   * Mengirim geojson_file_path (string path) bukan file binary.
+   *
+   * @param {DataSpasials} data - Form data
+   * @param {string} token - Auth token
+   * @param {string} mergedPath - Path hasil merge dari ChunkedUploadService
+   * @param {File|null} iconFile - Icon file (jika tipe point)
+   */
+  static async storeWithMergedFile(data, token, mergedPath, iconFile) {
+    const body = {
+      ...DataSpasials.toApiData(data),
+      geojson_file_path: mergedPath,
+    };
+
+    const options = { body, token };
+
+    if (iconFile) {
+      options.file = { icon_titik: iconFile };
+    }
+
+    return await api.post('/data_spasial', options);
+  }
+
+  /**
+   * Update data spasial dengan file GeoJSON yang sudah di-merge via chunked upload.
+   *
+   * @param {number} id - ID data spasial
+   * @param {DataSpasials} data - Form data
+   * @param {string} token - Auth token
+   * @param {string} mergedPath - Path hasil merge dari ChunkedUploadService
+   * @param {File|null} iconFile - Icon file (jika tipe point)
+   */
+  static async updateWithMergedFile(id, data, token, mergedPath, iconFile) {
+    const body = {
+      ...DataSpasials.toApiData(data),
+      geojson_file_path: mergedPath,
+    };
+
+    const options = { body, token };
+
+    if (iconFile) {
+      options.file = { icon_titik: iconFile };
+    }
+
+    return await api.post(`/data_spasial/${id}`, options);
+  }
 }

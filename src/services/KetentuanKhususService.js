@@ -106,4 +106,37 @@ export default class KetentuanKhususService {
   static async deleteBatch(ids, token) {
     return await api.delete(`/ketentuan_khusus/multi-delete?ids=${ids.join(',')}`, { token });
   }
+
+  /**
+   * @param {KetentuanKhusus} data
+   * @param {string} token
+   * @param {string} mergedPath
+   * @param {File|null} iconFile
+   */
+  static async storeWithMergedFile(data, token, mergedPath, iconFile) {
+    const body = {
+      ...KetentuanKhusus.toApiData(data),
+      geojson_file_path: mergedPath,
+    };
+    const options = { body, token };
+    if (iconFile) options.file = { icon_titik: iconFile };
+    return await api.post('/ketentuan_khusus', options);
+  }
+
+  /**
+   * @param {number} id
+   * @param {KetentuanKhusus} data
+   * @param {string} token
+   * @param {string} mergedPath
+   * @param {File|null} iconFile
+   */
+  static async updateWithMergedFile(id, data, token, mergedPath, iconFile) {
+    const body = {
+      ...KetentuanKhusus.toApiData(data),
+      geojson_file_path: mergedPath,
+    };
+    const options = { body, token };
+    if (iconFile) options.file = { icon_titik: iconFile };
+    return await api.post(`/ketentuan_khusus/${id}`, options);
+  }
 }
