@@ -107,4 +107,37 @@ export default class StrukturRuangsService {
   static async deleteBatch(ids, token) {
     return await api.delete(`/struktur_ruang/multi-delete?ids=${ids.join(',')}`, { token });
   }
+
+  /**
+   * @param {StrukturRuangs} data
+   * @param {string} token
+   * @param {string} mergedPath
+   * @param {File|null} iconFile
+   */
+  static async storeWithMergedFile(data, token, mergedPath, iconFile) {
+    const body = {
+      ...StrukturRuangs.toApiData(data),
+      geojson_file_path: mergedPath,
+    };
+    const options = { body, token };
+    if (iconFile) options.file = { icon_titik: iconFile };
+    return await api.post('/struktur_ruang', options);
+  }
+
+  /**
+   * @param {number} id
+   * @param {StrukturRuangs} data
+   * @param {string} token
+   * @param {string} mergedPath
+   * @param {File|null} iconFile
+   */
+  static async updateWithMergedFile(id, data, token, mergedPath, iconFile) {
+    const body = {
+      ...StrukturRuangs.toApiData(data),
+      geojson_file_path: mergedPath,
+    };
+    const options = { body, token };
+    if (iconFile) options.file = { icon_titik: iconFile };
+    return await api.post(`/struktur_ruang/${id}`, options);
+  }
 }

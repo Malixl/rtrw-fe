@@ -1,5 +1,5 @@
 import { Progress, Typography, Modal } from 'antd';
-import { CloudUploadOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { CloudUploadOutlined, CheckCircleOutlined, SyncOutlined } from '@ant-design/icons';
 import { useEffect } from 'react';
 
 const { Text } = Typography;
@@ -16,24 +16,48 @@ function formatBytes(bytes) {
 }
 
 /**
- * UploadProgress - Shows upload progress bar during file upload
- * @param {{ percent: number, loaded: number, total: number, visible: boolean, onClose?: () => void }} props
+ * UploadProgress - Shows upload progress bar during file upload.
+ * Supports both regular upload and chunked upload phases.
+ *
+ * @param {{
+ *   percent: number,
+ *   loaded: number,
+ *   total: number,
+ *   visible: boolean,
+ *   phaseText?: string,
+ *   onClose?: () => void,
+ * }} props
  */
-export default function UploadProgress({ percent = 0, loaded = 0, total = 0, visible = false, onClose }) {
-  const isComplete = percent >= 100;
+export default function UploadProgress({ percent = 0, loaded = 0, total = 0, visible = false, phaseText = '', onClose }) {
+  const isComplete = percent >= 100 && (!phaseText || phaseText === 'Upload selesai!');
+  const isMerging = phaseText?.toLowerCase().includes('menggabungkan') || phaseText?.toLowerCase().includes('merging');
   const status = isComplete ? 'success' : 'active';
 
   useEffect(() => {
     let timeout;
-    if (visible && isComplete && onClose) {
+    // Auto-close hanya jika upload benar-benar selesai (bukan sedang merging)
+    if (visible && isComplete && onClose && !isMerging) {
       timeout = setTimeout(() => {
         onClose();
-      }, 1500); // Tunda auto-close selama 1.5 detik agar tulisan selesai terbaca
+      }, 1500);
     }
     return () => clearTimeout(timeout);
-  }, [visible, isComplete, onClose]);
+  }, [visible, isComplete, isMerging, onClose]);
 
   if (!visible) return null;
+
+  // Tentukan icon dan judul berdasarkan status
+  let icon, title;
+  if (isComplete) {
+    icon = <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 16 }} />;
+    title = 'Upload selesai!';
+  } else if (isMerging) {
+    icon = <SyncOutlined spin style={{ color: '#722ed1', fontSize: 16 }} />;
+    title = phaseText || 'Menggabungkan file di server...';
+  } else {
+    icon = <CloudUploadOutlined style={{ color: '#1677ff', fontSize: 16 }} className="animate-pulse" />;
+    title = phaseText || 'Mengupload file...';
+  }
 
   return (
     <Modal
@@ -43,24 +67,20 @@ export default function UploadProgress({ percent = 0, loaded = 0, total = 0, vis
       centered
       width={400}
       maskClosable={false}
-      zIndex={2000} // Ensure it stays above CrudModal
+      zIndex={2000}
       className="upload-progress-modal"
     >
       <div
         className="rounded-lg border px-4 py-3"
         style={{
-          backgroundColor: isComplete ? '#f6ffed' : '#e6f4ff',
-          borderColor: isComplete ? '#b7eb8f' : '#91caff'
+          backgroundColor: isComplete ? '#f6ffed' : isMerging ? '#f9f0ff' : '#e6f4ff',
+          borderColor: isComplete ? '#b7eb8f' : isMerging ? '#d3adf7' : '#91caff'
         }}
       >
         <div className="mb-1 flex items-center gap-2">
-          {isComplete ? (
-            <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 16 }} />
-          ) : (
-            <CloudUploadOutlined style={{ color: '#1677ff', fontSize: 16 }} className="animate-pulse" />
-          )}
+          {icon}
           <Text strong className="text-sm">
-            {isComplete ? 'Upload selesai!' : 'Mengupload file...'}
+            {title}
           </Text>
           {total > 0 && (
             <Text type="secondary" className="ml-auto text-xs">
@@ -72,14 +92,17 @@ export default function UploadProgress({ percent = 0, loaded = 0, total = 0, vis
           percent={percent}
           status={status}
           size="small"
-          strokeColor={isComplete ? '#52c41a' : { from: '#1677ff', to: '#722ed1' }}
+          strokeColor={isComplete ? '#52c41a' : isMerging ? { from: '#722ed1', to: '#eb2f96' } : { from: '#1677ff', to: '#722ed1' }}
         />
         {!isComplete && percent > 0 && (
           <Text type="secondary" className="mt-1 block text-xs">
-            {percent < 100 ? 'Jangan tutup halaman ini selama upload berlangsung' : 'Memproses file di server...'}
+            {isMerging
+              ? 'Server sedang menggabungkan file. Jangan tutup halaman ini.'
+              : 'Jangan tutup halaman ini selama upload berlangsung'}
           </Text>
         )}
       </div>
     </Modal>
   );
 }
+

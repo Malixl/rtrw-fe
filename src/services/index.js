@@ -1,4 +1,5 @@
 export { default as AuthService } from './AuthService';
+export { default as ChunkedUploadService } from './ChunkedUploadService';
 export { default as KlasifikasisService } from './KlasifikasisService';
 export { default as PolaruangsService } from './PolaruangsService';
 export { default as StrukturRuangsService } from './StrukturRuangsService';

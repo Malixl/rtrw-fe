@@ -107,8 +107,8 @@ function uploadWithProgress(url, formData, token, onProgress) {
 
     xhr.open('POST', url);
     xhr.setRequestHeader('Authorization', token ? `Bearer ${token}` : '');
-    xhr.setRequestHeader('ngrok-skip-browser-warning', 'true');
-    xhr.setRequestHeader('bypass-tunnel-reminder', 'true');
+    // xhr.setRequestHeader('ngrok-skip-browser-warning', 'true');
+    // xhr.setRequestHeader('bypass-tunnel-reminder', 'true');
     xhr.send(formData);
   });
 }

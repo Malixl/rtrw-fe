@@ -1,9 +1,10 @@
 /* eslint-disable no-unused-vars */
 import { DataTable, DataTableHeader } from '@/components';
 import { Action } from '@/constants';
-import { useAuth, useCrudModal, useNotification, usePagination, useService } from '@/hooks';
+import { useAuth, useChunkedUpload, useCrudModal, useNotification, usePagination, useService } from '@/hooks';
+import { CHUNKED_UPLOAD_THRESHOLD } from '@/hooks/useChunkedUpload';
 import { KlasifikasisService, PolaruangsService } from '@/services';
-import { Card, ColorPicker, Skeleton, Space } from 'antd';
+import { Button, Card, ColorPicker, Skeleton, Space } from 'antd';
 import React from 'react';
 import { Delete, Detail, Edit } from '@/components/dashboard/button';
 import Modul from '@/constants/Modul';
@@ -12,6 +13,7 @@ import { Polaruangs as PolaruangModel } from '@/models';
 import { useParams } from 'react-router-dom';
 import { extractUploadFile, hasNewUploadFile, normalizeColorValue } from '@/utils/formData';
 import UploadProgress from '@/components/dashboard/UploadProgress';
+import { ReloadOutlined } from '@ant-design/icons';
 
 const { UPDATE, READ, DELETE } = Action;
 
@@ -23,14 +25,19 @@ const Polaruangs = () => {
   const { execute, ...getAllPolaruangs } = useService(PolaruangsService.getAll);
   const { execute: fetchKlasifikasis, ...getAllKlasifikasis } = useService(KlasifikasisService.getAll);
   const storePolaruang = useService(PolaruangsService.store);
+  const storeWithMerged = useService(PolaruangsService.storeWithMergedFile);
   const updatePolaruang = useService(PolaruangsService.update);
+  const updateWithMerged = useService(PolaruangsService.updateWithMergedFile);
   const deletePolaruang = useService(PolaruangsService.delete);
   const deleteBatchPolaruangs = useService(PolaruangsService.deleteBatch);
   const [filterValues, setFilterValues] = React.useState({ search: '' });
-  const [uploadProgress, setUploadProgress] = React.useState({ visible: false, percent: 0, loaded: 0, total: 0 });
+  const [uploadProgress, setUploadProgress] = React.useState({ visible: false, percent: 0, loaded: 0, total: 0, phaseText: '' });
 
-  const resetProgress = () => setUploadProgress({ visible: false, percent: 0, loaded: 0, total: 0 });
+  const resetProgress = () => setUploadProgress({ visible: false, percent: 0, loaded: 0, total: 0, phaseText: '' });
   const onProgress = (p) => setUploadProgress({ visible: true, ...p });
+
+  const chunkedUpload = useChunkedUpload();
+  const pendingGeoJsonFileRef = React.useRef(null);
 
   const pagination = usePagination({ totalData: getAllPolaruangs.totalData });
 
@@ -96,9 +103,33 @@ const Polaruangs = () => {
 
                   delete payload.geojson_file;
 
-                  const fileToSend = isFileUpdated ? extractUploadFile(values.geojson_file) : null;
+                  let fileToSend = null;
+                  if (isFileUpdated) {
+                    const extracted = extractUploadFile(values.geojson_file);
+                    fileToSend = extracted?.geojson_file ?? extracted;
+                  }
 
-                  const { message, isSuccess } = await updatePolaruang.execute(record.id, payload, token, fileToSend, onProgress);
+                  let result;
+
+                  if (fileToSend && fileToSend.size >= CHUNKED_UPLOAD_THRESHOLD) {
+                    pendingGeoJsonFileRef.current = fileToSend;
+                    setUploadProgress({ visible: true, percent: 0, loaded: 0, total: fileToSend.size, phaseText: 'Memulai chunked upload...' });
+
+                    const mergedPath = await chunkedUpload.startUpload(fileToSend, token);
+
+                    if (!mergedPath) {
+                      setUploadProgress((prev) => ({ ...prev, phaseText: chunkedUpload.error || 'Upload gagal' }));
+                      return false;
+                    }
+
+                    result = await updateWithMerged.execute(record.id, payload, token, mergedPath);
+                  } else {
+                    result = await updatePolaruang.execute(record.id, payload, token, fileToSend, onProgress);
+                  }
+
+                  const { message, isSuccess } = result;
+
+                  resetProgress();
 
                   if (isSuccess) {
                     success('Berhasil', message);
@@ -182,10 +213,32 @@ const Polaruangs = () => {
       formFields: formFields({ options: { klasifikasi: klasifikasis } }),
       onSubmit: async (values) => {
         const payload = { ...values, color: normalizeColorValue(values.color) };
-        const fileToSend = extractUploadFile(values.geojson_file);
+        const extracted = extractUploadFile(values.geojson_file);
+        const fileToSend = extracted?.geojson_file ?? extracted;
         delete payload.geojson_file;
 
-        const { message, isSuccess } = await storePolaruang.execute(payload, token, fileToSend, onProgress);
+        let result;
+
+        if (fileToSend && fileToSend.size >= CHUNKED_UPLOAD_THRESHOLD) {
+          pendingGeoJsonFileRef.current = fileToSend;
+          setUploadProgress({ visible: true, percent: 0, loaded: 0, total: fileToSend.size, phaseText: 'Memulai chunked upload...' });
+
+          const mergedPath = await chunkedUpload.startUpload(fileToSend, token);
+
+          if (!mergedPath) {
+            setUploadProgress((prev) => ({ ...prev, phaseText: chunkedUpload.error || 'Upload gagal' }));
+            return false;
+          }
+
+          result = await storeWithMerged.execute(payload, token, mergedPath);
+        } else {
+          result = await storePolaruang.execute(payload, token, fileToSend, onProgress);
+        }
+
+        const { message, isSuccess } = result;
+
+        resetProgress();
+
         if (isSuccess) {
           success('Berhasil', message);
           fetchPolaruangs();
@@ -216,11 +269,52 @@ const Polaruangs = () => {
     });
   };
 
+  // Sync chunked upload progress
+  React.useEffect(() => {
+    if (chunkedUpload.isUploading || chunkedUpload.progress.phase === 'merging') {
+      setUploadProgress({
+        visible: true,
+        percent: chunkedUpload.progress.percent,
+        loaded: 0,
+        total: 0,
+        phaseText: chunkedUpload.progress.phaseText,
+      });
+    } else if (chunkedUpload.progress.phase === 'done' || chunkedUpload.progress.phase === 'idle') {
+      resetProgress();
+    }
+  }, [chunkedUpload.isUploading, chunkedUpload.progress]);
+
+  const handleRetryChunkedUpload = React.useCallback(async () => {
+    if (!pendingGeoJsonFileRef.current) return;
+    await chunkedUpload.retry(pendingGeoJsonFileRef.current, token);
+  }, [chunkedUpload, token]);
+
   return (
     <Card>
       <Skeleton loading={getAllPolaruangs.isLoading}>
         <DataTableHeader onStore={onCreate} modul={Modul.POLARUANG} onDeleteBatch={onDeleteBatch} selectedData={selectedPolaruangs} onSearch={(values) => setFilterValues({ search: values })} model={PolaruangModel} />
         <UploadProgress {...uploadProgress} onClose={resetProgress} />
+
+        {chunkedUpload.progress.phase === 'error' && (
+          <div className="my-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-red-600">
+                {chunkedUpload.error || 'Upload gagal. Klik Retry untuk melanjutkan dari chunk terakhir.'}
+              </span>
+              <Button
+                type="primary"
+                danger
+                icon={<ReloadOutlined />}
+                size="small"
+                onClick={handleRetryChunkedUpload}
+                loading={chunkedUpload.isUploading}
+              >
+                Retry
+              </Button>
+            </div>
+          </div>
+        )}
+
         <div className="w-full max-w-full overflow-x-auto">
           <DataTable
             data={polaRuangs}

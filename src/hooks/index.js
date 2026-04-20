@@ -1,5 +1,6 @@
 export { default as useStyle } from './styles';
 export { default as useAuth } from './useAuth';
+export { default as useChunkedUpload } from './useChunkedUpload';
 export { default as useCrudModal } from './useCrudModal';
 export { default as useLocalStorage } from './useLocalStorage';
 export { default as useNotification } from './useNotification';

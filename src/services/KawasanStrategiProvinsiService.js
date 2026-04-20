@@ -102,4 +102,37 @@ export default class KawasanStrategiProvinsiService {
     static async deleteBatch(ids, token) {
         return await api.delete(`/kawasan_strategi_provinsi/multi-delete?ids=${ids.join(',')}`, { token });
     }
+
+    /**
+     * @param {KawasanStrategiProvinsi} data
+     * @param {string} token
+     * @param {string} mergedPath
+     * @param {File|null} iconFile
+     */
+    static async storeWithMergedFile(data, token, mergedPath, iconFile) {
+        const body = {
+            ...KawasanStrategiProvinsi.toApiData(data),
+            geojson_file_path: mergedPath,
+        };
+        const options = { body, token };
+        if (iconFile) options.file = { icon_titik: iconFile };
+        return await api.post('/kawasan_strategi_provinsi', options);
+    }
+
+    /**
+     * @param {number} id
+     * @param {KawasanStrategiProvinsi} data
+     * @param {string} token
+     * @param {string} mergedPath
+     * @param {File|null} iconFile
+     */
+    static async updateWithMergedFile(id, data, token, mergedPath, iconFile) {
+        const body = {
+            ...KawasanStrategiProvinsi.toApiData(data),
+            geojson_file_path: mergedPath,
+        };
+        const options = { body, token };
+        if (iconFile) options.file = { icon_titik: iconFile };
+        return await api.post(`/kawasan_strategi_provinsi/${id}`, options);
+    }
 }

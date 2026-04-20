@@ -7,11 +7,13 @@ import React from 'react';
 import { Delete, Detail, Edit } from '@/components/dashboard/button';
 import Modul from '@/constants/Modul';
 import { formFields } from './FormFields';
-import { DeleteOutlined, ExpandAltOutlined, ExpandOutlined, PlusOutlined } from '@ant-design/icons';
+import { DeleteOutlined, ExpandAltOutlined, ExpandOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { extractUploadFile, hasNewUploadFile } from '@/utils/formData';
 import UploadProgress from '@/components/dashboard/UploadProgress';
 import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import { useChunkedUpload } from '@/hooks';
+import { CHUNKED_UPLOAD_THRESHOLD } from '@/hooks/useChunkedUpload';
 
 const buildEditFieldsByGeometry = (record, klasifikasis = []) => {
   let fields = [...formFields({ options: { klasifikasi: klasifikasis } })];
@@ -73,16 +75,21 @@ const BatasAdministrasi = () => {
   const { execute, ...getAllBatasAdministrasi } = useService(BatasAdministrasiService.getAll);
   const storeBatasAdministrasi = useService(BatasAdministrasiService.store);
   const updateBatasAdministrasi = useService(BatasAdministrasiService.update);
+  const storeWithMerged = useService(BatasAdministrasiService.storeWithMergedFile);
+  const updateWithMerged = useService(BatasAdministrasiService.updateWithMergedFile);
   const deleteBatasAdministrasi = useService(BatasAdministrasiService.delete);
   const deleteBatchBatasAdministrasi = useService(BatasAdministrasiService.deleteBatch);
 
   const { execute: fetchKlasifikasis, ...getAllKlasifikasis } = useService(KlasifikasisService.getAll);
 
   const [filterValues, setFilterValues] = React.useState({ search: '' });
-  const [uploadProgress, setUploadProgress] = React.useState({ visible: false, percent: 0, loaded: 0, total: 0 });
-  const resetProgress = () => setUploadProgress({ visible: false, percent: 0, loaded: 0, total: 0 });
+  const [uploadProgress, setUploadProgress] = React.useState({ visible: false, percent: 0, loaded: 0, total: 0, phaseText: '' });
+  const resetProgress = () => setUploadProgress({ visible: false, percent: 0, loaded: 0, total: 0, phaseText: '' });
   const onProgress = (p) => setUploadProgress({ visible: true, ...p });
   const [previewItem, setPreviewItem] = React.useState(null);
+
+  const chunkedUpload = useChunkedUpload();
+  const pendingGeoJsonFileRef = React.useRef(null);
   const [previewVisible, setPreviewVisible] = React.useState(false);
   const [geojson, setGeojson] = React.useState(null);
   const [geoLoading] = React.useState(false);
@@ -175,9 +182,30 @@ const BatasAdministrasi = () => {
                   let fileToSend = null;
                   if (hasNewUploadFile(values.geojson_file)) {
                     fileToSend = extractUploadFile(values.geojson_file);
+                    fileToSend = fileToSend?.geojson_file ?? fileToSend;
                   }
 
-                  const { message, isSuccess } = await updateBatasAdministrasi.execute(record.id, payload, token, fileToSend, onProgress);
+                  let result;
+
+                  if (fileToSend && fileToSend.size >= CHUNKED_UPLOAD_THRESHOLD) {
+                    pendingGeoJsonFileRef.current = fileToSend;
+                    setUploadProgress({ visible: true, percent: 0, loaded: 0, total: fileToSend.size, phaseText: 'Memulai chunked upload...' });
+
+                    const mergedPath = await chunkedUpload.startUpload(fileToSend, token);
+
+                    if (!mergedPath) {
+                      setUploadProgress((prev) => ({ ...prev, phaseText: chunkedUpload.error || 'Upload gagal' }));
+                      return false;
+                    }
+
+                    result = await updateWithMerged.execute(record.id, payload, token, mergedPath);
+                  } else {
+                    result = await updateBatasAdministrasi.execute(record.id, payload, token, fileToSend, onProgress);
+                  }
+
+                  const { message, isSuccess } = result;
+
+                  resetProgress();
 
                   if (isSuccess) {
                     success('Berhasil', message);
@@ -314,9 +342,30 @@ const BatasAdministrasi = () => {
           delete payload.line_type;
         }
 
-        const geojsonFile = extractUploadFile(values.geojson_file);
+        let geojsonFile = extractUploadFile(values.geojson_file);
+        geojsonFile = geojsonFile?.geojson_file ?? geojsonFile;
 
-        const { message, isSuccess } = await storeBatasAdministrasi.execute(payload, token, geojsonFile, onProgress);
+        let result;
+
+        if (geojsonFile && geojsonFile.size >= CHUNKED_UPLOAD_THRESHOLD) {
+          pendingGeoJsonFileRef.current = geojsonFile;
+          setUploadProgress({ visible: true, percent: 0, loaded: 0, total: geojsonFile.size, phaseText: 'Memulai chunked upload...' });
+
+          const mergedPath = await chunkedUpload.startUpload(geojsonFile, token);
+
+          if (!mergedPath) {
+            setUploadProgress((prev) => ({ ...prev, phaseText: chunkedUpload.error || 'Upload gagal' }));
+            return false;
+          }
+
+          result = await storeWithMerged.execute(payload, token, mergedPath);
+        } else {
+          result = await storeBatasAdministrasi.execute(payload, token, geojsonFile, onProgress);
+        }
+
+        const { message, isSuccess } = result;
+
+        resetProgress();
 
         if (isSuccess) {
           success('Berhasil', message);
@@ -385,6 +434,26 @@ const BatasAdministrasi = () => {
     });
   };
 
+  // Sync chunked upload progress
+  React.useEffect(() => {
+    if (chunkedUpload.isUploading || chunkedUpload.progress.phase === 'merging') {
+      setUploadProgress({
+        visible: true,
+        percent: chunkedUpload.progress.percent,
+        loaded: 0,
+        total: 0,
+        phaseText: chunkedUpload.progress.phaseText,
+      });
+    } else if (chunkedUpload.progress.phase === 'done' || chunkedUpload.progress.phase === 'idle') {
+      resetProgress();
+    }
+  }, [chunkedUpload.isUploading, chunkedUpload.progress]);
+
+  const handleRetryChunkedUpload = React.useCallback(async () => {
+    if (!pendingGeoJsonFileRef.current) return;
+    await chunkedUpload.retry(pendingGeoJsonFileRef.current, token);
+  }, [chunkedUpload, token]);
+
   return (
     <Card>
       <Skeleton loading={getAllBatasAdministrasi.isLoading}>
@@ -397,6 +466,27 @@ const BatasAdministrasi = () => {
           </Button>
         </DataTableHeader>
         <UploadProgress {...uploadProgress} />
+
+        {chunkedUpload.progress.phase === 'error' && (
+          <div className="my-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-red-600">
+                {chunkedUpload.error || 'Upload gagal. Klik Retry untuk melanjutkan dari chunk terakhir.'}
+              </span>
+              <Button
+                type="primary"
+                danger
+                icon={<ReloadOutlined />}
+                size="small"
+                onClick={handleRetryChunkedUpload}
+                loading={chunkedUpload.isUploading}
+              >
+                Retry
+              </Button>
+            </div>
+          </div>
+        )}
+
         <div className="w-full max-w-full overflow-x-auto">
           <DataTable
             data={batasAdministrasiData}
