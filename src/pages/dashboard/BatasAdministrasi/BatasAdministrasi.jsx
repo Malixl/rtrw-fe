@@ -8,7 +8,7 @@ import { Delete, Detail, Edit } from '@/components/dashboard/button';
 import Modul from '@/constants/Modul';
 import { formFields } from './FormFields';
 import { DeleteOutlined, ExpandAltOutlined, ExpandOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
-import { extractUploadFile, hasNewUploadFile } from '@/utils/formData';
+import { extractUploadFile, hasNewUploadFile, normalizeColorValue } from '@/utils/formData';
 import UploadProgress from '@/components/dashboard/UploadProgress';
 import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -173,6 +173,7 @@ const BatasAdministrasi = () => {
                 onSubmit: async (values) => {
                   const payload = {
                     ...values,
+                    color: normalizeColorValue(values.color),
                     geometry_type: record.geometry_type,
                     _method: 'PUT'
                   };
@@ -333,6 +334,7 @@ const BatasAdministrasi = () => {
       onSubmit: async (values) => {
         const payload = {
           ...values,
+          color: normalizeColorValue(values.color),
           geometry_type: type
         };
 
