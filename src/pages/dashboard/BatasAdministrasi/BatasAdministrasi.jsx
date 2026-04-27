@@ -206,8 +206,6 @@ const BatasAdministrasi = () => {
 
                   const { message, isSuccess } = result;
 
-                  resetProgress();
-
                   if (isSuccess) {
                     success('Berhasil', message);
                     fetchBatasAdministrasi();
@@ -218,7 +216,8 @@ const BatasAdministrasi = () => {
                   }
 
                   return isSuccess;
-                }
+                },
+                afterClose: resetProgress
               });
             }}
           />
@@ -330,6 +329,7 @@ const BatasAdministrasi = () => {
 
     modal.create({
       title: `Tambah ${Modul.BATAS_ADMINISTRASI}`,
+      data: { geometry_type: type },
       formFields: fields,
       onSubmit: async (values) => {
         const payload = {
@@ -467,7 +467,7 @@ const BatasAdministrasi = () => {
             Tambah
           </Button>
         </DataTableHeader>
-        <UploadProgress {...uploadProgress} />
+        <UploadProgress {...uploadProgress} onClose={resetProgress} />
 
         {chunkedUpload.progress.phase === 'error' && (
           <div className="my-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3">

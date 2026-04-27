@@ -94,11 +94,24 @@ const OptimizedLayerRenderer = React.memo(
         // 2. Update Canvas Layer Style 
         // We look up the actual layer reference we stored when adding it:
         const layerRef = layersRef.current[key];
-        if (layerRef && layerRef.setStyle) {
-          // If it's a vector layer (L.geoJSON / L.polygon etc) built on Canvas,
-          // we tell it to update its fill/stroke opacity. 
-          // Leaflet handles redrawing the canvas automatically.
-          layerRef.setStyle({ opacity: opacity, fillOpacity: opacity * 0.8 }); // Adjust fill slightly lighter
+        if (layerRef) {
+          if (layerRef.setStyle) {
+            // If it's a vector layer (L.geoJSON / L.polygon etc) built on Canvas,
+            // we tell it to update its fill/stroke opacity. 
+            // Leaflet handles redrawing the canvas automatically.
+            layerRef.setStyle({ opacity: opacity, fillOpacity: opacity * 0.8 }); // Adjust fill slightly lighter
+          }
+
+          // 3. Update Markers (which don't respond to setStyle)
+          // Jika layerRef adalah L.geoJSON group, iterasi semua child-nya
+          if (layerRef.eachLayer) {
+            layerRef.eachLayer((l) => {
+              // Jika itu adalah Marker, panggil setOpacity
+              if (l.setOpacity) {
+                l.setOpacity(opacity);
+              }
+            });
+          }
         }
       });
     }, [map, opacityKeys, layerOpacities]);
@@ -257,24 +270,37 @@ const OptimizedLayerRenderer = React.memo(
               let marker;
               
               if (props.icon_image_url) {
-                // GUNAKAN BLOB URL HASIL PRE-LOAD
-                // Ini kunci agar gambar tidak 'pop-in' satu per satu dan tidak 'rusak' kena block
                 const secureUrl = iconBlobMap[props.icon_image_url] || props.icon_image_url;
 
-                const icon = L.icon({
-                  iconUrl: secureUrl,
+                // FIX: Menggunakan L.divIcon agar lebih stabil merender HTML <img> secara custom
+                // Hal ini mencegah error rendering dari class L.icon biasa yang bisa hilang karena isu load aset
+                const customIcon = L.divIcon({
+                  html: `<img src="${secureUrl}" style="width: 32px; height: 32px; object-fit: contain;" />`,
+                  className: 'custom-div-icon',
                   iconSize: [32, 32],
-                  iconAnchor: [16, 32],
-                  className: `custom-marker-image layer-marker-${key}`
+                  iconAnchor: [16, 16],
                 });
-                marker = L.marker(latlng, { icon, pane: paneName });
+                
+                // Gunakan pane kustom agar opacity bisa dikontrol via pane style
+                // Juga set opacity awal agar sinkron dengan slider saat pertama dimuat
+                marker = L.marker(latlng, { 
+                  icon: customIcon, 
+                  pane: paneName,
+                  opacity: layerOpacity 
+                });
               } else {
-                marker = L.marker(latlng, { pane: paneName });
+                marker = L.circleMarker(latlng, { 
+                  // circleMarker akan dirender otomatis oleh canvasRenderer global (overlayPane)
+                  radius: 6,
+                  weight: 1.5,
+                  color: '#ffffff',
+                  fillColor: layer.meta?.warna || '#3388ff',
+                  fillOpacity: layerOpacity,
+                  pane: paneName // Pastikan masuk ke pane yang sama
+                });
               }
 
-              // Simpan layer key di marker untuk referensi
               marker._layerKey = key;
-              // Opacity dihandle oleh effect opacityKeys yang sudah ada
               return marker;
             },
 
@@ -791,14 +817,11 @@ const Maps = () => {
   };
 
   // ============================================================================
-  // INITIAL BATAS ADMINISTRASI LOADING - DISABLED
+  // INITIAL BATAS ADMINISTRASI LOADING - AUTO-ENABLE ON MAP LOAD
   // ============================================================================
-  // DISABLED: Auto-load causes loading stuck at 90% when using Localtunnel
-  // User can manually check the layers they need from sidebar
-  // Re-enable this when backend is stable (Cloudflare/Production server)
+  // All Batas Administrasi layers are loaded and set to ACTIVE by default
+  // when the map first loads. Users can still toggle them off from sidebar.
   React.useEffect(() => {
-    // DISABLED - Skip auto-load to prevent stuck loading
-    return;
     
     // Guard: only run once when data is available
     if (batasInitializedRef.current || batasAdministrasi.length === 0) return;
@@ -1274,7 +1297,7 @@ const Maps = () => {
   }
 
   return (
-    <section className="relative h-screen w-full overflow-hidden">
+    <section id="map-wrapper-section" className="relative h-screen w-full overflow-hidden">
       {/* === KOMPONEN LOADER BARU === */}
       {/* AnimatePresence memastikan animasi exit (menghilang) berjalan dulu sebelum dihapus dari DOM */}
       <AnimatePresence>{showLoader && <MapLoader isLoaded={isDataReady} onFinished={() => setShowLoader(false)} />}</AnimatePresence>
@@ -1288,7 +1311,7 @@ const Maps = () => {
           /* Desktop styles */
           @media (min-width: 1024px) {
             .leaflet-top.leaflet-right {
-              right: ${isSidebarCollapsed ? '10px' : '410px'};
+              right: 10px;
               transition: right 0.3s ease-in-out;
             }
             .map-tools-control {
@@ -1299,7 +1322,7 @@ const Maps = () => {
           /* Tablet styles */
           @media (min-width: 768px) and (max-width: 1023px) {
             .leaflet-top.leaflet-right {
-              right: ${isSidebarCollapsed ? '10px' : '320px'};
+              right: 10px;
               transition: right 0.3s ease-in-out;
             }
             .map-tools-control {
@@ -1532,16 +1555,14 @@ const Maps = () => {
             </Popup>
           )}
         </MapContainer>
+        {/* Glassmorphism Headline Overlay - Top Center */}
         <div
-          className="absolute top-4 z-[1002] -translate-x-1/2 transition-all duration-300"
-          style={{
-            left: isSidebarCollapsed ? '50%' : isMobile ? '50%' : isTablet ? 'calc(50% - 160px)' : 'calc(50% - 200px)'
-          }}
+          className="absolute left-1/2 top-4 z-[1002] -translate-x-1/2 transition-all duration-300"
         >
-          <div style={{ backgroundColor: 'rgba(255,255,255,0.92)' }} className={`flex items-center rounded-xl border border-gray-300 shadow-lg ${isMobile ? 'max-w-[280px] gap-2 px-2 py-1.5' : 'gap-4 px-6 py-3'}`}>
-            <img src="/image_asset/gorontalo-logo.png" alt="Lambang Provinsi Gorontalo" className={`rounded object-contain ${isMobile ? 'h-5 w-5' : 'h-7 w-7'}`} />
-            <div className={`font-bold capitalize text-black ${isMobile ? 'text-xs leading-tight' : isTablet ? 'text-base' : 'text-lg'}`}>
-              {isMobile ? 'RTRW Prov. Gorontalo' : 'Peta Rencana Tata Ruang Wilayah Provinsi Gorontalo'}
+          <div className={`flex items-center rounded-2xl border border-white/20 bg-white/30 shadow-lg backdrop-blur-md ${isMobile ? 'max-w-[300px] gap-2 px-3 py-2' : 'gap-4 px-6 py-3'}`}>
+            <img src="/image_asset/gorontalo-logo.png" alt="Lambang Provinsi Gorontalo" className={`rounded object-contain ${isMobile ? 'h-6 w-6' : 'h-8 w-8'}`} />
+            <div className={`font-bold uppercase tracking-wide text-slate-800 drop-shadow-sm ${isMobile ? 'text-xs leading-tight' : isTablet ? 'text-sm' : 'text-base'}`}>
+              {isMobile ? 'RTRW PROV. GORONTALO' : 'PETA RENCANA TATA RUANG WILAYAH PROVINSI GORONTALO'}
             </div>
           </div>
         </div>
@@ -1549,17 +1570,21 @@ const Maps = () => {
         {/* Legend removed - MapUserInfo only */}
       </div>
 
-      {/* Collapsible Sidebar - Responsive */}
-      {/* Z-Index raised to 3000 to cover map controls including zoom buttons and title */}
-      <div className={`absolute right-0 top-0 z-[3000] h-full transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-0' : isMobile ? 'w-full' : isTablet ? 'w-[340px]' : 'w-[420px]'}`}>
+      {/* Floating Sidebar - Compact floating box */}
+      {/* Desktop/Tablet: 40% width, 60% height, vertically centered on right */}
+      <div
+        className={`absolute z-[3000] overflow-visible transition-all duration-300 ease-in-out ${
+          isMobile
+            ? isSidebarCollapsed
+              ? 'right-0 top-0 h-full w-0'
+              : 'inset-0 h-full w-full'
+            : isSidebarCollapsed
+              ? 'right-4 top-[15%] h-[65%] w-0'
+              : 'right-4 top-[15%] h-[65%] w-[22%] min-w-[280px]'
+        }`}
+      >
         <MapSidebar
-          // rtrws={rtrws}
           batasAdministrasi={batasAdministrasi}
-          // treePolaRuangData={treePolaRuangData}
-          // treeStrukturRuangData={treeStrukturRuangData}
-          // treeKetentuanKhususData={treeKetentuanKhususData}
-          // treeKawasanStrategiProvinsiData={treeKawasanStrategiProvinsiData}
-          // treeIndikasiProgramData={treeIndikasiProgramData}
           treeLayerGroup={layerGroupTrees}
           selectedLayers={selectedLayers}
           loadingLayers={loadingLayers}
@@ -1570,7 +1595,6 @@ const Maps = () => {
           // Opacity controls
           layerOpacities={layerOpacities}
           onOpacityChange={handleOpacityChange}
-          // onReloadKlasifikasi={loadAllKlasifikasi}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
           isMobile={isMobile}

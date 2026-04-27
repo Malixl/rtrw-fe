@@ -7,13 +7,9 @@ import OpacitySlider from './OpacitySlider';
 import { AimOutlined, InfoCircleOutlined, MenuOutlined, MenuFoldOutlined, MenuUnfoldOutlined, InboxOutlined, FileTextOutlined } from '@ant-design/icons';
 import { useCrudModal } from '@/hooks';
 import asset from '@/utils/asset';
-/* MapUserInfo moved out of the sidebar and positioned fixed on the viewport (bottom-left) */
 
 const { Panel } = Collapse;
 
-/**
- * LayerCheckbox - Reusable checkbox component for layer items
- */
 const LayerCheckbox = ({ pemetaan, isChecked, isLoading, onToggle, onInfoClick, label }) => (
   <Checkbox checked={isChecked} onChange={onToggle} className="flex items-start">
     <span className="inline-flex flex-wrap items-center gap-x-2 leading-relaxed">
@@ -24,21 +20,18 @@ const LayerCheckbox = ({ pemetaan, isChecked, isLoading, onToggle, onInfoClick, 
   </Checkbox>
 );
 
-/**
- * CollapsibleSection - Reusable collapsible panel for layer categories
- */
+
 const CollapsibleSection = ({ title, panelKey, children, defaultActiveKey, isVirtualFolder = false, checked, indeterminate, onCheck, isDokumen = false }) => (
   <Collapse className={isVirtualFolder ? 'layer-group-collapse' : ''} ghost expandIconPosition="end" defaultActiveKey={defaultActiveKey}>
     <Panel
       key={panelKey}
       header={
         isVirtualFolder ? (
-          // Virtual folder: mirip layer group dengan chevron di kanan
+
           <div className="-mt-1 inline-flex w-full items-center">
             <span className="text-base font-semibold leading-relaxed">{title}</span>
           </div>
         ) : (
-          // Klasifikasi normal: dengan icon dan checkbox
           <div className="inline-flex w-full items-center justify-between gap-2">
             <div className="inline-flex w-full items-center gap-x-3 md:gap-x-4">
               <div
@@ -64,9 +57,6 @@ const CollapsibleSection = ({ title, panelKey, children, defaultActiveKey, isVir
   </Collapse>
 );
 
-/**
- * LoadingSkeleton - Loading state for layer sections
- */
 const LoadingSkeleton = () => (
   <Collapse ghost expandIcon={() => ''}>
     <Panel
@@ -218,18 +208,10 @@ const MapSidebar = ({
 
   const highlightText = useCallback(
     (text = '') => {
-      const parts = highlightParts(text, debouncedSearch);
-      return parts.map((p, i) =>
-        p.match ? (
-          <span key={i} className="rounded bg-yellow-200 px-0.5">
-            {p.text}
-          </span>
-        ) : (
-          <span key={i}>{p.text}</span>
-        )
-      );
+      // User requested to remove the yellow highlight effect
+      return <>{text}</>;
     },
-    [debouncedSearch]
+    []
   );
 
   // Keyboard shortcut: focus search input when user types '/'
@@ -482,23 +464,29 @@ const MapSidebar = ({
 
   return (
     <div className="relative flex h-full">
-      {/* Toggle Button - responsive positioning */}
+      {/* Toggle Button - positioned outside the floating panel */}
       {!isMobile && (
         <Tooltip title={isCollapsed ? 'Buka Panel' : 'Tutup Panel'} placement="left">
           <Button
             type="primary"
-            icon={isCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+            icon={isCollapsed ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
             onClick={onToggleCollapse}
-            className={`absolute -left-10 top-1/2 z-[1001] -translate-y-1/2 rounded-l-lg rounded-r-none shadow-lg transition-all ${isTablet ? 'h-10 w-9' : 'h-12 w-10'}`}
-            style={{ right: '100%', left: 'auto' }}
+            className={`absolute z-[1001] -translate-y-1/2 rounded-full shadow-lg transition-all ${isTablet ? 'h-10 w-10' : 'h-12 w-12'}`}
+            style={{ top: '50%', right: 'calc(97% + 12px)' }}
           />
         </Tooltip>
       )}
 
-      {/* Sidebar Content */}
+      {/* Sidebar Content - Floating Window */}
       <div
-        className={`h-full overflow-y-auto bg-white shadow-xl transition-all duration-300 ease-in-out ${
-          isCollapsed ? 'w-0 overflow-hidden p-0' : `w-full ${isMobile ? 'p-4' : isTablet ? 'p-4' : 'p-6'}`
+        className={`h-full overflow-y-auto shadow-2xl transition-all duration-300 ease-in-out ${
+          isMobile
+            ? isCollapsed
+              ? 'w-0 overflow-hidden p-0'
+              : 'w-full bg-white p-4'
+            : isCollapsed
+              ? 'w-0 overflow-hidden p-0'
+              : `w-full rounded-2xl border border-gray-200/60 bg-white/95 backdrop-blur-sm ${isTablet ? 'p-4' : 'p-6'}`
         } scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100`}
       >
         {/* Mobile Header with Close Button */}
@@ -511,7 +499,7 @@ const MapSidebar = ({
           </div>
         )}
 
-        <div className={`flex flex-col ${isMobile ? 'min-w-0' : isTablet ? 'min-w-[300px]' : 'min-w-[360px]'} ${isCollapsed ? 'invisible opacity-0' : 'visible opacity-100'}`}>
+        <div className={`flex flex-col ${isMobile ? 'min-w-0' : 'min-w-0'} ${isCollapsed ? 'invisible opacity-0' : 'visible opacity-100'}`}>
           {/* Header - hide on mobile since we have it above */}
           {!isMobile && (
             <div className="flex flex-col">
@@ -551,12 +539,15 @@ const MapSidebar = ({
                 {(() => {
                   const parentLabel = 'Batas Administrasi';
                   let filteredBatas;
-                  if (!debouncedSearch) filteredBatas = batasAdministrasi;
-                  else if (fuzzyMatch(debouncedSearch, parentLabel)) {
-                    // Query matches the parent label -> show all items
+                  if (!debouncedSearch) {
                     filteredBatas = batasAdministrasi;
                   } else {
                     filteredBatas = filterList(batasAdministrasi, debouncedSearch, ['name', 'nama']);
+                  }
+
+                  // Eliminate section entirely if searching and no items match
+                  if (debouncedSearch && (!filteredBatas || filteredBatas.length === 0)) {
+                    return null;
                   }
 
                   const batasOpen = Boolean(debouncedSearch && filteredBatas.length > 0);
@@ -640,14 +631,17 @@ const MapSidebar = ({
                 if (debouncedSearch) {
                   const anyMatch = treeLayerGroup.some((layer) => {
                     const t = layer.tree || {};
-                    return (
-                      filterTree(t.pola || []).length > 0 ||
-                      filterTree(t.struktur || []).length > 0 ||
-                      filterTree(t.ketentuan || []).length > 0 ||
-                      filterTree(t.kawasan_strategi_provinsi || []).length > 0 ||
-                      filterTree(t.indikasi || []).length > 0 ||
-                      filterTree(t.data_spasial || []).length > 0 ||
-                      filterTree(t.batas || []).length > 0
+                    const groupNameMatches = fuzzyMatch(debouncedSearch, layer.layer_group_name || layer.nama || layer.name || layer.title || layer.deskripsi || '');
+                    
+                    return groupNameMatches || (
+                      filterTree(t.pola || [], debouncedSearch).length > 0 ||
+                      filterTree(t.struktur || [], debouncedSearch).length > 0 ||
+                      filterTree(t.ketentuan || [], debouncedSearch).length > 0 ||
+                      filterTree(t.kawasan_strategi_provinsi || [], debouncedSearch).length > 0 ||
+                      filterTree(t.indikasi || [], debouncedSearch).length > 0 ||
+                      filterTree(t.data_spasial || [], debouncedSearch).length > 0 ||
+                      filterTree(t.batas || [], debouncedSearch).length > 0 ||
+                      filterTree(t.dokumen || [], debouncedSearch).length > 0
                     );
                   });
 
@@ -660,9 +654,31 @@ const MapSidebar = ({
                   }
                 }
 
+                // Strictly filter layer groups to eliminate those with no related data
+                const filteredGroups = !debouncedSearch ? treeLayerGroup : treeLayerGroup.filter((layer) => {
+                  const t = layer.tree || {};
+                  
+                  // Periksa apakah nama group-nya sendiri cocok
+                  const groupNameMatches = fuzzyMatch(debouncedSearch, layer.layer_group_name || layer.nama || layer.name || layer.title || layer.deskripsi || '');
+                  
+                  // Periksa apakah ada isinya yang cocok
+                  const hasMatchingData = (
+                    filterTree(t.pola || [], debouncedSearch).length > 0 ||
+                    filterTree(t.struktur || [], debouncedSearch).length > 0 ||
+                    filterTree(t.ketentuan || [], debouncedSearch).length > 0 ||
+                    filterTree(t.kawasan_strategi_provinsi || [], debouncedSearch).length > 0 ||
+                    filterTree(t.indikasi || [], debouncedSearch).length > 0 ||
+                    filterTree(t.data_spasial || [], debouncedSearch).length > 0 ||
+                    filterTree(t.batas || [], debouncedSearch).length > 0 ||
+                    filterTree(t.dokumen || [], debouncedSearch).length > 0
+                  );
+
+                  return groupNameMatches || hasMatchingData;
+                });
+
                 return (
-                  <Collapse key="layer-group-collapse" ghost expandIconPosition="right" defaultActiveKey={treeLayerGroup.map((layer) => layer.id || layer.key)}>
-                    {treeLayerGroup.map((layer) => {
+                  <Collapse key="layer-group-collapse" ghost expandIconPosition="right" defaultActiveKey={filteredGroups.map((layer) => layer.id || layer.key)}>
+                    {filteredGroups.map((layer) => {
                       const groupKey = layer.id || layer.key;
                       return (
                         <Panel

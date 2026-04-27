@@ -17,14 +17,17 @@ export const formFields = ({ options }) => [
   {
     label: `Deskripsi ${Modul.KETENTUAN_KHUSUS}`,
     name: 'desc',
-    type: InputType.LONGTEXT,
+    type: InputType.CONTENT_EDITOR,
     rules: [
       {
         required: true,
         message: `Deskripsi ${Modul.KETENTUAN_KHUSUS} harus diisi`
       }
     ],
-    size: 'large'
+    size: 'large',
+    useAi: false,
+    aiSourceField: 'name',
+    modulName: Modul.KETENTUAN_KHUSUS
   },
   {
     label: `Klasifkasi ${Modul.KETENTUAN_KHUSUS}`,

@@ -104,7 +104,7 @@ const buildEditFieldsByGeometry = (record, klasifikasis) => {
     );
   }
 
-  if (record.geometry_type === 'plygon') {
+  if (record.geometry_type === 'polygon') {
     fields.push({
       label: `Warna ${Modul.DATA_SPASIAL}`,
       name: 'color',
@@ -253,8 +253,6 @@ const DataSpasials = () => {
 
                   const { message, isSuccess } = result;
 
-                  resetProgress();
-
                   if (isSuccess) {
                     success('Berhasil', message);
                     fetchDataSpasials();
@@ -263,7 +261,8 @@ const DataSpasials = () => {
                   }
 
                   return isSuccess;
-                }
+                },
+                afterClose: resetProgress
               });
             }}
           />
@@ -439,6 +438,7 @@ const DataSpasials = () => {
 
     modal.create({
       title: `Tambah ${Modul.DATA_SPASIAL}`,
+      data: { geometry_type: type },
       formFields: fields,
       onSubmit: async (values) => {
         const payload = {
@@ -483,8 +483,6 @@ const DataSpasials = () => {
 
         const { message, isSuccess } = result;
 
-        resetProgress();
-
         if (isSuccess) {
           success('Berhasil', message);
           fetchDataSpasials();
@@ -493,7 +491,8 @@ const DataSpasials = () => {
         }
 
         return isSuccess;
-      }
+      },
+      afterClose: resetProgress
     });
   };
 

@@ -56,6 +56,7 @@ const Dashboard = () => {
             onClick={(e) => {
               e.preventDefault();
               logout();
+              navigate('/');
             }}
             className="text-color-danger-500 flex min-w-32 items-center gap-x-2"
             style={{ color: 'red', textDecoration: 'none' }}

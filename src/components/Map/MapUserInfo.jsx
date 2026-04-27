@@ -55,6 +55,7 @@ const MapUserInfo = () => {
           onClick={(e) => {
             e.preventDefault();
             logout();
+            navigate('/');
           }}
           style={{ color: 'red', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6 }}
         >

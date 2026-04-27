@@ -24,7 +24,10 @@ export const formFields = ({ options = {} } = {}) => [
         message: `Deskripsi ${Modul.BATAS_ADMINISTRASI} harus diisi`
       }
     ],
-    size: 'large'
+    size: 'large',
+    useAi: true,
+    aiSourceField: 'name',
+    modulName: Modul.BATAS_ADMINISTRASI
   },
   {
     label: `Klasifikasi ${Modul.BATAS_ADMINISTRASI}`,

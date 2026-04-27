@@ -62,7 +62,7 @@ export const formFields = ({ options }) => [
     rules: []
   },
   {
-    label: `Warna ${Modul.STRUKTUR}`,
+    label: `Warna ${Modul.POLARUANG}`,
     name: 'color',
     type: InputType.COLOR,
     rules: [
