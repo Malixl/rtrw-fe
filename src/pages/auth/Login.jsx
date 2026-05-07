@@ -16,7 +16,8 @@ const Login = () => {
     if (isAuthenticated) {
       const redirectParam = searchParams.get('redirect');
       const defaultRedirect = getRedirectAfterLogin();
-      const redirectPath = redirectParam || defaultRedirect;
+      let redirectPath = redirectParam || defaultRedirect;
+      if (!redirectPath.startsWith('/')) redirectPath = `/${redirectPath}`;
       navigate(redirectPath, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -45,6 +46,9 @@ const Login = () => {
         redirectPath = '/map';
       }
     }
+
+    // Ensure absolute path
+    if (!redirectPath.startsWith('/')) redirectPath = `/${redirectPath}`;
 
     navigate(redirectPath, { replace: true });
   };

@@ -105,7 +105,7 @@ const buildEditFieldsByGeometry = (record, klasifikasis) => {
     );
   }
 
-  if (record.geometry_type === 'plygon') {
+  if (record.geometry_type === 'polygon') {
     fields.push({
       label: `Warna ${Modul.KAWASAN_STRATEGI_PROVINSI}`,
       name: 'color',
@@ -247,8 +247,6 @@ const KawasanStrategiProvinsiPage = () => {
 
                   const { message, isSuccess } = result;
 
-                  resetProgress();
-
                   if (isSuccess) {
                     success('Berhasil', message);
                     fetchKawasanStrategiProvinsi();
@@ -257,7 +255,8 @@ const KawasanStrategiProvinsiPage = () => {
                   }
 
                   return isSuccess;
-                }
+                },
+                afterClose: resetProgress
               });
             }}
           />
@@ -438,6 +437,7 @@ const KawasanStrategiProvinsiPage = () => {
 
     modal.create({
       title: `Tambah ${Modul.KAWASAN_STRATEGI_PROVINSI}`,
+      data: { geometry_type: type },
       formFields: fields,
       onSubmit: async (values) => {
         const payload = {
@@ -479,8 +479,6 @@ const KawasanStrategiProvinsiPage = () => {
 
         const { message, isSuccess } = result;
 
-        resetProgress();
-
         if (isSuccess) {
           success('Berhasil', message);
           fetchKawasanStrategiProvinsi();
@@ -489,7 +487,8 @@ const KawasanStrategiProvinsiPage = () => {
         }
 
         return isSuccess;
-      }
+      },
+      afterClose: resetProgress
     });
   };
 

@@ -13,14 +13,17 @@ export function fuzzyMatch(query = '', text = '') {
     const q = normalize(query);
     const t = normalize(text);
     if (!q) return true;
-    // Fast path: substring
+    
+    // Fast path: exact substring
     if (t.includes(q)) return true;
-    // In-order fuzzy (each char in q must appear in t in order)
-    let qi = 0;
-    for (let i = 0; i < t.length && qi < q.length; i++) {
-        if (t[i] === q[qi]) qi += 1;
+    
+    // Multi-word strict match: all words in query must exist in text
+    const words = q.split(/\s+/).filter(Boolean);
+    if (words.length > 0) {
+        return words.every(word => t.includes(word));
     }
-    return qi === q.length;
+    
+    return false;
 }
 
 export function highlightParts(text = '', query = '') {
@@ -68,20 +71,32 @@ export function highlightParts(text = '', query = '') {
 export function filterTree(treeData = [], query = '') {
     if (!query) return treeData;
     const q = query.trim().toLowerCase();
-    return treeData.reduce((acc, node) => {
-        const nodeMatches = fuzzyMatch(q, node.title || node.nama || '');
-        const matchedChildren = (node.children || []).filter((child) => {
-            return (
-                fuzzyMatch(q, child.title || child.nama || '') ||
-                fuzzyMatch(q, child.deskripsi || '') ||
-                // Allow searching by geojson filename / path (useful for batas items)
-                fuzzyMatch(q, child.geojson_file || '')
-            );
-        });
-        if (nodeMatches) acc.push(node);
-        else if (matchedChildren.length > 0) acc.push({ ...node, children: matchedChildren });
-        return acc;
-    }, []);
+    
+    function filterNodes(nodes) {
+        if (!Array.isArray(nodes)) return [];
+        return nodes.reduce((acc, node) => {
+            const nodeMatches = 
+                fuzzyMatch(q, node.title || node.nama || '') || 
+                fuzzyMatch(q, node.deskripsi || '') ||
+                fuzzyMatch(q, node.geojson_file || '');
+                
+            let matchedChildren = [];
+            if (node.children && node.children.length > 0) {
+                matchedChildren = filterNodes(node.children);
+            }
+            
+            if (nodeMatches || matchedChildren.length > 0) {
+                if (nodeMatches) {
+                    acc.push(node);
+                } else {
+                    acc.push({ ...node, children: matchedChildren });
+                }
+            }
+            return acc;
+        }, []);
+    }
+    
+    return filterNodes(treeData);
 }
 /**
  * Filter a flat list of items by query against provided keys (defaults to ['name','nama']).

@@ -24,7 +24,10 @@ export const formFields = ({ options }) => [
         message: `Deskripsi ${Modul.KAWASAN_STRATEGI_PROVINSI} harus diisi`
       }
     ],
-    size: 'large'
+    size: 'large',
+    useAi: true,
+    aiSourceField: 'name',
+    modulName: Modul.KAWASAN_STRATEGI_PROVINSI
   },
   {
     label: `Klasifikasi ${Modul.KAWASAN_STRATEGI_PROVINSI}`,

@@ -58,7 +58,7 @@ export default function CrudModalProvider({ children }) {
 
   const methods = useMemo(
     () => ({
-      create: ({ title, formFields, onSubmit, onChange }) => open({ type: CrudModalType.CREATE, title, formFields, onSubmit, onChange }),
+      create: ({ title, data, formFields, onSubmit, onChange }) => open({ type: CrudModalType.CREATE, title, data, formFields, onSubmit, onChange }),
       show: {
         default: ({ title, data, formFields }) => open({ type: CrudModalType.SHOW, title, data, formFields }),
         paragraph: ({ title, data }) => open({ type: ReadModalType.PARAGRAPH, title, data }),

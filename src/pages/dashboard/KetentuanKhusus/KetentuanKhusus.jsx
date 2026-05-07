@@ -105,7 +105,7 @@ const buildEditFieldsByGeometry = (record, klasifikasis) => {
     );
   }
 
-  if (record.geometry_type === 'plygon') {
+  if (record.geometry_type === 'polygon') {
     fields.push({
       label: `Warna ${Modul.KETENTUAN_KHUSUS}`,
       name: 'color',
@@ -248,8 +248,6 @@ const KetentuanKhusus = () => {
 
                   const { message, isSuccess } = result;
 
-                  resetProgress();
-
                   if (isSuccess) {
                     success('Berhasil', message);
                     fetchKetentuanKhusus();
@@ -258,7 +256,8 @@ const KetentuanKhusus = () => {
                   }
 
                   return isSuccess;
-                }
+                },
+                afterClose: resetProgress
               });
             }}
           />
@@ -438,6 +437,7 @@ const KetentuanKhusus = () => {
 
     modal.create({
       title: `Tambah ${Modul.KETENTUAN_KHUSUS}`,
+      data: { geometry_type: type },
       formFields: fields,
       onSubmit: async (values) => {
         const payload = {
@@ -479,8 +479,6 @@ const KetentuanKhusus = () => {
 
         const { message, isSuccess } = result;
 
-        resetProgress();
-
         if (isSuccess) {
           success('Berhasil', message);
           fetchKetentuanKhusus();
@@ -489,7 +487,8 @@ const KetentuanKhusus = () => {
         }
 
         return isSuccess;
-      }
+      },
+      afterClose: resetProgress
     });
   };
 

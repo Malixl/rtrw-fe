@@ -6,7 +6,7 @@ import { EyeOutlined } from '@ant-design/icons';
  * OpacitySlider - Slider untuk mengatur transparansi layer GeoJSON
  * Mirip dengan fitur di aplikasi editing seperti Photoshop/Figma
  */
-const OpacitySlider = ({ value = 80, onChange, disabled = false }) => {
+const OpacitySlider = ({ value = 100, onChange, disabled = false }) => {
   return (
     <div className="ml-6 mt-1 flex items-center gap-x-2">
       <Tooltip title="Transparansi">

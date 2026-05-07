@@ -146,37 +146,101 @@
   @apply bg-white bg-opacity-10;
 }
 
-/* Layer Group Collapse - Reduce header padding */
-.layer-group-collapse .ant-collapse-header {
-  padding-top: 0.5rem !important;
-  padding-bottom: 0.5rem !important;
+/* ============================================================================
+   SIDEBAR FLAT HIERARCHY - Typography & Spacing
+   ============================================================================ */
+
+/* Layer Group level - largest, bold */
+.sidebar-level-group {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #1a1a2e;
+  letter-spacing: -0.01em;
+}
+
+/* Klasifikasi level - lighter weight */
+.sidebar-level-klasifikasi {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: #4a5568;
+}
+
+/* Virtual folder level - bolder than klasifikasi */
+.sidebar-level-virtual {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: #2d3748;
+}
+
+/* Leaf/GeoJSON level - smallest, indented */
+.sidebar-level-leaf {
+  font-size: 11.5px;
+  font-weight: 400;
+  line-height: 1.3;
+  color: #4a5568;
+}
+
+/* Spacing between layer group panels */
+.layer-group-spacing > .ant-collapse-item {
+  margin-bottom: 8px !important;
+}
+
+/* Smaller checkbox inside sidebar */
+.sidebar-flat-collapse .ant-checkbox-inner {
+  width: 14px !important;
+  height: 14px !important;
+}
+
+.sidebar-flat-collapse .ant-checkbox-inner::after {
+  width: 4px !important;
+  height: 8px !important;
+}
+
+/* Flat collapse - remove all indentation */
+.sidebar-flat-collapse .ant-collapse-content-box {
+  padding: 0 0 0 16px !important;
+}
+
+.sidebar-flat-collapse .ant-collapse-header {
+  padding: 4px 8px !important;
+}
+
+/* Global collapse tightening */
+.ant-collapse-header {
+  padding: 6px 8px !important;
+}
+
+.ant-collapse-content-box {
+  padding: 2px 4px !important;
 }
 
 /* Responsive collapse panels for mobile */
 @media (max-width: 767px) {
   .ant-collapse-header {
-    padding: 10px 12px !important;
-    font-size: 14px !important;
+    padding: 6px 6px !important;
+    font-size: 13px !important;
   }
 
   .ant-collapse-content-box {
-    padding: 12px !important;
+    padding: 2px 4px !important;
   }
 
-  /* Make expand icons larger on mobile */
   .ant-collapse-expand-icon {
-    padding-inline-end: 8px !important;
+    padding-inline-end: 4px !important;
   }
 }
 
 /* Responsive collapse panels for tablet */
 @media (min-width: 768px) and (max-width: 1023px) {
   .ant-collapse-header {
-    padding: 10px 14px !important;
+    padding: 6px 8px !important;
   }
 
   .ant-collapse-content-box {
-    padding: 14px !important;
+    padding: 2px 6px !important;
   }
 }
 
@@ -285,6 +349,28 @@
   }
 }
 
+/* Map Tool Overrides for Size Consistency */
+.leaflet-touch .leaflet-bar a,
+.leaflet-bar a {
+  width: 30px !important;
+  height: 30px !important;
+  line-height: 30px !important;
+}
+
+.leaflet-touch .leaflet-control-layers-toggle,
+.leaflet-control-layers-toggle {
+  width: 30px !important;
+  height: 30px !important;
+  background-size: 16px 16px !important;
+  background-position: center !important;
+}
+
+.leaflet-touch .leaflet-control-layers,
+.leaflet-touch .leaflet-bar {
+  border: 2px solid rgba(0,0,0,0.2) !important;
+  background-clip: padding-box;
+}
+
 /* ============================================================================
    LEAFLET RESPONSIVE FIXES
    ============================================================================ */
@@ -327,4 +413,51 @@
   }
 }
 
+/* ============================================================================
+   PRINT MEDIA QUERIES (Ctrl + P)
+   ============================================================================ */
+@media print {
+  @page {
+    size: landscape;
+    margin: 0;
+  }
 
+  html, body, #root {
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide UI components during print */
+  .hide-on-print,
+  .ant-tooltip,
+  .ant-message,
+  .ant-modal-root {
+    display: none !important;
+  }
+
+  /* Force map wrapper to fill entire page */
+  #map-wrapper-section {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    z-index: 9999 !important;
+  }
+
+  /* Ensure the map container takes full width/height */
+  .leaflet-container {
+    width: 100% !important;
+    height: 100% !important;
+  }
+}

@@ -129,8 +129,6 @@ const Polaruangs = () => {
 
                   const { message, isSuccess } = result;
 
-                  resetProgress();
-
                   if (isSuccess) {
                     success('Berhasil', message);
                     fetchPolaruangs();
@@ -236,8 +234,6 @@ const Polaruangs = () => {
         }
 
         const { message, isSuccess } = result;
-
-        resetProgress();
 
         if (isSuccess) {
           success('Berhasil', message);

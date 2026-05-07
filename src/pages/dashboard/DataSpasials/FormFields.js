@@ -24,7 +24,10 @@ export const formFields = ({ options }) => [
         message: `Deskripsi ${Modul.DATA_SPASIAL} harus diisi`
       }
     ],
-    size: 'large'
+    size: 'large',
+    useAi: true,
+    aiSourceField: 'name',
+    modulName: Modul.DATA_SPASIAL
   },
   {
     label: `Klasifkasi ${Modul.DATA_SPASIAL}`,

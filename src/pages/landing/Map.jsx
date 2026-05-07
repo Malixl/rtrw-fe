@@ -6,7 +6,7 @@ import { BASE_URL } from '@/utils/api';
 import asset from '@/utils/asset';
 import { fetchGeoJSON, batchFetchGeoJSON } from '@/utils/fetchGeoJSON';
 
-import { LockOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
+import { LockOutlined, MenuUnfoldOutlined, MenuFoldOutlined } from '@ant-design/icons';
 import { Button, Result, Tooltip } from 'antd';
 import React, { useMemo, useCallback } from 'react';
 import { MapContainer, TileLayer, Popup, LayersControl, useMap } from 'react-leaflet';
@@ -40,6 +40,7 @@ import CoordinateControl from '@/components/Map/CoordinateControl';
 import MapToolsControl from '@/components/Map/MapToolsControl';
 import { fetchMarkerImage } from '@/utils/fetchMarkerImage';
 import MapSidebar from '@/components/Map/MapSidebar';
+import ScreenshotControl from '@/components/Map/ScreenshotControl';
 import MapUserInfo from '@/components/Map/MapUserInfo';
 import MapLoader from '@/components/Map/MapLoader';
 import BatchLoadingOverlay from '@/components/Map/BatchLoadingOverlay';
@@ -82,7 +83,7 @@ const OptimizedLayerRenderer = React.memo(
       if (!map || !layerOpacities) return;
 
       Object.entries(layerOpacities).forEach(([key, opacityValue]) => {
-        const opacity = (opacityValue ?? 80) / 100;
+        const opacity = (opacityValue ?? 100) / 100;
         
         // 1. Update CSS Opacity for markers (which still use panes)
         const paneName = `pane-${key}`;
@@ -94,11 +95,24 @@ const OptimizedLayerRenderer = React.memo(
         // 2. Update Canvas Layer Style 
         // We look up the actual layer reference we stored when adding it:
         const layerRef = layersRef.current[key];
-        if (layerRef && layerRef.setStyle) {
-          // If it's a vector layer (L.geoJSON / L.polygon etc) built on Canvas,
-          // we tell it to update its fill/stroke opacity. 
-          // Leaflet handles redrawing the canvas automatically.
-          layerRef.setStyle({ opacity: opacity, fillOpacity: opacity * 0.8 }); // Adjust fill slightly lighter
+        if (layerRef) {
+          if (layerRef.setStyle) {
+            // If it's a vector layer (L.geoJSON / L.polygon etc) built on Canvas,
+            // we tell it to update its fill/stroke opacity. 
+            // Leaflet handles redrawing the canvas automatically.
+            layerRef.setStyle({ opacity: opacity, fillOpacity: opacity * 1.0 }); // Adjust fill
+          }
+
+          // 3. Update Markers (which don't respond to setStyle)
+          // Jika layerRef adalah L.geoJSON group, iterasi semua child-nya
+          if (layerRef.eachLayer) {
+            layerRef.eachLayer((l) => {
+              // Jika itu adalah Marker, panggil setOpacity
+              if (l.setOpacity) {
+                l.setOpacity(opacity);
+              }
+            });
+          }
         }
       });
     }, [map, opacityKeys, layerOpacities]);
@@ -131,19 +145,13 @@ const OptimizedLayerRenderer = React.memo(
         }
       });
 
-      // Add new layers
       currentLayerKeys.forEach(async (key) => {
         if (!existingLayerKeys.has(key)) {
           const layer = selectedLayers[key];
           if (!layer?.data) return;
 
-          // Get opacity for this layer (default 80%)
-          const layerOpacity = (layerOpacities?.[key] ?? 80) / 100;
+          const layerOpacity = (layerOpacities?.[key] ?? 100) / 100;
 
-          // ========================================================================
-          // PERFORMANCE: Create custom Pane for THIS layer but ONLY FOR MARKERS!
-          // ========================================================================
-          // Canvas rendering does not need Panes for opacity, but HTML Markers do.
           const paneName = `pane-${key}`;
           let pane = map.getPane(paneName);
           if (!pane) {
@@ -247,7 +255,7 @@ const OptimizedLayerRenderer = React.memo(
               // Set initial opacity from slider value
               style.opacity = layerOpacity;
               // preserve standard behavior: fillOpacity is slightly less opaque than stroke
-              style.fillOpacity = layerOpacity * (style.fillOpacity ?? 0.8);
+              style.fillOpacity = layerOpacity * (style.fillOpacity ?? 1.0);
               return style;
             },
 
@@ -257,24 +265,37 @@ const OptimizedLayerRenderer = React.memo(
               let marker;
               
               if (props.icon_image_url) {
-                // GUNAKAN BLOB URL HASIL PRE-LOAD
-                // Ini kunci agar gambar tidak 'pop-in' satu per satu dan tidak 'rusak' kena block
                 const secureUrl = iconBlobMap[props.icon_image_url] || props.icon_image_url;
 
-                const icon = L.icon({
-                  iconUrl: secureUrl,
+                // FIX: Menggunakan L.divIcon agar lebih stabil merender HTML <img> secara custom
+                // Hal ini mencegah error rendering dari class L.icon biasa yang bisa hilang karena isu load aset
+                const customIcon = L.divIcon({
+                  html: `<img src="${secureUrl}" style="width: 32px; height: 32px; object-fit: contain;" />`,
+                  className: 'custom-div-icon',
                   iconSize: [32, 32],
-                  iconAnchor: [16, 32],
-                  className: `custom-marker-image layer-marker-${key}`
+                  iconAnchor: [16, 16],
                 });
-                marker = L.marker(latlng, { icon, pane: paneName });
+                
+                // Gunakan pane kustom agar opacity bisa dikontrol via pane style
+                // Juga set opacity awal agar sinkron dengan slider saat pertama dimuat
+                marker = L.marker(latlng, { 
+                  icon: customIcon, 
+                  pane: paneName,
+                  opacity: layerOpacity 
+                });
               } else {
-                marker = L.marker(latlng, { pane: paneName });
+                marker = L.circleMarker(latlng, { 
+                  // circleMarker akan dirender otomatis oleh canvasRenderer global (overlayPane)
+                  radius: 6,
+                  weight: 1.5,
+                  color: '#ffffff',
+                  fillColor: layer.meta?.warna || '#3388ff',
+                  fillOpacity: layerOpacity,
+                  pane: paneName // Pastikan masuk ke pane yang sama
+                });
               }
 
-              // Simpan layer key di marker untuk referensi
               marker._layerKey = key;
-              // Opacity dihandle oleh effect opacityKeys yang sudah ada
               return marker;
             },
 
@@ -377,11 +398,12 @@ const Maps = () => {
   // State untuk mengontrol visibilitas Loader
   const [showLoader, setShowLoader] = React.useState(true);
 
+
   // ============================================================================
   // LAYER OPACITY STATE - Untuk mengatur transparansi tiap layer
   // ============================================================================
   // Key: layer key (e.g., "pola-1", "batas-5")
-  // Value: opacity percentage (10-100, default 80)
+  // Value: opacity percentage (10-100, default 100)
   const [layerOpacities, setLayerOpacities] = React.useState({});
 
   // Handler untuk mengubah opacity layer
@@ -404,6 +426,7 @@ const Maps = () => {
 
   // Track if initial batas administrasi has been loaded to prevent race conditions
   const batasInitializedRef = React.useRef(false);
+  const spasialInitializedRef = React.useRef(false);
 
   // AbortController untuk cancel request yang tidak perlu
   const abortControllerRef = React.useRef(null);
@@ -571,7 +594,7 @@ const Maps = () => {
         const warna = pemetaan.warna ?? null;
         const iconImageUrl = asset(pemetaan.icon_titik) ?? null;
         const tipe_garis = pemetaan.tipe_garis ?? null;
-        const fillOpacity = pemetaan.fill_opacity ?? 0.8;
+        const fillOpacity = pemetaan.fill_opacity ?? 1.0;
 
         try {
           // Process di Web Worker (non-blocking)
@@ -763,7 +786,7 @@ const Maps = () => {
       const warna = pemetaan.warna ?? null;
       const iconImageUrl = asset(pemetaan.icon_titik) ?? null;
       const tipe_garis = pemetaan.tipe_garis ?? null;
-      const fillOpacity = pemetaan.fill_opacity ?? 0.8;
+      const fillOpacity = pemetaan.fill_opacity ?? 1.0;
 
       // OPTIMIZED: Process di Web Worker (non-blocking UI thread)
       const enhanced = await workerProcessGeoJSON(json, {
@@ -791,11 +814,12 @@ const Maps = () => {
   };
 
   // ============================================================================
-  // INITIAL BATAS ADMINISTRASI LOADING - OPTIMIZED
+  // INITIAL BATAS ADMINISTRASI LOADING - AUTO-ENABLE ON MAP LOAD
   // ============================================================================
-  // Loads ALL batas administrasi polygons at once to prevent race conditions
-  // Uses batchFetchGeoJSON untuk concurrent fetch dan Web Worker untuk processing
+  // All Batas Administrasi layers are loaded and set to ACTIVE by default
+  // when the map first loads. Users can still toggle them off from sidebar.
   React.useEffect(() => {
+    
     // Guard: only run once when data is available
     if (batasInitializedRef.current || batasAdministrasi.length === 0) return;
     batasInitializedRef.current = true;
@@ -803,6 +827,7 @@ const Maps = () => {
     const loadAllBatasAdministrasi = async () => {
       // Build pemetaan list for all batas administrasi
       const pemetaanList = batasAdministrasi.map((item) => ({
+        ...item, // PERTAHANKAN SEMUA METADATA ASLI
         key: `batas-${item.id}`,
         id: item.id,
         type: 'batas_administrasi',
@@ -861,12 +886,13 @@ const Maps = () => {
         const json = result.data;
         const warna = pemetaan.warna ?? '#000000';
         const tipe_garis = pemetaan.tipe_garis ?? 'solid';
-        const fillOpacity = pemetaan.fill_opacity ?? 0.3;
+        const fillOpacity = pemetaan.fill_opacity ?? 1.0;
 
         try {
           // OPTIMIZED: Process di Web Worker
           const enhanced = await workerProcessGeoJSON(json, {
             warna,
+            iconImageUrl: asset(pemetaan.icon_titik), // FIX: PASTIKAN ICON IKUT TER-LOAD
             tipe_garis,
             fillOpacity,
             simplifyTolerance: 0 // DISABLED: Render exact geometry from QGIS
@@ -913,24 +939,188 @@ const Maps = () => {
     loadAllBatasAdministrasi();
   }, [batasAdministrasi, workerProcessGeoJSON]);
 
+  // ============================================================================
+  // INITIAL DATA SPASIAL LOADING - AUTO-ENABLE SPECIFIC LAYERS ON MAP LOAD
+  // ============================================================================
+  // Automatically loads "Garis Pantai" and "Pulau" from Data Spasial.
+  React.useEffect(() => {
+    if (spasialInitializedRef.current || layerGroupTrees.length === 0) return;
+
+    const itemsToLoad = [];
+    
+    // Scan layerGroupTrees for Data Spasial leaves matching our target keywords
+    layerGroupTrees.forEach((group) => {
+      const tree = group.tree || {};
+      const dataSpasialNodes = tree.data_spasial || [];
+      
+      const findLeaves = (nodes, parentMatches = false) => {
+        nodes.forEach((node) => {
+          // Check if this node itself matches the keywords
+          const name = (node.title || node.nama || '').toLowerCase();
+          const matches = parentMatches || name.includes('garis pantai') || name.includes('pulau');
+
+          if (node.isLeaf && node.type === 'data_spasial') {
+            if (matches) {
+              itemsToLoad.push(node);
+            }
+          }
+          
+          if (node.children) {
+            findLeaves(node.children, matches);
+          }
+        });
+      };
+      
+      findLeaves(dataSpasialNodes);
+    });
+
+    if (itemsToLoad.length === 0) return; // Wait until they exist
+    spasialInitializedRef.current = true; // Mark as initialized so we run this only once
+
+    const loadSpecificDataSpasial = async () => {
+      const pemetaanList = itemsToLoad.map((item) => ({
+        ...item, // PERTAHANKAN SEMUA METADATA ASLI (keterangan, deskripsi, icon_titik dll)
+        key: item.key, // e.g. `data_spasial-123`
+        id: item.id,
+        type: 'data_spasial',
+        nama: item.title || item.nama,
+        warna: item.color || item.warna || '#3388ff',
+        tipe_geometri: item.geometry_type || item.tipe_geometri || 'polygon',
+        tipe_garis: item.line_type || item.tipe_garis || 'solid',
+        fill_opacity: item.fill_opacity || 1.0
+      }));
+
+      // 1. Set loading state
+      setLoadingLayers((prev) => {
+        const updated = { ...prev };
+        pemetaanList.forEach((p) => (updated[p.key] = true));
+        return updated;
+      });
+
+      // 2. Build fetch items
+      const fetchItems = pemetaanList.map((pemetaan) => ({
+        url: `${BASE_URL}/data_spasial/${pemetaan.id}/geojson`,
+        key: pemetaan.key,
+        pemetaan
+      }));
+
+      // 3. Fetch with concurrency
+      const fetchResults = await batchFetchGeoJSON(fetchItems, {
+        concurrency: 2,
+        signal: abortControllerRef.current?.signal
+      });
+
+      const processedResults = [];
+
+      // 4. Process in Web Worker
+      for (const result of fetchResults) {
+        if (result.status !== 'fulfilled') continue;
+
+        const pemetaan = fetchItems.find((f) => f.key === result.key)?.pemetaan;
+        if (!pemetaan) continue;
+
+        try {
+          const enhanced = await workerProcessGeoJSON(result.data, {
+            warna: pemetaan.warna,
+            iconImageUrl: asset(pemetaan.icon_titik), // FIX: PASTIKAN ICON IKUT TER-LOAD
+            tipe_garis: pemetaan.tipe_garis,
+            fillOpacity: pemetaan.fill_opacity,
+            simplifyTolerance: 0 // Keep accurate
+          });
+
+          // Store in cache
+          layerCache.current[pemetaan.key] = { data: enhanced, meta: pemetaan };
+
+          processedResults.push({
+            key: pemetaan.key,
+            id: pemetaan.id,
+            type: pemetaan.type,
+            data: enhanced,
+            meta: pemetaan
+          });
+        } catch (error) {
+          console.error(`Failed to process spasial ${pemetaan.key}:`, error);
+        }
+      }
+
+      // 5. Update state all at once
+      setSelectedLayers((prev) => {
+        const updated = { ...prev };
+        processedResults.forEach((result) => {
+          updated[result.key] = {
+            id: result.id,
+            type: result.type,
+            data: result.data,
+            meta: result.meta
+          };
+        });
+        return updated;
+      });
+
+      // 6. Clear loading state
+      setLoadingLayers((prev) => {
+        const updated = { ...prev };
+        pemetaanList.forEach((p) => (updated[p.key] = false));
+        return updated;
+      });
+    };
+
+    loadSpecificDataSpasial();
+  }, [layerGroupTrees, workerProcessGeoJSON]);
+
   const mapPolaRuang = React.useCallback((data) => {
-    return data.map((klasifikasi) => ({
-      title: klasifikasi.nama,
-      key: `pola-root-${klasifikasi.id}`,
-      ...klasifikasi,
-      children: (klasifikasi.pola_ruang || []).map((pola) => ({
+    return data.map((klasifikasi) => {
+      // Map children
+      let children = (klasifikasi.pola_ruang || []).map((pola) => ({
         ...pola,
         type: 'pola',
         title: pola.nama,
         key: `pola-${pola.id}`,
         geojson_file: asset(pola.geojson_file),
         isLeaf: true
-      }))
-    }));
+      }));
+
+      // Sort so 'Badan Air' is always at the top
+      children.sort((a, b) => {
+        const aIsBadanAir = a.title.toLowerCase().includes('badan air');
+        const bIsBadanAir = b.title.toLowerCase().includes('badan air');
+        if (aIsBadanAir && !bIsBadanAir) return -1;
+        if (!aIsBadanAir && bIsBadanAir) return 1;
+        return 0;
+      });
+
+      return {
+        title: klasifikasi.nama,
+        key: `pola-root-${klasifikasi.id}`,
+        ...klasifikasi,
+        children
+      };
+    });
   }, []);
 
   const mapStrukturRuang = React.useCallback((data) => {
-    return data.map((klasifikasi) => ({
+    const order = [
+      'Sistem Pusat Permukiman',
+      'Sistem Infrastruktur Transportasi',
+      'Sistem Infrastruktur Energi',
+      'Sistem Infrastruktur Telekomunikasi',
+      'Sistem Infrastruktur Sumber Daya Air',
+      'Sistem Infrastruktur Prasarana Lainnya'
+    ];
+
+    // Buat salinan data dan urutkan
+    const sortedData = [...data].sort((a, b) => {
+      // Kita pakai includes agar fleksibel jika ada typo atau tambahan spasi
+      const indexA = order.findIndex(o => (a.nama || '').includes(o));
+      const indexB = order.findIndex(o => (b.nama || '').includes(o));
+      
+      if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+      if (indexA !== -1) return -1;
+      if (indexB !== -1) return 1;
+      return (a.nama || '').localeCompare(b.nama || '');
+    });
+
+    return sortedData.map((klasifikasi) => ({
       title: klasifikasi.nama,
       key: `struktur-root-${klasifikasi.id}`,
       ...klasifikasi,
@@ -1104,30 +1294,16 @@ const Maps = () => {
           treeStructure.struktur = [];
         }
 
-        // 3. Ketentuan Khusus - Virtual Folder
+        // 3. Ketentuan Khusus - Tetap Flat
         if (ketentuan_khusus_list.length > 0) {
-          treeStructure.ketentuan = [
-            {
-              title: 'Data Khusus',
-              key: `virtual-ketentuan-${group.id}`,
-              selectable: false,
-              children: mapKetentuanKhusus(ketentuan_khusus_list)
-            }
-          ];
+          treeStructure.ketentuan = mapKetentuanKhusus(ketentuan_khusus_list);
         } else {
           treeStructure.ketentuan = [];
         }
 
-        // 4. Kawasan Strategi Provinsi - Virtual Folder
+        // 4. Kawasan Strategi Provinsi - Tetap Flat
         if (kawasan_strategi_provinsi_list.length > 0) {
-          treeStructure.kawasan_strategi_provinsi = [
-            {
-              title: 'Kawasan Strategi Provinsi',
-              key: `virtual-kawasan-strategi-provinsi-${group.id}`,
-              selectable: false,
-              children: mapKawasanStrategiProvinsi(kawasan_strategi_provinsi_list)
-            }
-          ];
+          treeStructure.kawasan_strategi_provinsi = mapKawasanStrategiProvinsi(kawasan_strategi_provinsi_list);
         } else {
           treeStructure.kawasan_strategi_provinsi = [];
         }
@@ -1216,7 +1392,7 @@ const Maps = () => {
     const weight = props['stroke-width'] ?? 3;
     const opacity = props['stroke-opacity'] ?? 1;
     const fillColor = props.fill;
-    const fillOpacity = props['fill-opacity'] ?? 0.8;
+    const fillOpacity = props['fill-opacity'] ?? 1.0;
     const dashArray = props.dashArray || props['stroke-dasharray'] || null;
 
     const style = {
@@ -1270,7 +1446,7 @@ const Maps = () => {
   }
 
   return (
-    <section className="relative h-screen w-full overflow-hidden">
+    <section id="map-wrapper-section" className="relative h-screen w-full overflow-hidden">
       {/* === KOMPONEN LOADER BARU === */}
       {/* AnimatePresence memastikan animasi exit (menghilang) berjalan dulu sebelum dihapus dari DOM */}
       <AnimatePresence>{showLoader && <MapLoader isLoaded={isDataReady} onFinished={() => setShowLoader(false)} />}</AnimatePresence>
@@ -1284,7 +1460,7 @@ const Maps = () => {
           /* Desktop styles */
           @media (min-width: 1024px) {
             .leaflet-top.leaflet-right {
-              right: ${isSidebarCollapsed ? '10px' : '410px'};
+              right: 10px;
               transition: right 0.3s ease-in-out;
             }
             .map-tools-control {
@@ -1295,7 +1471,7 @@ const Maps = () => {
           /* Tablet styles */
           @media (min-width: 768px) and (max-width: 1023px) {
             .leaflet-top.leaflet-right {
-              right: ${isSidebarCollapsed ? '10px' : '320px'};
+              right: 10px;
               transition: right 0.3s ease-in-out;
             }
             .map-tools-control {
@@ -1422,7 +1598,7 @@ const Maps = () => {
       <MapUserInfo />
 
       {/* Map Container - Full Width */}
-      <div className="h-full w-full">
+      <div id="map-capture-container" className="h-full w-full relative">
         <MapContainer
           center={[0.6999, 122.4467]}
           zoom={9}
@@ -1466,14 +1642,8 @@ const Maps = () => {
           // Disable world copies (reduces rendering overhead)
           worldCopyJump={false}
         >
-          {/* Custom Home Control - positioned at topleft */}
-          <HomeControl />
-
-          {/* Map Tools Control - drawing, screenshot, etc */}
-          <MapToolsControl />
-
-          {/* Coordinate and Scale display - bottom center */}
-          <CoordinateControl />
+          {/* Screenshot Control - above Home button */}
+          <ScreenshotControl />
 
           {/* Base Layer Control - next to zoom buttons (topright) */}
           <LayersControl position="topleft">
@@ -1510,6 +1680,15 @@ const Maps = () => {
             </BaseLayer>
           </LayersControl>
 
+          {/* Custom Home Control - positioned at topleft */}
+          <HomeControl />
+
+          {/* Map Tools Control - drawing, screenshot, etc */}
+          <MapToolsControl />
+
+          {/* Coordinate and Scale display - bottom center */}
+          <CoordinateControl />
+
           {/* ================================================================
               PERFORMANCE OPTIMIZED LAYER RENDERING
               ================================================================
@@ -1528,16 +1707,14 @@ const Maps = () => {
             </Popup>
           )}
         </MapContainer>
+        {/* Glassmorphism Headline Overlay - Top Center */}
         <div
-          className="absolute top-4 z-[1002] -translate-x-1/2 transition-all duration-300"
-          style={{
-            left: isSidebarCollapsed ? '50%' : isMobile ? '50%' : isTablet ? 'calc(50% - 160px)' : 'calc(50% - 200px)'
-          }}
+          className="absolute left-1/2 top-4 z-[1002] -translate-x-1/2 transition-all duration-300"
         >
-          <div style={{ backgroundColor: 'rgba(255,255,255,0.92)' }} className={`flex items-center rounded-xl border border-gray-300 shadow-lg ${isMobile ? 'max-w-[280px] gap-2 px-2 py-1.5' : 'gap-4 px-6 py-3'}`}>
-            <img src="/image_asset/gorontalo-logo.png" alt="Lambang Provinsi Gorontalo" className={`rounded object-contain ${isMobile ? 'h-5 w-5' : 'h-7 w-7'}`} />
-            <div className={`font-bold capitalize text-black ${isMobile ? 'text-xs leading-tight' : isTablet ? 'text-base' : 'text-lg'}`}>
-              {isMobile ? 'RTRW Prov. Gorontalo' : 'Peta Rencana Tata Ruang Wilayah Provinsi Gorontalo'}
+          <div className={`flex items-center rounded-2xl border border-white/20 bg-white/30 shadow-lg backdrop-blur-md ${isMobile ? 'max-w-[300px] gap-2 px-3 py-2' : 'gap-4 px-6 py-3'}`}>
+            <img src="/image_asset/gorontalo-logo.png" alt="Lambang Provinsi Gorontalo" className={`rounded object-contain ${isMobile ? 'h-6 w-6' : 'h-8 w-8'}`} />
+            <div className={`font-bold uppercase tracking-wide text-slate-800 drop-shadow-sm ${isMobile ? 'text-xs leading-tight' : isTablet ? 'text-sm' : 'text-base'}`}>
+              {isMobile ? 'RTRW PROV. GORONTALO' : 'PETA RENCANA TATA RUANG WILAYAH PROVINSI GORONTALO'}
             </div>
           </div>
         </div>
@@ -1545,17 +1722,21 @@ const Maps = () => {
         {/* Legend removed - MapUserInfo only */}
       </div>
 
-      {/* Collapsible Sidebar - Responsive */}
-      {/* Z-Index raised to 3000 to cover map controls including zoom buttons and title */}
-      <div className={`absolute right-0 top-0 z-[3000] h-full transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-0' : isMobile ? 'w-full' : isTablet ? 'w-[340px]' : 'w-[420px]'}`}>
+      {/* Floating Sidebar - RIGHT SIDE, always visible including fullscreen */}
+      <div
+        data-html2canvas-ignore="true"
+        className={`hide-on-print absolute z-[3000] overflow-visible transition-all duration-300 ease-in-out ${
+          isMobile
+            ? isSidebarCollapsed
+              ? 'right-0 top-0 h-full w-0'
+              : 'inset-0 h-full w-full'
+            : isSidebarCollapsed
+              ? 'right-4 top-[15%] h-[65%] w-0'
+              : 'right-4 top-[15%] h-[65%] w-[22%] min-w-[280px]'
+        }`}
+      >
         <MapSidebar
-          // rtrws={rtrws}
           batasAdministrasi={batasAdministrasi}
-          // treePolaRuangData={treePolaRuangData}
-          // treeStrukturRuangData={treeStrukturRuangData}
-          // treeKetentuanKhususData={treeKetentuanKhususData}
-          // treeKawasanStrategiProvinsiData={treeKawasanStrategiProvinsiData}
-          // treeIndikasiProgramData={treeIndikasiProgramData}
           treeLayerGroup={layerGroupTrees}
           selectedLayers={selectedLayers}
           loadingLayers={loadingLayers}
@@ -1566,7 +1747,6 @@ const Maps = () => {
           // Opacity controls
           layerOpacities={layerOpacities}
           onOpacityChange={handleOpacityChange}
-          // onReloadKlasifikasi={loadAllKlasifikasi}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
           isMobile={isMobile}
@@ -1574,9 +1754,27 @@ const Maps = () => {
         />
       </div>
 
+      {/* Desktop/Tablet Toggle Button - absolute within section so it works in fullscreen too */}
+      {!isMobile && (
+        <Tooltip title={isSidebarCollapsed ? 'Buka Panel' : 'Tutup Panel'} placement="left">
+          <Button
+            data-html2canvas-ignore="true"
+            type="primary"
+            icon={isSidebarCollapsed ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
+            onClick={() => setIsSidebarCollapsed((prev) => !prev)}
+            className={`hide-on-print absolute z-[3001] rounded-full shadow-lg transition-all duration-300 ease-in-out ${isTablet ? 'h-10 w-10' : 'h-12 w-12'}`}
+            style={{
+              top: '27%',
+              transform: 'translateY(-50%)',
+              right: isSidebarCollapsed ? '16px' : 'max(calc(21.3% + 28px), 312px)',
+            }}
+          />
+        </Tooltip>
+      )}
+
       {/* Mobile Floating Button to Open Sidebar */}
       {isMobile && isSidebarCollapsed && (
-        <Button type="primary" icon={<MenuUnfoldOutlined />} onClick={() => setIsSidebarCollapsed(false)} className="absolute right-4 top-4 z-[1001] h-12 w-12 rounded-full shadow-xl transition-transform hover:scale-110" size="large" />
+        <Button data-html2canvas-ignore="true" type="primary" icon={<MenuUnfoldOutlined />} onClick={() => setIsSidebarCollapsed(false)} className="hide-on-print absolute right-4 top-4 z-[1001] h-12 w-12 rounded-full shadow-xl transition-transform hover:scale-110" size="large" />
       )}
 
       {/* Mobile overlay when sidebar is open */}

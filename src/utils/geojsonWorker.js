@@ -160,7 +160,7 @@ const processGeoJSON = (json, options = {}) => {
         warna,
         iconImageUrl,
         tipe_garis,
-        fillOpacity = 0.8,
+        fillOpacity = 1.0,
         simplifyTolerance = 0 // DEFAULT: 0 (DISABLED) - Render exact geometry by default
     } = options;
 

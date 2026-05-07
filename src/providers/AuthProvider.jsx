@@ -182,8 +182,9 @@ export default function AuthProvider({ children }) {
       if (user.role === Role.ADMIN) return '/dashboard';
       if (user.role === Role.OPD) return '/map';
     }
-    // Default redirect setelah login
-    return capabilities?.redirect_after_login ?? '/map';
+    // Default redirect setelah login - pastikan path absolut
+    const path = capabilities?.redirect_after_login ?? '/map';
+    return path.startsWith('/') ? path : `/${path}`;
   }, [capabilities, isAuthenticated, user]);
   const getLoginMessage = useCallback(() => capabilities?.login_message ?? 'Silakan login untuk melihat peta secara lengkap', [capabilities]);
 

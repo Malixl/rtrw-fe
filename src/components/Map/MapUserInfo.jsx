@@ -55,6 +55,7 @@ const MapUserInfo = () => {
           onClick={(e) => {
             e.preventDefault();
             logout();
+            navigate('/');
           }}
           style={{ color: 'red', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6 }}
         >
@@ -99,6 +100,8 @@ const MapUserInfo = () => {
 
   const node = (
     <div
+      data-html2canvas-ignore="true"
+      className="hide-on-print"
       style={{
         position: 'fixed',
         bottom: isMobile ? 8 : 16,

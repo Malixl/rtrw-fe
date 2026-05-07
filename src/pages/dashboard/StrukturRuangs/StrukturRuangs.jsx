@@ -22,7 +22,7 @@ const buildEditFieldsByGeometry = (record, klasifikasis) => {
 
   if (record.geometry_type === 'point') {
     fields.push({
-      label: `Gambar Icon ${Modul.KAWASAN_STRATEGI_PROVINSI}`,
+      label: `Gambar Icon ${Modul.STRUKTUR}`,
       name: 'icon',
       type: InputType.UPLOAD,
       max: 1,
@@ -90,13 +90,13 @@ const buildEditFieldsByGeometry = (record, klasifikasis) => {
         ]
       },
       {
-        label: `Warna ${Modul.KAWASAN_STRATEGI_PROVINSI}`,
+        label: `Warna ${Modul.STRUKTUR}`,
         name: 'color',
         type: InputType.COLOR,
         rules: [
           {
             required: true,
-            message: `Warna ${Modul.KAWASAN_STRATEGI_PROVINSI} harus diisi`
+            message: `Warna ${Modul.STRUKTUR} harus diisi`
           }
         ],
         size: 'large'
@@ -178,7 +178,7 @@ const StrukturRuangs = () => {
             model={StrukturRuangModel}
             onClick={() => {
               modal.edit({
-                title: `Edit ${Modul.KAWASAN_STRATEGI_PROVINSI}`,
+                title: `Edit ${Modul.STRUKTUR}`,
                 data: {
                   ...record,
                   id_klasifikasi: record.klasifikasi_id,
@@ -231,8 +231,6 @@ const StrukturRuangs = () => {
                   }
 
                   const { message, isSuccess } = result;
-
-                  resetProgress();
 
                   if (isSuccess) {
                     success('Berhasil', message);
@@ -315,7 +313,7 @@ const StrukturRuangs = () => {
 
     if (type === 'point') {
       fields.push({
-        label: `Gambar Icon ${Modul.KAWASAN_STRATEGI_PROVINSI}`,
+        label: `Gambar Icon ${Modul.STRUKTUR}`,
         name: 'icon',
         type: InputType.UPLOAD,
         max: 1,
@@ -334,7 +332,7 @@ const StrukturRuangs = () => {
         rules: [
           {
             required: true,
-            message: `Icon ${Modul.KAWASAN_STRATEGI_PROVINSI} harus diisi`
+            message: `Icon ${Modul.STRUKTUR} harus diisi`
           }
         ]
       });
@@ -450,8 +448,6 @@ const StrukturRuangs = () => {
         }
 
         const { message, isSuccess } = result;
-
-        resetProgress();
 
         if (isSuccess) {
           success('Berhasil', message);

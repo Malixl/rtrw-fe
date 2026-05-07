@@ -7,7 +7,7 @@ import TextArea from 'antd/es/input/TextArea';
 import Dragger from 'antd/es/upload/Dragger';
 import PropTypes from 'prop-types';
 import React, { useEffect, useState } from 'react';
-import { MapPicker, Select } from './input';
+import { MapPicker, Select, AiTextArea, AiGeneratorButton } from './input';
 import { debounce } from 'lodash';
 import { Editor } from '@tinymce/tinymce-react';
 import { useAuth } from '@/hooks';
@@ -97,6 +97,15 @@ export default function CrudModal({ isModalOpen, data: initialData, close, title
     return Object.keys(Icons).filter((name) => name.endsWith('Outlined'));
   }, []);
 
+  // Ekstrak klasifikasi options dari formFields untuk diberikan ke AI
+  const klasifikasiOptions = React.useMemo(() => {
+    const klasField = formFields.find(f => f.name === 'id_klasifikasi' && f.options);
+    return klasField?.options || [];
+  }, [formFields]);
+
+  // Ekstrak geometry_type dari initialData jika tersedia
+  const geometryType = initialData?.geometry_type || null;
+
   /**
    * @param {import('@/types/FormField').default} field
    * @returns
@@ -115,6 +124,9 @@ export default function CrudModal({ isModalOpen, data: initialData, close, title
         return <InputNumber placeholder={`Masukan ${field.label}`} min={field.min} max={field.max} className="w-full" size="large" readOnly={field.readOnly} {...field.extra} />;
 
       case InputType.LONGTEXT:
+        if (field.useAi) {
+          return <AiTextArea form={form} aiSourceField={field.aiSourceField} modulName={field.modulName} klasifikasiOptions={klasifikasiOptions} geometryType={geometryType} placeholder={field.label} readOnly={field.readOnly} disabled={field.readOnly} {...field.extra} />;
+        }
         return <TextArea placeholder={field.label} rows={4} readOnly={field.readOnly} size="large" {...field.extra} />;
 
       case InputType.DATE:
@@ -183,29 +195,53 @@ export default function CrudModal({ isModalOpen, data: initialData, close, title
 
       case InputType.CONTENT_EDITOR:
         return (
-          <Editor
-            apiKey="ltsdik9bjzzfm8i8g4ve5b32ii5sz0t7j6g2ag5khxm0bn1y"
-            initialValue={initialData?.[field.name] ?? ''}
-            init={{
-              referrer_policy: 'no-referrer',
-              allow_script_urls: true,
-              height: 500,
-              menubar: false,
-              plugins: ['advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview', 'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen', 'insertdatetime', 'media', 'table', 'code', 'help', 'wordcount'],
-              toolbar: 'undo redo | blocks | ' + 'bold italic forecolor | alignleft aligncenter ' + 'alignright alignjustify | bullist numlist outdent indent | ' + 'removeformat | help',
-              content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:14px }'
-            }}
-            onInit={(evt, editor) => {
-              editor.on('change', () => {
-                form.setFieldsValue({ [field.name]: editor.getContent() });
-                handleValuesChange({ [field.name]: editor.getContent() });
-              });
-            }}
-            onEditorChange={(content) => {
-              form.setFieldsValue({ [field.name]: content });
-              handleValuesChange({ [field.name]: content });
-            }}
-          />
+          <div className="flex flex-col gap-y-1 w-full">
+            {field.useAi && !field.readOnly && (
+              <AiGeneratorButton 
+                form={form} 
+                aiSourceField={field.aiSourceField} 
+                modulName={field.modulName} 
+                klasifikasiOptions={klasifikasiOptions}
+                geometryType={geometryType}
+                onGenerate={(text) => {
+                  form.setFieldsValue({ [field.name]: text });
+                  handleValuesChange({ [field.name]: text });
+                  
+                  // Trigger tinymce change via window/tinymce global if possible, or wait for state sync
+                  if (window.tinymce) {
+                    const editors = window.tinymce.get();
+                    if (editors.length > 0) {
+                      // Ini assumsi editor aktif terakhir adalah target kita (biasanya cuma ada 1 konten editor di crud)
+                      editors[editors.length - 1].setContent(text);
+                    }
+                  }
+                }} 
+              />
+            )}
+            <Editor
+              apiKey="ltsdik9bjzzfm8i8g4ve5b32ii5sz0t7j6g2ag5khxm0bn1y"
+              initialValue={initialData?.[field.name] ?? ''}
+              init={{
+                referrer_policy: 'no-referrer',
+                allow_script_urls: true,
+                height: 500,
+                menubar: false,
+                plugins: ['advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview', 'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen', 'insertdatetime', 'media', 'table', 'code', 'help', 'wordcount'],
+                toolbar: 'undo redo | blocks | ' + 'bold italic forecolor | alignleft aligncenter ' + 'alignright alignjustify | bullist numlist outdent indent | ' + 'removeformat | help',
+                content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:14px }'
+              }}
+              onInit={(evt, editor) => {
+                editor.on('change', () => {
+                  form.setFieldsValue({ [field.name]: editor.getContent() });
+                  handleValuesChange({ [field.name]: editor.getContent() });
+                });
+              }}
+              onEditorChange={(content) => {
+                form.setFieldsValue({ [field.name]: content });
+                handleValuesChange({ [field.name]: content });
+              }}
+            />
+          </div>
         );
 
       case InputType.MAP_PICKER:
