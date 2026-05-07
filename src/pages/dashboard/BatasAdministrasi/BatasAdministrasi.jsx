@@ -20,13 +20,13 @@ const buildEditFieldsByGeometry = (record, klasifikasis = []) => {
 
   if (record.geometry_type === 'polyline') {
     fields.push({
-      label: `Tipe garis ${Modul.STRUKTUR}`,
+      label: `Tipe garis ${Modul.BATAS_ADMINISTRASI}`,
       name: 'line_type',
       type: InputType.SELECT,
       rules: [
         {
           required: true,
-          message: `Tipe garis ${Modul.STRUKTUR} harus diisi`
+          message: `Tipe garis ${Modul.BATAS_ADMINISTRASI} harus diisi`
         }
       ],
       options: [
@@ -273,13 +273,13 @@ const BatasAdministrasi = () => {
     let fields = [...formFields({ options: { klasifikasi: klasifikasis } })];
     if (type === 'polyline') {
       fields.push({
-        label: `Tipe garis ${Modul.STRUKTUR}`,
+        label: `Tipe garis ${Modul.BATAS_ADMINISTRASI}`,
         name: 'line_type',
         type: InputType.SELECT,
         rules: [
           {
             required: true,
-            message: `Tipe garis ${Modul.STRUKTUR} harus diisi`
+            message: `Tipe garis ${Modul.BATAS_ADMINISTRASI} harus diisi`
           }
         ],
         options: [

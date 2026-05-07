@@ -12,47 +12,38 @@ const { Panel } = Collapse;
 
 const LayerCheckbox = ({ pemetaan, isChecked, isLoading, onToggle, onInfoClick, label }) => (
   <Checkbox checked={isChecked} onChange={onToggle} className="flex items-start">
-    <span className="inline-flex flex-wrap items-center gap-x-2 leading-relaxed">
-      <span className="text-sm">{label ? label : pemetaan.title || pemetaan.nama}</span>
-      {isLoading && <span className="h-3 w-3 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />}
-      {onInfoClick && <Button icon={<InfoCircleOutlined />} type="link" size="small" onClick={onInfoClick} className="h-7 w-7 min-w-0 p-0" />}
+    <span className="inline-flex flex-wrap items-center gap-x-1 leading-snug">
+      <span className="sidebar-level-leaf">{label ? label : pemetaan.title || pemetaan.nama}</span>
+      {isLoading && <span className="h-2.5 w-2.5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />}
+      {onInfoClick && <Button icon={<InfoCircleOutlined />} type="link" size="small" onClick={onInfoClick} className="h-5 w-5 min-w-0 p-0" />}
     </span>
   </Checkbox>
 );
 
 
-const CollapsibleSection = ({ title, panelKey, children, defaultActiveKey, isVirtualFolder = false, checked, indeterminate, onCheck, isDokumen = false }) => (
-  <Collapse className={isVirtualFolder ? 'layer-group-collapse' : ''} ghost expandIconPosition="end" defaultActiveKey={defaultActiveKey}>
+const CollapsibleSection = ({ title, panelKey, children, defaultActiveKey, isVirtualFolder = false, checked, indeterminate, onCheck, isDokumen = false, level = 'klasifikasi' }) => (
+  <Collapse className="sidebar-flat-collapse" ghost expandIconPosition="end" defaultActiveKey={defaultActiveKey}>
     <Panel
       key={panelKey}
       header={
-        isVirtualFolder ? (
-
-          <div className="-mt-1 inline-flex w-full items-center">
-            <span className="text-base font-semibold leading-relaxed">{title}</span>
+        <div className="inline-flex w-full items-center gap-x-2">
+          <div
+            className="flex min-w-[20px] items-center justify-center rounded bg-blue-50 p-1"
+            onClick={(e) => {
+              if (onCheck) {
+                e.stopPropagation();
+                onCheck();
+              }
+            }}
+            style={{ cursor: onCheck ? 'pointer' : 'default' }}
+          >
+            {isDokumen ? <FileTextOutlined className="text-sm text-blue-500" /> : <Checkbox checked={checked} indeterminate={indeterminate} disabled={!onCheck} />}
           </div>
-        ) : (
-          <div className="inline-flex w-full items-center justify-between gap-2">
-            <div className="inline-flex w-full items-center gap-x-3 md:gap-x-4">
-              <div
-                className="flex min-w-[36px] items-center justify-center rounded-md bg-blue-100 p-2 md:min-w-[40px] md:p-3"
-                onClick={(e) => {
-                  if (onCheck) {
-                    e.stopPropagation();
-                    onCheck();
-                  }
-                }}
-                style={{ cursor: onCheck ? 'pointer' : 'default' }}
-              >
-                {isDokumen ? <FileTextOutlined className="text-base text-blue-500 md:text-lg" /> : <Checkbox checked={checked} indeterminate={indeterminate} disabled={!onCheck} />}
-              </div>
-              <span className="text-sm leading-relaxed md:text-base">{title}</span>
-            </div>
-          </div>
-        )
+          <span className={isVirtualFolder || level === 'virtual' ? 'sidebar-level-virtual' : 'sidebar-level-klasifikasi'}>{title}</span>
+        </div>
       }
     >
-      <div className="-my-3 flex flex-col">{children}</div>
+      <div className="flex flex-col pl-2">{children}</div>
     </Panel>
   </Collapse>
 );
@@ -186,8 +177,8 @@ const MapSidebar = ({
     const labels = {
       pola_ruang: 'Pola Ruang',
       struktur_ruang: 'Struktur Ruang',
-      ketentuan_khusus: 'Ketentuan Khusus',
-      kawasan_strategi_provinsi: 'Kawasan Strategi Provinsi',
+      ketentuan_khusus: '',
+      kawasan_strategi_provinsi: '',
       dokumen: '',
       batas_administrasi: 'Batas Administrasi'
     };
@@ -248,8 +239,8 @@ const MapSidebar = ({
         const itemMatches = debouncedSearch && (item.title || '').toLowerCase().includes(debouncedSearch);
         const defaultOpen = !!debouncedSearch && (itemMatches || (item.children || []).some((c) => ((c.title || c.nama) + '').toLowerCase().includes(debouncedSearch)));
 
-        // Deteksi virtual folder (tidak memiliki tipe, selectable false, atau key dimulai dengan 'virtual-')
-        const isVirtualFolder = item.selectable === false || item.key?.startsWith('virtual-');
+        // Deteksi virtual folder (tidak memiliki tipe, selectable false, atau key dimulai dengan 'virtual-' atau 'kawasan-strategi-provinsi-root')
+        const isVirtualFolder = item.selectable === false || item.key?.startsWith('virtual-') || item.key?.includes('kawasan-strategi-provinsi-root');
         const typeLabel = getTypeLabel(item.tipe);
         const titleText = isVirtualFolder ? item.title : typeLabel ? `${item.title} (${typeLabel})` : item.title;
 
@@ -273,7 +264,7 @@ const MapSidebar = ({
         };
 
         return (
-          <div key={item.key} className={isVirtualFolder ? '' : ''}>
+          <div key={item.key}>
             <CollapsibleSection
               title={<>{highlightText(titleText, debouncedSearch)}</>}
               panelKey={item.key}
@@ -283,6 +274,7 @@ const MapSidebar = ({
               indeterminate={false}
               onCheck={!isDokumen && totalCount > 0 ? handleGroupToggle : undefined}
               isDokumen={isDokumen}
+              level="klasifikasi"
             >
               {/* Empty state jika tidak ada children atau semua children kosong */}
               {(!item.children || item.children.length === 0 || (!isDokumen && totalCount === 0)) && (
@@ -350,9 +342,9 @@ const MapSidebar = ({
                             .map((pemetaan) => {
                               if (pemetaan.type === 'dokumen') {
                                 return (
-                                  <div key={pemetaan.key} className="inline-flex w-full items-center gap-x-2 py-1">
-                                    <span className="text-sm">{highlightText(pemetaan.title, debouncedSearch)}</span>
-                                    <Button icon={<InfoCircleOutlined />} type="link" size="small" onClick={() => showDokumenModal(pemetaan.file_dokumen)} className="h-7 w-7 min-w-0 p-0" />
+                                  <div key={pemetaan.key} className="inline-flex w-full items-center gap-x-1 py-0.5">
+                                    <span className="sidebar-level-leaf">{highlightText(pemetaan.title, debouncedSearch)}</span>
+                                    <Button icon={<InfoCircleOutlined />} type="link" size="small" onClick={() => showDokumenModal(pemetaan.file_dokumen)} className="h-6 w-6 min-w-0 p-0" />
                                   </div>
                                 );
                               }
@@ -360,10 +352,10 @@ const MapSidebar = ({
                               // Fallback tipe_geometri jika tidak ada (default polygon)
                               const tipe_geometri = pemetaan.tipe_geometri || 'polygon';
                               const isActive = !!selectedLayers[pemetaan.key];
-                              const currentOpacity = layerOpacities?.[pemetaan.key] ?? 80;
+                              const currentOpacity = layerOpacities?.[pemetaan.key] ?? 100;
 
                               return (
-                                <div key={pemetaan.key} className="my-2 ml-4 md:ml-7">
+                                <div key={pemetaan.key} className="my-1">
                                   <LayerCheckbox
                                     pemetaan={pemetaan}
                                     label={highlightText(pemetaan.title || pemetaan.nama, debouncedSearch)}
@@ -383,17 +375,10 @@ const MapSidebar = ({
                                           ) 
                                         }
                                       ];
-
                                       showInfoModal(pemetaan.nama, modalData);
                                     }}
-                                    className="mb-1"
                                   />
-                                  {/* Legend SELALU tampil di bawah checkbox, baik dicentang maupun tidak */}
-                                  {/* PERBAIKAN: Kirim prop tipe_garis ke LegendItem */}
-                                  <div className="">
-                                    <LegendItem tipe_geometri={tipe_geometri} icon_titik={pemetaan.icon_titik} warna={pemetaan.warna} tipe_garis={pemetaan.tipe_garis} />
-                                  </div>
-                                  {/* Opacity Slider - hanya tampil jika layer aktif */}
+                                  <LegendItem tipe_geometri={tipe_geometri} icon_titik={pemetaan.icon_titik} warna={pemetaan.warna} tipe_garis={pemetaan.tipe_garis} />
                                   {isActive && onOpacityChange && <OpacitySlider value={currentOpacity} onChange={(val) => onOpacityChange(pemetaan.key, val)} />}
                                 </div>
                               );
@@ -407,9 +392,9 @@ const MapSidebar = ({
                   const pemetaan = child;
                   if (pemetaan.type === 'dokumen') {
                     return (
-                      <div key={pemetaan.key} className="inline-flex w-full items-center gap-x-2 py-1">
-                        <span className="text-sm">{highlightText(pemetaan.title, debouncedSearch)}</span>
-                        <Button icon={<InfoCircleOutlined />} type="link" size="small" onClick={() => showDokumenModal(pemetaan.file_dokumen)} className="h-7 w-7 min-w-0 p-0" />
+                      <div key={pemetaan.key} className="inline-flex w-full items-center gap-x-1 py-0.5">
+                        <span className="sidebar-level-leaf">{highlightText(pemetaan.title, debouncedSearch)}</span>
+                        <Button icon={<InfoCircleOutlined />} type="link" size="small" onClick={() => showDokumenModal(pemetaan.file_dokumen)} className="h-6 w-6 min-w-0 p-0" />
                       </div>
                     );
                   }
@@ -417,10 +402,10 @@ const MapSidebar = ({
                   // Fallback tipe_geometri jika tidak ada (default polygon)
                   const tipe_geometri = pemetaan.tipe_geometri || 'polygon';
                   const isActive = !!selectedLayers[pemetaan.key];
-                  const currentOpacity = layerOpacities?.[pemetaan.key] ?? 80;
+                  const currentOpacity = layerOpacities?.[pemetaan.key] ?? 100;
 
                   return (
-                    <div key={pemetaan.key} className="my-2 ml-4 md:ml-7">
+                    <div key={pemetaan.key} className="my-1">
                       <LayerCheckbox
                         pemetaan={pemetaan}
                         label={highlightText(pemetaan.title || pemetaan.nama, debouncedSearch)}
@@ -440,16 +425,10 @@ const MapSidebar = ({
                               ) 
                             }
                           ];
-
                           showInfoModal(pemetaan.nama, modalData);
                         }}
                       />
-                      {/* Legend SELALU tampil di bawah checkbox, baik dicentang maupun tidak */}
-                      {/* PERBAIKAN: Kirim prop tipe_garis ke LegendItem */}
-                      <div className="">
-                        <LegendItem tipe_geometri={tipe_geometri} icon_titik={pemetaan.icon_titik} warna={pemetaan.warna} tipe_garis={pemetaan.tipe_garis} />
-                      </div>
-                      {/* Opacity Slider - hanya tampil jika layer aktif */}
+                      <LegendItem tipe_geometri={tipe_geometri} icon_titik={pemetaan.icon_titik} warna={pemetaan.warna} tipe_garis={pemetaan.tipe_garis} />
                       {isActive && onOpacityChange && <OpacitySlider value={currentOpacity} onChange={(val) => onOpacityChange(pemetaan.key, val)} />}
                     </div>
                   );
@@ -464,29 +443,19 @@ const MapSidebar = ({
 
   return (
     <div className="relative flex h-full">
-      {/* Toggle Button - positioned outside the floating panel */}
-      {!isMobile && (
-        <Tooltip title={isCollapsed ? 'Buka Panel' : 'Tutup Panel'} placement="left">
-          <Button
-            type="primary"
-            icon={isCollapsed ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
-            onClick={onToggleCollapse}
-            className={`absolute z-[1001] -translate-y-1/2 rounded-full shadow-lg transition-all ${isTablet ? 'h-10 w-10' : 'h-12 w-12'}`}
-            style={{ top: '50%', right: 'calc(97% + 12px)' }}
-          />
-        </Tooltip>
-      )}
+
+
 
       {/* Sidebar Content - Floating Window */}
       <div
-        className={`h-full overflow-y-auto shadow-2xl transition-all duration-300 ease-in-out ${
+        className={`h-fit max-h-full overflow-y-auto shadow-2xl transition-all duration-300 ease-in-out ${
           isMobile
             ? isCollapsed
               ? 'w-0 overflow-hidden p-0'
-              : 'w-full bg-white p-4'
+              : 'w-full bg-white p-3'
             : isCollapsed
               ? 'w-0 overflow-hidden p-0'
-              : `w-full rounded-2xl border border-gray-200/60 bg-white/95 backdrop-blur-sm ${isTablet ? 'p-4' : 'p-6'}`
+              : `w-full rounded-2xl border border-gray-200/60 bg-white/95 backdrop-blur-sm ${isTablet ? 'p-3' : 'p-4'}`
         } scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100`}
       >
         {/* Mobile Header with Close Button */}
@@ -503,15 +472,15 @@ const MapSidebar = ({
           {/* Header - hide on mobile since we have it above */}
           {!isMobile && (
             <div className="flex flex-col">
-              <p className={`font-bold ${isTablet ? 'text-xl' : 'text-2xl'}`} style={{ margin: 0 }}>
+              <p className={`font-bold ${isTablet ? 'text-lg' : 'text-xl'}`} style={{ margin: 0 }}>
                 Legenda
               </p>
-              <p className={`text-gray-500 ${isTablet ? 'text-xs' : 'text-sm'}`}>Pencarian</p>
+              <p className={`text-gray-400 ${isTablet ? 'text-[10px]' : 'text-xs'}`}>Pencarian</p>
             </div>
           )}
 
           {/* Search box */}
-          <div className="mb-4 mt-2">
+          <div className="mb-2 mt-1">
             <Input
               ref={searchInputRef}
               placeholder="Cari legenda atau klasifikasi..."
@@ -591,7 +560,7 @@ const MapSidebar = ({
                       {filteredBatas.map((item) => {
                         const pemetaan = createBatasPemetaan(item);
                         return (
-                          <div key={pemetaan.key} className="my-2 ml-4 md:ml-7">
+                          <div key={pemetaan.key} className="my-1">
                             <LayerCheckbox
                               pemetaan={{ ...pemetaan, title: item.name }}
                               label={highlightText(item.name)}
@@ -605,10 +574,7 @@ const MapSidebar = ({
                                 ])
                               }
                             />
-                            {/* Legend untuk batas administrasi */}
-                            <div className="">
-                              <LegendItem tipe_geometri={pemetaan.tipe_geometri || 'polyline'} icon_titik={pemetaan.icon_titik} warna={pemetaan.warna} tipe_garis={pemetaan.tipe_garis} />
-                            </div>
+                            <LegendItem tipe_geometri={pemetaan.tipe_geometri || 'polyline'} icon_titik={pemetaan.icon_titik} warna={pemetaan.warna} tipe_garis={pemetaan.tipe_garis} />
                           </div>
                         );
                       })}
@@ -677,15 +643,15 @@ const MapSidebar = ({
                 });
 
                 return (
-                  <Collapse key="layer-group-collapse" ghost expandIconPosition="right" defaultActiveKey={filteredGroups.map((layer) => layer.id || layer.key)}>
+                  <Collapse key="layer-group-collapse" className="layer-group-spacing" ghost expandIconPosition="right" defaultActiveKey={filteredGroups.map((layer) => layer.id || layer.key)}>
                     {filteredGroups.map((layer) => {
                       const groupKey = layer.id || layer.key;
                       return (
                         <Panel
                           key={groupKey}
                           header={
-                            <div className="-my-3 inline-flex w-full items-center gap-x-2">
-                              <span className="text-base font-semibold leading-relaxed md:text-lg">{layer.layer_group_name || layer.nama || layer.name || layer.title || layer.deskripsi}</span>
+                            <div className="inline-flex w-full items-center gap-x-2">
+                              <span className="sidebar-level-group">{layer.layer_group_name || layer.nama || layer.name || layer.title || layer.deskripsi}</span>
                             </div>
                           }
                         >
@@ -715,7 +681,7 @@ const MapSidebar = ({
 
                             // Jika ada data, tampilkan seperti biasa
                             return (
-                              <div style={{ marginTop: '-16px' }}>
+                              <div>
                                 {/* Batas Administrasi ditampilkan pertama */}
                                 {renderLayerTree(debouncedSearch ? filterTree(layer.tree.batas || []) : layer.tree.batas || [], 'Batas Administrasi')}
                                 {renderLayerTree(debouncedSearch ? filterTree(layer.tree.struktur || []) : layer.tree.struktur || [], 'Struktur Ruang')}

@@ -32,8 +32,8 @@ const HomeControl = () => {
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 34px;
-          height: 34px;
+          width: 30px;
+          height: 30px;
           background-color: white;
           color: #333;
           font-size: 18px;

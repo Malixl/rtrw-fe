@@ -96,7 +96,7 @@ const buildEditFieldsByGeometry = (record, klasifikasis) => {
         rules: [
           {
             required: true,
-            message: `Warna ${Modul.KAWASAN_STRATEGI_PROVINSI} harus diisi`
+            message: `Warna ${Modul.STRUKTUR} harus diisi`
           }
         ],
         size: 'large'
@@ -313,7 +313,7 @@ const StrukturRuangs = () => {
 
     if (type === 'point') {
       fields.push({
-        label: `Gambar Icon ${Modul.KAWASAN_STRATEGI_PROVINSI}`,
+        label: `Gambar Icon ${Modul.STRUKTUR}`,
         name: 'icon',
         type: InputType.UPLOAD,
         max: 1,
@@ -332,7 +332,7 @@ const StrukturRuangs = () => {
         rules: [
           {
             required: true,
-            message: `Icon ${Modul.KAWASAN_STRATEGI_PROVINSI} harus diisi`
+            message: `Icon ${Modul.STRUKTUR} harus diisi`
           }
         ]
       });

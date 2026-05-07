@@ -100,6 +100,8 @@ const MapUserInfo = () => {
 
   const node = (
     <div
+      data-html2canvas-ignore="true"
+      className="hide-on-print"
       style={{
         position: 'fixed',
         bottom: isMobile ? 8 : 16,

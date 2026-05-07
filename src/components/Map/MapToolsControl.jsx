@@ -52,7 +52,7 @@ const MapToolsControl = ({ onDrawStart, onDrawStop }) => {
     // Create custom control
     const MapToolsClass = L.Control.extend({
       options: {
-        position: 'topright'
+        position: 'topleft'
       },
 
       onAdd: function () {
@@ -65,6 +65,7 @@ const MapToolsControl = ({ onDrawStart, onDrawStop }) => {
           background: white;
           border-radius: 4px;
           box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+          margin-top: 20px !important;
         `;
 
         // Tool definitions
@@ -319,9 +320,10 @@ const MapToolsControl = ({ onDrawStart, onDrawStop }) => {
       }
     };
 
-    // Toggle fullscreen
+    // Toggle fullscreen - target the wrapper section so sidebar stays visible
     const toggleFullscreen = () => {
-      const elem = map.getContainer();
+      // Use the parent section that wraps both map AND sidebar
+      const elem = document.getElementById('map-wrapper-section') || map.getContainer();
       if (!document.fullscreenElement) {
         elem.requestFullscreen().catch(() => {
           message.error('Gagal masuk mode fullscreen');
@@ -520,24 +522,14 @@ const MapToolsControl = ({ onDrawStart, onDrawStop }) => {
     controlRef.current = control;
     map.addControl(control);
 
-    // Toggle position when fullscreen changes
+    // Adjust shadow when fullscreen changes
     const onFullscreenChange = () => {
       try {
         const fsElem = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
         const isFs = fsElem === map.getContainer();
         const cont = containerRef.current;
         if (!cont) return;
-        if (isFs) {
-          // move to left in fullscreen
-          cont.style.left = '10px';
-          cont.style.right = 'auto';
-          cont.style.boxShadow = '0 1px 8px rgba(0,0,0,0.6)';
-        } else {
-          // restore to default (right side handled by Leaflet container placement)
-          cont.style.left = '';
-          cont.style.right = '';
-          cont.style.boxShadow = '0 1px 5px rgba(0,0,0,0.4)';
-        }
+        cont.style.boxShadow = isFs ? '0 1px 8px rgba(0,0,0,0.6)' : '0 1px 5px rgba(0,0,0,0.4)';
       } catch {
         // ignore
       }
