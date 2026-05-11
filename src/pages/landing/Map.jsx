@@ -977,6 +977,8 @@ const Maps = () => {
     if (itemsToLoad.length === 0) return; // Wait until they exist
     spasialInitializedRef.current = true; // Mark as initialized so we run this only once
 
+    console.info('🏝️ Auto-load Data Spasial: Found items to load:', itemsToLoad.map(i => ({ key: i.key, title: i.title || i.nama })));
+
     const loadSpecificDataSpasial = async () => {
       const pemetaanList = itemsToLoad.map((item) => ({
         ...item, // PERTAHANKAN SEMUA METADATA ASLI (keterangan, deskripsi, icon_titik dll)
@@ -1004,17 +1006,23 @@ const Maps = () => {
         pemetaan
       }));
 
-      // 3. Fetch with concurrency
-      const fetchResults = await batchFetchGeoJSON(fetchItems, {
-        concurrency: 2,
-        signal: abortControllerRef.current?.signal
-      });
+      // 3. Fetch with concurrency (format konsisten dengan batchFetchGeoJSON)
+      const fetchResults = await batchFetchGeoJSON(
+        fetchItems.map((item) => ({ url: item.url, key: item.key })),
+        {
+          concurrency: 2,
+          signal: abortControllerRef.current?.signal
+        }
+      );
 
       const processedResults = [];
 
       // 4. Process in Web Worker
       for (const result of fetchResults) {
-        if (result.status !== 'fulfilled') continue;
+        if (result.status !== 'fulfilled') {
+          console.warn(`🏝️ Auto-load: fetch failed for ${result.key}:`, result.status);
+          continue;
+        }
 
         const pemetaan = fetchItems.find((f) => f.key === result.key)?.pemetaan;
         if (!pemetaan) continue;
@@ -1043,6 +1051,8 @@ const Maps = () => {
         }
       }
 
+      console.info('🏝️ Auto-load Data Spasial: Successfully processed', processedResults.length, 'layers:', processedResults.map(r => r.key));
+
       // 5. Update state all at once
       setSelectedLayers((prev) => {
         const updated = { ...prev };
@@ -1054,6 +1064,7 @@ const Maps = () => {
             meta: result.meta
           };
         });
+        console.info('🏝️ Auto-load: selectedLayers now has keys:', Object.keys(updated).filter(k => k.startsWith('data_spasial')));
         return updated;
       });
 
