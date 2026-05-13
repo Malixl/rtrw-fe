@@ -246,7 +246,7 @@ const MapAdvancedTools = ({ setPopupInfo }) => {
     <div 
       className="hide-on-print" 
       data-html2canvas-ignore="true"
-      style={{ bottom: isMobile ? 65 : 80, left: isMobile ? 8 : 16, position: 'fixed', zIndex: 1200, pointerEvents: 'auto' }}
+      style={{ bottom: isMobile ? 65 : 16, left: isMobile ? 8 : 240, position: 'fixed', zIndex: 1200, pointerEvents: 'auto' }}
     >
       <div 
         className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200 transition-all duration-300" 
