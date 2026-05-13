@@ -44,6 +44,7 @@ import ScreenshotControl from '@/components/Map/ScreenshotControl';
 import MapUserInfo from '@/components/Map/MapUserInfo';
 import MapLoader from '@/components/Map/MapLoader';
 import BatchLoadingOverlay from '@/components/Map/BatchLoadingOverlay';
+import MapAdvancedTools from '@/components/Map/MapAdvancedTools';
 
 const OptimizedLayerRenderer = React.memo(
   ({ selectedLayers, setPopupInfo, getFeatureStyle, layerOpacities, isDrawing }) => {
@@ -1696,6 +1697,9 @@ const Maps = () => {
 
           {/* Map Tools Control - drawing, screenshot, etc */}
           <MapToolsControl />
+
+          {/* Map Advanced Tools (Upload Spatial) */}
+          <MapAdvancedTools setPopupInfo={setPopupInfo} />
 
           {/* Coordinate and Scale display - bottom center */}
           <CoordinateControl />
