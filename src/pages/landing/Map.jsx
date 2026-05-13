@@ -170,7 +170,8 @@ const OptimizedLayerRenderer = React.memo(
           if (layer.renderType === 'vectortile' && layer.tileUrl) {
             const warna = layer.meta?.warna || '#3388ff';
             const tipeGaris = layer.meta?.tipe_garis;
-            const tileName = layer.tileName || 'default';
+            const tipeGeometri = layer.meta?.tipe_geometri || 'polygon';
+            const isPolygon = tipeGeometri.toLowerCase().includes('polygon');
 
             const vectorGridLayer = L.vectorGrid.protobuf(layer.tileUrl, {
               pane: paneName,
@@ -181,8 +182,8 @@ const OptimizedLayerRenderer = React.memo(
                   fillColor: warna,
                   fillOpacity: 0.7,
                   stroke: true,
-                  color: warna,
-                  weight: tipeGaris === 'bold' ? 6 : 3,
+                  color: isPolygon ? '#000000' : warna,
+                  weight: isPolygon ? 1.5 : (tipeGaris === 'bold' ? 6 : 3),
                   dashArray: tipeGaris === 'dashed' ? '6 6' :
                              tipeGaris === 'dash-dot-dot' ? '20 8 3 8 3 8' :
                              tipeGaris === 'dash-dot-dash-dot-dot' ? '15 5 3 5 15 5 3 5 3 5' : null,
@@ -1399,9 +1400,10 @@ const Maps = () => {
 
   const getFeatureStyle = useCallback((feature) => {
     const props = feature.properties || {};
+    const isPolygon = feature.geometry?.type?.includes('Polygon');
 
-    const stroke = props.stroke || '#0000ff';
-    const weight = props['stroke-width'] ?? 3;
+    const stroke = isPolygon ? '#000000' : (props.stroke || '#0000ff');
+    const weight = isPolygon ? 1.5 : (props['stroke-width'] ?? 3);
     const opacity = props['stroke-opacity'] ?? 1;
     const fillColor = props.fill;
     const fillOpacity = props['fill-opacity'] ?? 1.0;

@@ -123,13 +123,16 @@ const MapAdvancedTools = ({ setPopupInfo }) => {
 
         // Buat layer
         const newLayer = L.geoJSON(finalData, {
-          style: () => ({
-            color: color,
-            weight: 3,
-            opacity: 0.9,
-            fillColor: color,
-            fillOpacity: 0.3
-          }),
+          style: (feature) => {
+            const isPolygon = feature.geometry?.type?.includes('Polygon');
+            return {
+              color: isPolygon ? '#000000' : color,
+              weight: isPolygon ? 1.5 : 3,
+              opacity: 0.9,
+              fillColor: color,
+              fillOpacity: 0.3
+            };
+          },
           pointToLayer: (feature, latlng) => {
             const svgIcon = L.divIcon({
               className: 'custom-color-marker hide-on-print-bg bg-transparent border-none',
