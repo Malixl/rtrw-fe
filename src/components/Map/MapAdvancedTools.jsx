@@ -253,18 +253,18 @@ const MapAdvancedTools = ({ setPopupInfo }) => {
     >
       <div 
         className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200 transition-all duration-300" 
-        style={{ width: isMobile ? 280 : 320 }}
+        style={{ width: isMobile ? 250 : 270 }}
         onMouseEnter={() => { if(map?.dragging) map.dragging.disable(); if(map?.scrollWheelZoom) map.scrollWheelZoom.disable(); }}
         onMouseLeave={() => { if(map?.dragging) map.dragging.enable(); if(map?.scrollWheelZoom) map.scrollWheelZoom.enable(); }}
       >
         {/* Header / Toggle */}
         <div 
-          className="bg-blue-50 px-4 py-3 flex justify-between items-center cursor-pointer border-b border-blue-100 hover:bg-blue-100 transition-colors"
+          className="bg-blue-50 px-3 py-2 flex justify-between items-center cursor-pointer border-b border-blue-100 hover:bg-blue-100 transition-colors"
           onClick={() => setIsExpanded(!isExpanded)}
         >
           <div className="flex items-center gap-2">
-            <CloudUploadOutlined className="text-blue-600 text-lg" />
-            <h3 className="font-semibold text-blue-800 m-0 text-sm">Upload Spasial Lokal</h3>
+            <CloudUploadOutlined className="text-blue-600 text-base" />
+            <h3 className="font-semibold text-blue-800 m-0 text-[13px]">Upload Spasial</h3>
             {uploadedFiles.length > 0 && (
               <span className="bg-blue-500 text-white text-[10px] rounded-full px-1.5 py-0.5 leading-none font-bold">
                 {uploadedFiles.length}
@@ -276,15 +276,15 @@ const MapAdvancedTools = ({ setPopupInfo }) => {
 
         {/* Content */}
         {isExpanded && (
-          <div className="p-4 flex flex-col gap-3 max-h-[50vh] overflow-y-auto">
-            <p className="text-xs text-gray-500 m-0">
-              Upload SHP (.zip), KML, atau GeoJSON untuk pratinjau. Data tidak disimpan ke server.
+          <div className="p-3 flex flex-col gap-2 max-h-[50vh] overflow-y-auto">
+            <p className="text-[10px] leading-tight text-gray-500 m-0">
+              Upload SHP (.zip), KML, atau GeoJSON untuk pratinjau. Data tidak disimpan.
             </p>
 
             {/* Drop Zone */}
             {remainingSlots > 0 && (
               <div 
-                className="border-2 border-dashed border-gray-300 rounded-lg p-4 flex flex-col items-center justify-center bg-gray-50 hover:bg-blue-50 hover:border-blue-400 transition-colors cursor-pointer"
+                className="border-2 border-dashed border-gray-300 rounded-lg p-2.5 flex flex-col items-center justify-center bg-gray-50 hover:bg-blue-50 hover:border-blue-400 transition-colors cursor-pointer"
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
                 onClick={() => document.getElementById('spatial-file-upload-input').click()}
@@ -297,12 +297,12 @@ const MapAdvancedTools = ({ setPopupInfo }) => {
                   onChange={handleFileUpload}
                   multiple
                 />
-                <CloudUploadOutlined className="text-2xl text-gray-400 mb-1" />
-                <p className="text-sm text-gray-600 text-center m-0">
-                  <span className="text-blue-600 font-medium">Klik</span> atau seret file ke sini
+                <CloudUploadOutlined className="text-xl text-gray-400 mb-0.5" />
+                <p className="text-xs text-gray-600 text-center m-0">
+                  <span className="text-blue-600 font-medium">Klik</span> atau seret file
                 </p>
-                <p className="text-[10px] text-gray-400 mt-1 text-center m-0">
-                  .zip (SHP) · .kml · .geojson · Sisa slot: {remainingSlots}/{MAX_FILES}
+                <p className="text-[9px] text-gray-400 mt-0.5 text-center m-0">
+                  .zip (SHP) · .kml · .geojson · Sisa: {remainingSlots}/{MAX_FILES}
                 </p>
               </div>
             )}

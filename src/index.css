@@ -461,3 +461,6 @@
     height: 100% !important;
   }
 }
+
+/* TINYMCE HACK */
+.tox-notifications-container { display: none !important; }
