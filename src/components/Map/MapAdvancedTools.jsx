@@ -123,13 +123,16 @@ const MapAdvancedTools = ({ setPopupInfo }) => {
 
         // Buat layer
         const newLayer = L.geoJSON(finalData, {
-          style: () => ({
-            color: color,
-            weight: 3,
-            opacity: 0.9,
-            fillColor: color,
-            fillOpacity: 0.3
-          }),
+          style: (feature) => {
+            const isPolygon = feature.geometry?.type?.includes('Polygon');
+            return {
+              color: isPolygon ? '#000000' : color,
+              weight: isPolygon ? 1.5 : 3,
+              opacity: 0.9,
+              fillColor: color,
+              fillOpacity: 0.3
+            };
+          },
           pointToLayer: (feature, latlng) => {
             const svgIcon = L.divIcon({
               className: 'custom-color-marker hide-on-print-bg bg-transparent border-none',
@@ -246,7 +249,7 @@ const MapAdvancedTools = ({ setPopupInfo }) => {
     <div 
       className="hide-on-print" 
       data-html2canvas-ignore="true"
-      style={{ bottom: isMobile ? 65 : 80, left: isMobile ? 8 : 16, position: 'fixed', zIndex: 1200, pointerEvents: 'auto' }}
+      style={{ bottom: isMobile ? 65 : 16, left: isMobile ? 8 : 240, position: 'fixed', zIndex: 1200, pointerEvents: 'auto' }}
     >
       <div 
         className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200 transition-all duration-300" 

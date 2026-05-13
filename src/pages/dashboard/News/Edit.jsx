@@ -130,7 +130,7 @@ const Edit = () => {
                 ]}
               >
                 <Editor
-                  apiKey="ltsdik9bjzzfm8i8g4ve5b32ii5sz0t7j6g2ag5khxm0bn1y"
+                  apiKey={import.meta.env.VITE_TINYMCE_API_KEY}
                   init={{
                     referrer_policy: 'no-referrer',
                     allow_script_urls: true,
