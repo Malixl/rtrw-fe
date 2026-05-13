@@ -219,7 +219,7 @@ export default function CrudModal({ isModalOpen, data: initialData, close, title
               />
             )}
             <Editor
-              apiKey="ltsdik9bjzzfm8i8g4ve5b32ii5sz0t7j6g2ag5khxm0bn1y"
+              apiKey={import.meta.env.VITE_TINYMCE_API_KEY}
               initialValue={initialData?.[field.name] ?? ''}
               init={{
                 referrer_policy: 'no-referrer',
