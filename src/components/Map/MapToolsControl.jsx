@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { message } from 'antd';
+import { message, Modal, Input } from 'antd';
 
 // FIX: Explicitly fix marker path for MapTools
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -33,6 +33,10 @@ const MapToolsControl = ({ onDrawStart, onDrawStop }) => {
   const controlRef = useRef(null);
   const containerRef = useRef(null); // reference to the control container DOM
   const [isReady, setIsReady] = useState(false);
+
+  // State untuk modal teks
+  const [textModalVisible, setTextModalVisible] = useState(false);
+  const [textValue, setTextValue] = useState('');
 
   // Wait for map to be ready
   useEffect(() => {
@@ -81,6 +85,7 @@ const MapToolsControl = ({ onDrawStart, onDrawStop }) => {
           { id: 'polygon', icon: 'polygon', title: 'Gambar Polygon' },
           // { id: 'rectangle', icon: 'rectangle', title: 'Gambar Kotak' },
           { id: 'marker', icon: 'marker', title: 'Tambah Marker' },
+          { id: 'drawtext', icon: 'drawtext', title: 'Tambah Teks' },
           // { id: 'edit', icon: 'edit', title: 'Edit Gambar' },
           { id: 'delete', icon: 'delete', title: 'Hapus Gambar' }
         ];
@@ -99,7 +104,8 @@ const MapToolsControl = ({ onDrawStart, onDrawStop }) => {
           rectangle: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>`,
           marker: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`,
           edit: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
-          delete: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`
+          delete: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
+          drawtext: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>`
         };
 
         let isExpanded = false;
@@ -191,6 +197,12 @@ const MapToolsControl = ({ onDrawStart, onDrawStop }) => {
               bgColor = '#2f54eb'; // Geek Blue
               hoverBg = '#597ef7';
               activeBg = '#1d39c4';
+              break;
+            case 'drawtext':
+              bgColor = '#000000'; // Black (like the screenshot T)
+              textColor = '#ffffff';
+              hoverBg = '#333333';
+              activeBg = '#000000';
               break;
             case 'delete':
               bgColor = '#ff4d4f'; // Red
@@ -308,6 +320,14 @@ const MapToolsControl = ({ onDrawStart, onDrawStop }) => {
           button.classList.add('active');
           button.style.backgroundColor = button.getAttribute('data-active-bg') || '#e3f2fd';
           startDrawing(toolId);
+          break;
+        case 'drawtext':
+          clearActive();
+          button.classList.add('active');
+          button.style.backgroundColor = button.getAttribute('data-active-bg') || '#000';
+          setTextValue(''); // reset value
+          setTextModalVisible(true);
+          // Hapus clearActive disini agar button tetap aktif saat modal terbuka
           break;
         case 'edit':
           message.info('Klik pada gambar untuk mengedit');
@@ -557,7 +577,76 @@ const MapToolsControl = ({ onDrawStart, onDrawStop }) => {
     };
   }, [map, isReady]);
 
-  return null;
+  const handleTextOk = () => {
+    setTextModalVisible(false);
+    if (textValue && textValue.trim() !== '') {
+      message.info('Klik pada peta untuk meletakkan teks');
+      map.getContainer().style.cursor = 'crosshair';
+      map.once('click', (e) => {
+        const textIcon = L.divIcon({
+          className: 'custom-text-marker hide-on-print-bg',
+          html: `<div style="color: black; font-weight: bold; font-size: 14px; text-shadow: 1px 1px 2px white, -1px -1px 2px white, 1px -1px 2px white, -1px 1px 2px white; white-space: nowrap;">${textValue}</div>`,
+          iconSize: null,
+        });
+        L.marker(e.latlng, { icon: textIcon, draggable: true }).addTo(drawnItemsRef.current);
+        map.getContainer().style.cursor = '';
+        
+        // Nonaktifkan tombol aktif di kontrol
+        const container = containerRef.current;
+        if (container) {
+          container.querySelectorAll('.map-tool-btn').forEach((btn) => {
+            btn.classList.remove('active');
+            btn.style.backgroundColor = btn.getAttribute('data-bg-color') || 'white';
+            btn.style.color = btn.getAttribute('data-text-color') || '#333';
+          });
+        }
+      });
+    } else {
+      // Batal / kosong, nonaktifkan style aktif
+      const container = containerRef.current;
+      if (container) {
+        container.querySelectorAll('.map-tool-btn').forEach((btn) => {
+          btn.classList.remove('active');
+          btn.style.backgroundColor = btn.getAttribute('data-bg-color') || 'white';
+          btn.style.color = btn.getAttribute('data-text-color') || '#333';
+        });
+      }
+    }
+  };
+
+  const handleTextCancel = () => {
+    setTextModalVisible(false);
+    const container = containerRef.current;
+    if (container) {
+      container.querySelectorAll('.map-tool-btn').forEach((btn) => {
+        btn.classList.remove('active');
+        btn.style.backgroundColor = btn.getAttribute('data-bg-color') || 'white';
+        btn.style.color = btn.getAttribute('data-text-color') || '#333';
+      });
+    }
+  };
+
+  return (
+    <Modal
+      title="Tambah Teks ke Peta"
+      open={textModalVisible}
+      onOk={handleTextOk}
+      onCancel={handleTextCancel}
+      okText="Tambahkan"
+      cancelText="Batal"
+      destroyOnClose
+      centered
+      zIndex={4000}
+    >
+      <Input
+        placeholder="Ketik teks di sini..."
+        autoFocus
+        value={textValue}
+        onChange={(e) => setTextValue(e.target.value)}
+        onPressEnter={handleTextOk}
+      />
+    </Modal>
+  );
 };
 
 export default MapToolsControl;
