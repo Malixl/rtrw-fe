@@ -1149,19 +1149,82 @@ const Maps = () => {
   }, []);
 
   const mapKetentuanKhusus = React.useCallback((data) => {
-    return data.map((klasifikasi) => ({
-      title: klasifikasi.nama,
-      key: `ketentuan_khusus-root-${klasifikasi.id}`,
-      ...klasifikasi,
-      children: (klasifikasi.ketentuan_khusus || []).map((ketentuan_khusus) => ({
+    // Urutan tampilan Ketentuan Khusus sesuai standar RTRW
+    const orderGroups = [
+      ['Kawasan Ancangan Pendaratan dan Lepas Landas', 'Ancangan Pendaratan'],
+      ['Kawasan di Bawah Permukaan Transisi', 'Permukaan Transisi'],
+      ['Kawasan di Bawah Permukaan Horizontal-Dalam', 'Horizontal-Dalam'],
+      ['Kawasan di Bawah Permukaan Kerucut', 'Permukaan Kerucut'],
+      ['Kawasan di Bawah Permukaan Horizontal-Luar', 'Horizontal-Luar'],
+      ['KKOP', 'Keselamatan Operasi Penerbangan'],
+      ['KP2B', 'Pertanian Pangan Berkelanjutan'],
+      ['KRB', 'Rawan Bencana'],
+      ['KCB', 'Cagar Budaya'],
+      ['KRA', 'Resapan Air', 'Rawan Air'],
+      ['KS', 'Sempadan', 'Suaka'],
+      ['KPK', 'Pertahanan', 'Keamanan'],
+      ['KK', 'Karst'],
+      ['KPMB', 'Pertambangan Mineral dan Batubara'],
+      ['KMS', 'Migrasi Satwa'],
+      ['DLKp']
+    ];
+
+    const getRank = (name) => {
+      return orderGroups.findIndex(group => 
+        group.some(keyword => {
+          const kw = keyword.toLowerCase();
+          if (kw.length <= 4) {
+            const regex = new RegExp(`\\b${kw}\\b`, 'i');
+            return regex.test(name) || name === kw;
+          }
+          return name.includes(kw);
+        })
+      );
+    };
+
+    // Sort klasifikasi level
+    const sortedData = [...data].sort((a, b) => {
+      const nameA = (a.nama || '').toLowerCase();
+      const nameB = (b.nama || '').toLowerCase();
+      const indexA = getRank(nameA);
+      const indexB = getRank(nameB);
+
+      if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+      if (indexA !== -1) return -1;
+      if (indexB !== -1) return 1;
+      return nameA.localeCompare(nameB);
+    });
+
+    return sortedData.map((klasifikasi) => {
+      let children = (klasifikasi.ketentuan_khusus || []).map((ketentuan_khusus) => ({
         ...ketentuan_khusus,
         type: 'ketentuan_khusus',
         title: ketentuan_khusus.nama,
         key: `ketentuan_khusus-${ketentuan_khusus.id}`,
         geojson_file: asset(ketentuan_khusus.geojson_file),
         isLeaf: true
-      }))
-    }));
+      }));
+
+      // Selalu urutkan children sesuai orderGroups
+      children.sort((a, b) => {
+        const nameA = (a.title || '').toLowerCase();
+        const nameB = (b.title || '').toLowerCase();
+        const indexA = getRank(nameA);
+        const indexB = getRank(nameB);
+
+        if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+        if (indexA !== -1) return -1;
+        if (indexB !== -1) return 1;
+        return nameA.localeCompare(nameB);
+      });
+
+      return {
+        title: klasifikasi.nama,
+        key: `ketentuan_khusus-root-${klasifikasi.id}`,
+        ...klasifikasi,
+        children
+      };
+    });
   }, []);
 
   const mapKawasanStrategiProvinsi = React.useCallback((data) => {
