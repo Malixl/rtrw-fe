@@ -30,7 +30,8 @@ const MAX_FILES = 15;
 
 const MapAdvancedTools = ({ setPopupInfo }) => {
   const map = useMap();
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isMobileInit] = useState(window.innerWidth < 768);
+  const [isExpanded, setIsExpanded] = useState(!isMobileInit);
   const [uploadedFiles, setUploadedFiles] = useState([]); // { id, name, color, layer }
   const fileIdCounter = useRef(0);
 
@@ -249,111 +250,135 @@ const MapAdvancedTools = ({ setPopupInfo }) => {
     <div 
       className="hide-on-print" 
       data-html2canvas-ignore="true"
-      style={{ bottom: isMobile ? 65 : 16, left: isMobile ? 8 : 240, position: 'fixed', zIndex: 1200, pointerEvents: 'auto' }}
+      style={{ bottom: isMobile ? 16 : 16, left: isMobile ? 8 : 240, position: 'fixed', zIndex: 1200, pointerEvents: 'auto' }}
     >
-      <div 
-        className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200 transition-all duration-300" 
-        style={{ width: isMobile ? 250 : 270 }}
-        onMouseEnter={() => { if(map?.dragging) map.dragging.disable(); if(map?.scrollWheelZoom) map.scrollWheelZoom.disable(); }}
-        onMouseLeave={() => { if(map?.dragging) map.dragging.enable(); if(map?.scrollWheelZoom) map.scrollWheelZoom.enable(); }}
-      >
-        {/* Header / Toggle */}
-        <div 
-          className="bg-blue-50 px-3 py-2 flex justify-between items-center cursor-pointer border-b border-blue-100 hover:bg-blue-100 transition-colors"
-          onClick={() => setIsExpanded(!isExpanded)}
+      {/* MOBILE: tiny pill when collapsed, compact panel when expanded */}
+      {isMobile && !isExpanded ? (
+        <div
+          className="flex cursor-pointer items-center gap-1.5 rounded px-2.5 py-1.5 shadow-md"
+          style={{
+            backgroundColor: 'rgba(255, 255, 255, 0.92)',
+            backdropFilter: 'blur(4px)',
+            border: '1px solid #e5e7eb',
+            fontSize: 12,
+            fontFamily: 'sans-serif',
+            lineHeight: 1,
+          }}
+          onClick={() => setIsExpanded(true)}
         >
-          <div className="flex items-center gap-2">
-            <CloudUploadOutlined className="text-blue-600 text-base" />
-            <h3 className="font-semibold text-blue-800 m-0 text-[13px]">Upload Spasial</h3>
-            {uploadedFiles.length > 0 && (
-              <span className="bg-blue-500 text-white text-[10px] rounded-full px-1.5 py-0.5 leading-none font-bold">
-                {uploadedFiles.length}
-              </span>
-            )}
-          </div>
-          {isExpanded ? <CaretDownOutlined className="text-blue-500" /> : <CaretUpOutlined className="text-blue-500" />}
+          <CloudUploadOutlined style={{ fontSize: 12, color: '#2563eb' }} />
+          <span className="font-medium text-blue-700" style={{ fontSize: 12 }}>Upload</span>
+          {uploadedFiles.length > 0 && (
+            <span className="bg-blue-500 text-white text-[9px] rounded-full px-1 leading-none font-bold" style={{ padding: '1px 5px', lineHeight: '14px' }}>
+              {uploadedFiles.length}
+            </span>
+          )}
         </div>
-
-        {/* Content */}
-        {isExpanded && (
-          <div className="p-3 flex flex-col gap-2 max-h-[50vh] overflow-y-auto">
-            <p className="text-[10px] leading-tight text-gray-500 m-0">
-              Upload SHP (.zip), KML, atau GeoJSON untuk pratinjau. Data tidak disimpan.
-            </p>
-
-            {/* Drop Zone */}
-            {remainingSlots > 0 && (
-              <div 
-                className="border-2 border-dashed border-gray-300 rounded-lg p-2.5 flex flex-col items-center justify-center bg-gray-50 hover:bg-blue-50 hover:border-blue-400 transition-colors cursor-pointer"
-                onDragOver={handleDragOver}
-                onDrop={handleDrop}
-                onClick={() => document.getElementById('spatial-file-upload-input').click()}
-              >
-                <input 
-                  type="file" 
-                  id="spatial-file-upload-input" 
-                  style={{ display: 'none' }}
-                  accept=".geojson,.json,.zip,.kml" 
-                  onChange={handleFileUpload}
-                  multiple
-                />
-                <CloudUploadOutlined className="text-xl text-gray-400 mb-0.5" />
-                <p className="text-xs text-gray-600 text-center m-0">
-                  <span className="text-blue-600 font-medium">Klik</span> atau seret file
-                </p>
-                <p className="text-[9px] text-gray-400 mt-0.5 text-center m-0">
-                  .zip (SHP) · .kml · .geojson · Sisa: {remainingSlots}/{MAX_FILES}
-                </p>
-              </div>
-            )}
-
-            {remainingSlots <= 0 && (
-              <div className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-2 text-center">
-                Batas maksimal {MAX_FILES} file tercapai. Hapus file untuk menambah yang baru.
-              </div>
-            )}
-
-            {/* File List */}
-            {uploadedFiles.length > 0 && (
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">File Aktif</span>
-                  {uploadedFiles.length > 1 && (
-                    <button 
-                      onClick={removeAllFiles}
-                      className="text-[10px] text-red-500 hover:text-red-700 bg-transparent border-none cursor-pointer underline"
-                    >
-                      Hapus Semua
-                    </button>
-                  )}
-                </div>
-                {uploadedFiles.map(f => (
-                  <div key={f.id} className="bg-gray-50 border border-gray-200 rounded px-2.5 py-1.5 flex items-center gap-2">
-                    {/* Color dot */}
-                    <span 
-                      className="w-3 h-3 rounded-full flex-shrink-0 border border-white shadow-sm" 
-                      style={{ backgroundColor: f.color }}
-                    />
-                    <div className="flex-1 overflow-hidden min-w-0">
-                      <span className="text-xs text-gray-700 truncate block" title={f.name}>
-                        {f.name}
-                      </span>
-                      <span className="text-[10px] text-gray-400">{f.featureCount} fitur</span>
-                    </div>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); removeFile(f.id); }}
-                      className="text-gray-400 hover:text-red-500 bg-transparent border-none cursor-pointer flex-shrink-0 p-0.5"
-                      title="Hapus layer ini"
-                    >
-                      <DeleteOutlined style={{ fontSize: 12 }} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+      ) : (
+        <div 
+          className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200 transition-all duration-300" 
+          style={{ width: isMobile ? 250 : 270 }}
+          onMouseEnter={() => { if(map?.dragging) map.dragging.disable(); if(map?.scrollWheelZoom) map.scrollWheelZoom.disable(); }}
+          onMouseLeave={() => { if(map?.dragging) map.dragging.enable(); if(map?.scrollWheelZoom) map.scrollWheelZoom.enable(); }}
+        >
+          {/* Header / Toggle */}
+          <div 
+            className="bg-blue-50 px-3 py-2 flex justify-between items-center cursor-pointer border-b border-blue-100 hover:bg-blue-100 transition-colors"
+            onClick={() => setIsExpanded(!isExpanded)}
+          >
+            <div className="flex items-center gap-2">
+              <CloudUploadOutlined className="text-blue-600 text-base" />
+              <h3 className="font-semibold text-blue-800 m-0 text-[13px]">Upload Spasial</h3>
+              {uploadedFiles.length > 0 && (
+                <span className="bg-blue-500 text-white text-[10px] rounded-full px-1.5 py-0.5 leading-none font-bold">
+                  {uploadedFiles.length}
+                </span>
+              )}
+            </div>
+            {isExpanded ? <CaretDownOutlined className="text-blue-500" /> : <CaretUpOutlined className="text-blue-500" />}
           </div>
-        )}
-      </div>
+
+          {/* Content */}
+          {isExpanded && (
+            <div className="p-3 flex flex-col gap-2 max-h-[50vh] overflow-y-auto">
+              <p className="text-[10px] leading-tight text-gray-500 m-0">
+                Upload SHP (.zip), KML, atau GeoJSON untuk pratinjau. Data tidak disimpan.
+              </p>
+
+              {/* Drop Zone */}
+              {remainingSlots > 0 && (
+                <div 
+                  className="border-2 border-dashed border-gray-300 rounded-lg p-2.5 flex flex-col items-center justify-center bg-gray-50 hover:bg-blue-50 hover:border-blue-400 transition-colors cursor-pointer"
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
+                  onClick={() => document.getElementById('spatial-file-upload-input').click()}
+                >
+                  <input 
+                    type="file" 
+                    id="spatial-file-upload-input" 
+                    style={{ display: 'none' }}
+                    accept=".geojson,.json,.zip,.kml" 
+                    onChange={handleFileUpload}
+                    multiple
+                  />
+                  <CloudUploadOutlined className="text-xl text-gray-400 mb-0.5" />
+                  <p className="text-xs text-gray-600 text-center m-0">
+                    <span className="text-blue-600 font-medium">Klik</span> atau seret file
+                  </p>
+                  <p className="text-[9px] text-gray-400 mt-0.5 text-center m-0">
+                    .zip (SHP) · .kml · .geojson · Sisa: {remainingSlots}/{MAX_FILES}
+                  </p>
+                </div>
+              )}
+
+              {remainingSlots <= 0 && (
+                <div className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-2 text-center">
+                  Batas maksimal {MAX_FILES} file tercapai. Hapus file untuk menambah yang baru.
+                </div>
+              )}
+
+              {/* File List */}
+              {uploadedFiles.length > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">File Aktif</span>
+                    {uploadedFiles.length > 1 && (
+                      <button 
+                        onClick={removeAllFiles}
+                        className="text-[10px] text-red-500 hover:text-red-700 bg-transparent border-none cursor-pointer underline"
+                      >
+                        Hapus Semua
+                      </button>
+                    )}
+                  </div>
+                  {uploadedFiles.map(f => (
+                    <div key={f.id} className="bg-gray-50 border border-gray-200 rounded px-2.5 py-1.5 flex items-center gap-2">
+                      {/* Color dot */}
+                      <span 
+                        className="w-3 h-3 rounded-full flex-shrink-0 border border-white shadow-sm" 
+                        style={{ backgroundColor: f.color }}
+                      />
+                      <div className="flex-1 overflow-hidden min-w-0">
+                        <span className="text-xs text-gray-700 truncate block" title={f.name}>
+                          {f.name}
+                        </span>
+                        <span className="text-[10px] text-gray-400">{f.featureCount} fitur</span>
+                      </div>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); removeFile(f.id); }}
+                        className="text-gray-400 hover:text-red-500 bg-transparent border-none cursor-pointer flex-shrink-0 p-0.5"
+                        title="Hapus layer ini"
+                      >
+                        <DeleteOutlined style={{ fontSize: 12 }} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 
