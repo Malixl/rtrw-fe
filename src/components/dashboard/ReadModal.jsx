@@ -16,7 +16,7 @@ export default function ReadModal({ title, isModalOpen, close, data, type = Read
   };
 
   return (
-    <Modal centered width={650} title={title} open={isModalOpen} onClose={close} onCancel={close} footer={null} destroyOnClose wrapClassName="!fixed !inset-0 !flex !items-center !justify-center pt-8 pr-[var(--map-sidebar-width,0px)] transition-[padding-right] duration-300 ease-in-out" {...props}>
+    <Modal centered width={650} title={title} open={isModalOpen} onClose={close} onCancel={close} footer={null} destroyOnClose zIndex={2000} wrapClassName="!fixed !inset-0 !flex !items-center !justify-center pt-8 pr-[var(--map-sidebar-width,0px)] transition-[padding-right] duration-300 ease-in-out" {...props}>
       <div className="mt-4 max-h-[70vh] overflow-y-auto pr-2">{jsxs[type]}</div>
     </Modal>
   );

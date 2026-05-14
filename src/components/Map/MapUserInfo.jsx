@@ -98,35 +98,59 @@ const MapUserInfo = () => {
     return null;
   }
 
+
+
+
   const node = (
     <div
       data-html2canvas-ignore="true"
       className="hide-on-print"
       style={{
         position: 'fixed',
-        bottom: isMobile ? 8 : 16,
-        left: isMobile ? 8 : 16,
-        zIndex: 1200,
+        bottom: isMobile ? 65 : 16,
+        left: isMobile ? 'auto' : 16,
+        right: isMobile ? 8 : 'auto',
+        zIndex: 1300,
       }}
     >
-      <Dropdown menu={{ items: dropdownItems }} placement={'topLeft'} trigger={['click']}>
-        <div
-          className={`flex cursor-pointer items-center rounded-lg bg-white shadow-md transition-shadow hover:shadow-lg ${
-            isMobile ? 'gap-2 px-2.5 py-2' : 'gap-2.5 px-3 py-2.5'
-          }`}
-          style={{ border: '1px solid #e5e7eb' }}
-        >
-          <Avatar size={isMobile ? 'small' : 'default'} icon={<UserOutlined />} className="bg-blue-500" />
-          <div className="flex flex-col">
-            <span className={`font-medium leading-tight ${isMobile ? 'text-xs' : 'text-sm'}`}>{user.name}</span>
-            <span className={`text-gray-500 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
-              Login sebagai{' '}
-              <Tag color={getRoleColor()} className={`m-0 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
-                {getRoleLabel()}
-              </Tag>
-            </span>
+      <Dropdown menu={{ items: dropdownItems }} placement={isMobile ? 'topRight' : 'topLeft'} trigger={['click']} overlayStyle={{ zIndex: 1400 }}>
+        {isMobile ? (
+          /* Mobile: compact single-line pill, same style as coordinate/scale bar */
+          <div
+            className="flex cursor-pointer items-center gap-1.5 rounded px-2.5 py-1.5 shadow-md"
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.92)',
+              backdropFilter: 'blur(4px)',
+              border: '1px solid #e5e7eb',
+              fontSize: 12,
+              fontFamily: 'sans-serif',
+              lineHeight: 1,
+            }}
+          >
+            <UserOutlined style={{ fontSize: 11, color: '#555' }} />
+            <span className="font-medium text-gray-700" style={{ fontSize: 12 }}>{user.name}</span>
+            <Tag color={getRoleColor()} className="m-0 leading-none" style={{ fontSize: 10, padding: '1px 5px', lineHeight: '16px' }}>
+              {getRoleLabel()}
+            </Tag>
           </div>
-        </div>
+        ) : (
+          /* Desktop: original card style */
+          <div
+            className="flex cursor-pointer items-center gap-2.5 rounded-lg bg-white px-3 py-2.5 shadow-md transition-shadow hover:shadow-lg"
+            style={{ border: '1px solid #e5e7eb' }}
+          >
+            <Avatar size="default" icon={<UserOutlined />} className="bg-blue-500" />
+            <div className="flex flex-col">
+              <span className="text-sm font-medium leading-tight">{user.name}</span>
+              <span className="text-xs text-gray-500">
+                Login sebagai{' '}
+                <Tag color={getRoleColor()} className="m-0 text-xs">
+                  {getRoleLabel()}
+                </Tag>
+              </span>
+            </div>
+          </div>
+        )}
       </Dropdown>
     </div>
   );
