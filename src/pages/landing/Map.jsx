@@ -1149,19 +1149,116 @@ const Maps = () => {
   }, []);
 
   const mapKetentuanKhusus = React.useCallback((data) => {
-    return data.map((klasifikasi) => ({
-      title: klasifikasi.nama,
-      key: `ketentuan_khusus-root-${klasifikasi.id}`,
-      ...klasifikasi,
-      children: (klasifikasi.ketentuan_khusus || []).map((ketentuan_khusus) => ({
+    const orderGroups = [
+      ['KKOP', 'Keselamatan Operasi Penerbangan'],
+      // 5 pecahan KKOP ditempatkan berurutan di bawah KKOP utama
+      ['Kawasan Ancangan Pendaratan dan Lepas Landas', 'Ancangan Pendaratan'],
+      ['Kawasan di Bawah Permukaan Transisi', 'Permukaan Transisi'],
+      ['Kawasan di Bawah Permukaan Horizontal-Dalam', 'Horizontal-Dalam'],
+      ['Kawasan di Bawah Permukaan Kerucut', 'Permukaan Kerucut'],
+      ['Kawasan di Bawah Permukaan Horizontal-Luar', 'Horizontal-Luar'],
+      // Lanjutan urutan lainnya
+      ['KP2B', 'Pertanian Pangan Berkelanjutan'],
+      ['KRB', 'Rawan Bencana'],
+      ['KCB', 'Cagar Budaya'],
+      ['KRA', 'Resapan Air', 'Rawan Air'],
+      ['KS', 'Sempadan', 'Suaka'],
+      ['KPK', 'Pertahanan', 'Keamanan'],
+      ['KK', 'Karst'],
+      ['KPMB', 'Pertambangan Mineral dan Batubara'],
+      ['KMS', 'Migrasi Satwa'],
+      ['DLKp']
+    ];
+
+    const kkopChildrenOrder = [
+      'Kawasan Ancangan Pendaratan dan Lepas Landas',
+      'Kawasan di Bawah Permukaan Transisi',
+      'Kawasan di Bawah Permukaan Horizontal-Dalam',
+      'Kawasan di Bawah Permukaan Kerucut',
+      'Kawasan di Bawah Permukaan Horizontal-Luar'
+    ];
+
+    const getRank = (name, groups) => {
+      return groups.findIndex(group => 
+        group.some(keyword => {
+          const kw = keyword.toLowerCase();
+          if (kw.length <= 4) {
+            const regex = new RegExp(`\\b${kw}\\b`, 'i');
+            return regex.test(name) || name === kw;
+          }
+          return name.includes(kw);
+        })
+      );
+    };
+
+    const sortedData = [...data].sort((a, b) => {
+      const nameA = (a.nama || '').toLowerCase();
+      const nameB = (b.nama || '').toLowerCase();
+      const indexA = getRank(nameA, orderGroups);
+      const indexB = getRank(nameB, orderGroups);
+
+      if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+      if (indexA !== -1) return -1;
+      if (indexB !== -1) return 1;
+      return nameA.localeCompare(nameB);
+    });
+
+    return sortedData.map((klasifikasi) => {
+      let children = (klasifikasi.ketentuan_khusus || []).map((ketentuan_khusus) => ({
         ...ketentuan_khusus,
         type: 'ketentuan_khusus',
         title: ketentuan_khusus.nama,
         key: `ketentuan_khusus-${ketentuan_khusus.id}`,
         geojson_file: asset(ketentuan_khusus.geojson_file),
         isLeaf: true
-      }))
-    }));
+      }));
+
+      const klasifikasiName = (klasifikasi.nama || '').toLowerCase();
+      
+      // Jika klasifikasi ini namanya mengandung "ketentuan khusus", urutkan leaves-nya pakai urutan utama
+      if (klasifikasiName.includes('ketentuan khusus')) {
+        children.sort((a, b) => {
+          const nameA = (a.title || '').toLowerCase();
+          const nameB = (b.title || '').toLowerCase();
+          const indexA = getRank(nameA, orderGroups);
+          const indexB = getRank(nameB, orderGroups);
+
+          if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+          if (indexA !== -1) return -1;
+          if (indexB !== -1) return 1;
+          return nameA.localeCompare(nameB);
+        });
+      } 
+      // Jika klasifikasi ini adalah KKOP (contoh: user buat klasifikasi KKOP terpisah), urutkan leaves-nya pakai urutan KKOP
+      else if (getRank(klasifikasiName, [['KKOP', 'Keselamatan Operasi Penerbangan']]) !== -1) {
+        children.sort((a, b) => {
+          const nameA = (a.title || '').toLowerCase();
+          const nameB = (b.title || '').toLowerCase();
+          
+          const getChildRank = (name) => {
+            return kkopChildrenOrder.findIndex(o => name.includes(o.toLowerCase()));
+          };
+
+          const indexA = getChildRank(nameA);
+          const indexB = getChildRank(nameB);
+
+          if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+          if (indexA !== -1) return -1;
+          if (indexB !== -1) return 1;
+          return nameA.localeCompare(nameB);
+        });
+      } else {
+        // Default fallback
+        children.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+      }
+
+      return {
+        title: klasifikasi.nama,
+        key: `ketentuan_khusus-root-${klasifikasi.id}`,
+        ...klasifikasi,
+        children
+      };
+    });
   }, []);
 
   const mapKawasanStrategiProvinsi = React.useCallback((data) => {
