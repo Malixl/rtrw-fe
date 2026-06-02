@@ -82,16 +82,71 @@ const renderPoint = (icon_titik, nama) => (
   </div>
 );
 
-const renderPolygon = (warna, nama) => (
-  <div className="mb-2 ml-6 mt-1 flex items-center gap-x-2">
-    <div className="flex h-5 w-8 items-center justify-center">
-      <div className="h-4 w-6 rounded-sm border border-gray-400/30" style={{ backgroundColor: warna }} />
-    </div>
-    <span className="text-xs font-medium text-gray-700">{nama}</span>
-  </div>
-);
+const getPolaRuangAbbreviation = (nama) => {
+  if (!nama) return '';
 
-const LegendItem = ({ tipe_geometri, icon_titik, warna, nama, tipe_garis }) => {
+  const abbreviations = {
+    'Badan Air': 'BA',
+    'Kawasan yang Memberikan Perlindungan terhadap Kawasan Bawahannya': 'PTB',
+    'Kawasan Perlindungan Setempat': 'PS',
+    'Kawasan Konservasi': 'KS',
+    'Kawasan Pencadangan Konservasi di Laut': 'KPL',
+    'Kawasan Cagar Budaya': 'CB',
+    'Kawasan Ekosistem Mangrove': 'EM',
+    'Kawasan Hutan Produksi': 'KHP',
+    'Kawasan Pertanian/Badan Air': 'P/BA',
+    'Kawasan Pertanian/Kawasan Perlindungan Setempat': 'P/PS',
+    'Kawasan Pertanian': 'P',
+    'Kawasan Perikanan': 'IK',
+    'Kawasan Pergaraman': 'KEG',
+    'Kawasan Pertambangan dan Energi': 'TE',
+    'Kawasan Peruntukan Industri': 'KPI',
+    'Kawasan Pariwisata': 'W',
+    'Kawasan Permukiman/Badan Air': 'PM/BA',
+    'Kawasan Permukiman/Kawasan Perlindungan Setempat': 'PM/PS',
+    'Kawasan Permukiman': 'PM',
+    'Kawasan Transportasi': 'TR',
+    'Kawasan Pertahanan dan Keamanan': 'HK'
+  };
+
+  const namaLower = nama.toLowerCase();
+  for (const [key, value] of Object.entries(abbreviations)) {
+    if (namaLower === key.toLowerCase() || namaLower.includes(key.toLowerCase())) {
+      return value;
+    }
+  }
+  return '';
+};
+
+const renderPolygon = (warna, nama, showLabel) => {
+  const abbreviation = getPolaRuangAbbreviation(nama);
+
+  return (
+    <div className="mb-2 ml-6 mt-1 flex items-center gap-x-2">
+      <div className="flex h-5 w-9 items-center justify-center">
+        <div
+          className="flex h-4 w-8 items-center justify-center rounded-sm border border-gray-400/50 shadow-sm overflow-hidden"
+          style={{ backgroundColor: warna }}
+        >
+          {abbreviation && (
+            <span
+              className="text-[9px] font-bold text-black text-center"
+              style={{
+                lineHeight: 1,
+                textShadow: '1px 1px 0 #FFF, -1px 1px 0 #FFF, 1px -1px 0 #FFF, -1px -1px 0 #FFF, 0px 1px 0 #FFF, 0px -1px 0 #FFF, 1px 0px 0 #FFF, -1px 0px 0 #FFF'
+              }}
+            >
+              {abbreviation}
+            </span>
+          )}
+        </div>
+      </div>
+      {showLabel && <span className="text-xs font-medium text-gray-700">{nama}</span>}
+    </div>
+  );
+};
+
+const LegendItem = ({ tipe_geometri, icon_titik, warna, nama, tipe_garis, showLabel = false }) => {
   const geometry = tipe_geometri?.toLowerCase();
 
   switch (geometry) {
