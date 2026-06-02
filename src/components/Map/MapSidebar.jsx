@@ -141,7 +141,7 @@ const MapSidebar = ({
       // Ambil tipe geometri dan tipe garis dari data API jika tersedia.
       tipe_geometri: item.geometry_type || item.tipe_geometri || 'polyline',
       tipe_garis: item.line_type || item.tipe_garis || 'solid',
-      fill_opacity: 0.3
+      fill_opacity: 1.0
     }),
     []
   );
@@ -365,14 +365,14 @@ const MapSidebar = ({
                                     onInfoClick={() => {
                                       const modalData = [
                                         { key: 'name', label: `Nama ${labelKey}`, children: pemetaan.nama },
-                                        { 
-                                          key: 'desc', 
-                                          label: 'Deskripsi', 
+                                        {
+                                          key: 'desc',
+                                          label: 'Deskripsi',
                                           children: pemetaan.deskripsi ? (
                                             <div className="prose prose-sm max-w-none text-gray-700" dangerouslySetInnerHTML={{ __html: pemetaan.deskripsi }} />
                                           ) : (
                                             '-'
-                                          ) 
+                                          )
                                         }
                                       ];
                                       showInfoModal(pemetaan.nama, modalData);
@@ -415,14 +415,14 @@ const MapSidebar = ({
                         onInfoClick={() => {
                           const modalData = [
                             { key: 'name', label: `Nama ${labelKey}`, children: pemetaan.nama },
-                            { 
-                              key: 'desc', 
-                              label: 'Deskripsi', 
+                            {
+                              key: 'desc',
+                              label: 'Deskripsi',
                               children: pemetaan.deskripsi ? (
                                 <div className="prose prose-sm max-w-none text-gray-700" dangerouslySetInnerHTML={{ __html: pemetaan.deskripsi }} />
                               ) : (
                                 '-'
-                              ) 
+                              )
                             }
                           ];
                           showInfoModal(pemetaan.nama, modalData);
@@ -448,15 +448,14 @@ const MapSidebar = ({
 
       {/* Sidebar Content - Floating Window */}
       <div
-        className={`h-fit max-h-full overflow-y-auto shadow-2xl transition-all duration-300 ease-in-out ${
-          isMobile
+        className={`h-fit max-h-full overflow-y-auto shadow-2xl transition-all duration-300 ease-in-out ${isMobile
             ? isCollapsed
               ? 'w-0 overflow-hidden p-0'
               : 'w-full bg-white p-3'
             : isCollapsed
               ? 'w-0 overflow-hidden p-0'
               : `w-full rounded-2xl border border-gray-200/60 bg-white/95 backdrop-blur-sm ${isTablet ? 'p-3' : 'p-4'}`
-        } scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100`}
+          } scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100`}
       >
         {/* Mobile Header with Close Button */}
         {isMobile && !isCollapsed && (
@@ -598,7 +597,7 @@ const MapSidebar = ({
                   const anyMatch = treeLayerGroup.some((layer) => {
                     const t = layer.tree || {};
                     const groupNameMatches = fuzzyMatch(debouncedSearch, layer.layer_group_name || layer.nama || layer.name || layer.title || layer.deskripsi || '');
-                    
+
                     return groupNameMatches || (
                       filterTree(t.pola || [], debouncedSearch).length > 0 ||
                       filterTree(t.struktur || [], debouncedSearch).length > 0 ||
@@ -623,10 +622,10 @@ const MapSidebar = ({
                 // Strictly filter layer groups to eliminate those with no related data
                 const filteredGroups = !debouncedSearch ? treeLayerGroup : treeLayerGroup.filter((layer) => {
                   const t = layer.tree || {};
-                  
+
                   // Periksa apakah nama group-nya sendiri cocok
                   const groupNameMatches = fuzzyMatch(debouncedSearch, layer.layer_group_name || layer.nama || layer.name || layer.title || layer.deskripsi || '');
-                  
+
                   // Periksa apakah ada isinya yang cocok
                   const hasMatchingData = (
                     filterTree(t.pola || [], debouncedSearch).length > 0 ||

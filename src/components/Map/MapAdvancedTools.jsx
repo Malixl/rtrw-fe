@@ -127,7 +127,7 @@ const MapAdvancedTools = ({ setPopupInfo }) => {
           style: (feature) => {
             const isPolygon = feature.geometry?.type?.includes('Polygon');
             return {
-              color: isPolygon ? '#000000' : color,
+              color: color,
               weight: isPolygon ? 1.5 : 3,
               opacity: 0.9,
               fillColor: color,

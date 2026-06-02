@@ -85,7 +85,7 @@ const OptimizedLayerRenderer = React.memo(
 
       Object.entries(layerOpacities).forEach(([key, opacityValue]) => {
         const opacity = (opacityValue ?? 100) / 100;
-        
+
         // 1. Update CSS Opacity for markers (which still use panes)
         const paneName = `pane-${key}`;
         const pane = map.getPane(paneName);
@@ -145,19 +145,36 @@ const OptimizedLayerRenderer = React.memo(
           }
         }
       });
+      // Sort new layer keys by geometry type: polygons first, then points, then lines
+      // This ensures polygons are added to the map first (behind), lines last (on top)
+      const getGeometryOrder = (key) => {
+        const layer = selectedLayers[key];
+        const tipeGeometri = (layer?.meta?.tipe_geometri || '').toLowerCase();
+        if (tipeGeometri.includes('polygon')) return 0;
+        if (tipeGeometri.includes('point') || tipeGeometri.includes('titik')) return 1;
+        if (tipeGeometri.includes('line') || tipeGeometri.includes('polyline')) return 2;
+        return 1; // default: middle
+      };
 
-      currentLayerKeys.forEach(async (key) => {
+      const sortedKeys = Array.from(currentLayerKeys).sort((a, b) => getGeometryOrder(a) - getGeometryOrder(b));
+
+      sortedKeys.forEach(async (key) => {
         if (!existingLayerKeys.has(key)) {
           const layer = selectedLayers[key];
           if (!layer?.data) return;
 
           const layerOpacity = (layerOpacities?.[key] ?? 100) / 100;
 
+          // Assign z-index based on geometry type for proper visual stacking
+          // Polygons (400) → Points (410) → Lines (420)
+          const geomOrder = getGeometryOrder(key);
+          const paneZIndex = 400 + geomOrder * 10;
+
           const paneName = `pane-${key}`;
           let pane = map.getPane(paneName);
           if (!pane) {
             pane = map.createPane(paneName);
-            pane.style.zIndex = 400; // overlay pane z-index
+            pane.style.zIndex = paneZIndex;
           }
           pane.style.opacity = layerOpacity;
 
@@ -182,11 +199,11 @@ const OptimizedLayerRenderer = React.memo(
                   fillColor: warna,
                   fillOpacity: 0.7,
                   stroke: true,
-                  color: isPolygon ? '#000000' : warna,
+                  color: warna,
                   weight: isPolygon ? 1.5 : (tipeGaris === 'bold' ? 6 : 3),
                   dashArray: tipeGaris === 'dashed' ? '6 6' :
-                             tipeGaris === 'dash-dot-dot' ? '20 8 3 8 3 8' :
-                             tipeGaris === 'dash-dot-dash-dot-dot' ? '15 5 3 5 15 5 3 5 3 5' : null,
+                    tipeGaris === 'dash-dot-dot' ? '20 8 3 8 3 8' :
+                      tipeGaris === 'dash-dot-dash-dot-dot' ? '15 5 3 5 15 5 3 5 3 5' : null,
                 }
               },
               interactive: true,
@@ -222,7 +239,7 @@ const OptimizedLayerRenderer = React.memo(
 
           // Object map: Original URL -> Blob URL
           const iconBlobMap = {};
-          
+
           if (uniqueIcons.size > 0) {
             // Fetch semua icon secara paralel
             await Promise.all(Array.from(uniqueIcons).map(async (url) => {
@@ -265,7 +282,7 @@ const OptimizedLayerRenderer = React.memo(
             pointToLayer: (feature, latlng) => {
               const props = feature.properties || {};
               let marker;
-              
+
               if (props.icon_image_url) {
                 const secureUrl = iconBlobMap[props.icon_image_url] || props.icon_image_url;
 
@@ -277,16 +294,16 @@ const OptimizedLayerRenderer = React.memo(
                   iconSize: [32, 32],
                   iconAnchor: [16, 16],
                 });
-                
+
                 // Gunakan pane kustom agar opacity bisa dikontrol via pane style
                 // Juga set opacity awal agar sinkron dengan slider saat pertama dimuat
-                marker = L.marker(latlng, { 
-                  icon: customIcon, 
+                marker = L.marker(latlng, {
+                  icon: customIcon,
                   pane: paneName,
-                  opacity: layerOpacity 
+                  opacity: layerOpacity
                 });
               } else {
-                marker = L.circleMarker(latlng, { 
+                marker = L.circleMarker(latlng, {
                   // circleMarker akan dirender otomatis oleh canvasRenderer global (overlayPane)
                   radius: 6,
                   weight: 1.5,
@@ -355,7 +372,7 @@ const OptimizedLayerRenderer = React.memo(
           layersRef.current[key] = geoJsonLayer;
         }
       });
-    // OPTIMIZED: Removed layerOpacities from deps — opacity is handled by separate effect (opacityKeys)
+      // OPTIMIZED: Removed layerOpacities from deps — opacity is handled by separate effect (opacityKeys)
     }, [map, layerKeys, selectedLayers, canvasRenderer, getFeatureStyle, setPopupInfo]);
 
     // Cleanup on unmount - separate effect
@@ -821,7 +838,7 @@ const Maps = () => {
   // All Batas Administrasi layers are loaded and set to ACTIVE by default
   // when the map first loads. Users can still toggle them off from sidebar.
   React.useEffect(() => {
-    
+
     // Guard: only run once when data is available
     if (batasInitializedRef.current || batasAdministrasi.length === 0) return;
     batasInitializedRef.current = true;
@@ -837,7 +854,7 @@ const Maps = () => {
         warna: item.color || item.warna || '#000000',
         tipe_geometri: item.geometry_type || item.tipe_geometri || 'polyline',
         tipe_garis: item.line_type || item.tipe_garis || 'solid',
-        fill_opacity: 0.3
+        fill_opacity: 1.0
       }));
 
       // Set loading state for all at once
@@ -949,12 +966,12 @@ const Maps = () => {
     if (spasialInitializedRef.current || layerGroupTrees.length === 0) return;
 
     const itemsToLoad = [];
-    
+
     // Scan layerGroupTrees for Data Spasial leaves matching our target keywords
     layerGroupTrees.forEach((group) => {
       const tree = group.tree || {};
       const dataSpasialNodes = tree.data_spasial || [];
-      
+
       const findLeaves = (nodes, parentMatches = false) => {
         nodes.forEach((node) => {
           // Check if this node itself matches the keywords
@@ -966,13 +983,13 @@ const Maps = () => {
               itemsToLoad.push(node);
             }
           }
-          
+
           if (node.children) {
             findLeaves(node.children, matches);
           }
         });
       };
-      
+
       findLeaves(dataSpasialNodes);
     });
 
@@ -1126,7 +1143,7 @@ const Maps = () => {
       // Kita pakai includes agar fleksibel jika ada typo atau tambahan spasi
       const indexA = order.findIndex(o => (a.nama || '').includes(o));
       const indexB = order.findIndex(o => (b.nama || '').includes(o));
-      
+
       if (indexA !== -1 && indexB !== -1) return indexA - indexB;
       if (indexA !== -1) return -1;
       if (indexB !== -1) return 1;
@@ -1170,7 +1187,7 @@ const Maps = () => {
     ];
 
     const getRank = (name) => {
-      return orderGroups.findIndex(group => 
+      return orderGroups.findIndex(group =>
         group.some(keyword => {
           const kw = keyword.toLowerCase();
           if (kw.length <= 4) {
@@ -1465,7 +1482,7 @@ const Maps = () => {
     const props = feature.properties || {};
     const isPolygon = feature.geometry?.type?.includes('Polygon');
 
-    const stroke = isPolygon ? '#000000' : (props.stroke || '#0000ff');
+    const stroke = isPolygon ? (props.fill || props.stroke || '#3388ff') : (props.stroke || '#0000ff');
     const weight = isPolygon ? 1.5 : (props['stroke-width'] ?? 3);
     const opacity = props['stroke-opacity'] ?? 1;
     const fillColor = props.fill;
@@ -1805,15 +1822,14 @@ const Maps = () => {
       {/* Floating Sidebar - RIGHT SIDE, always visible including fullscreen */}
       <div
         data-html2canvas-ignore="true"
-        className={`hide-on-print absolute z-[3000] overflow-visible transition-all duration-300 ease-in-out ${
-          isMobile
-            ? isSidebarCollapsed
-              ? 'right-0 top-0 h-full w-0'
-              : 'inset-0 h-full w-full'
-            : isSidebarCollapsed
-              ? 'right-4 top-[15%] h-[65%] w-0'
-              : 'right-4 top-[15%] h-[65%] w-[22%] min-w-[280px]'
-        }`}
+        className={`hide-on-print absolute z-[3000] overflow-visible transition-all duration-300 ease-in-out ${isMobile
+          ? isSidebarCollapsed
+            ? 'right-0 top-0 h-full w-0'
+            : 'inset-0 h-full w-full'
+          : isSidebarCollapsed
+            ? 'right-4 top-[15%] h-[65%] w-0'
+            : 'right-4 top-[15%] h-[65%] w-[22%] min-w-[280px]'
+          }`}
       >
         <MapSidebar
           batasAdministrasi={batasAdministrasi}
