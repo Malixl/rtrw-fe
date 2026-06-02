@@ -378,7 +378,7 @@ const MapSidebar = ({
                                       showInfoModal(pemetaan.nama, modalData);
                                     }}
                                   />
-                                  <LegendItem tipe_geometri={tipe_geometri} icon_titik={pemetaan.icon_titik} warna={pemetaan.warna} tipe_garis={pemetaan.tipe_garis} />
+                                  <LegendItem tipe_geometri={tipe_geometri} icon_titik={pemetaan.icon_titik} warna={pemetaan.warna} tipe_garis={pemetaan.tipe_garis} nama={pemetaan.title || pemetaan.nama} />
                                   {isActive && onOpacityChange && <OpacitySlider value={currentOpacity} onChange={(val) => onOpacityChange(pemetaan.key, val)} />}
                                 </div>
                               );
@@ -428,7 +428,7 @@ const MapSidebar = ({
                           showInfoModal(pemetaan.nama, modalData);
                         }}
                       />
-                      <LegendItem tipe_geometri={tipe_geometri} icon_titik={pemetaan.icon_titik} warna={pemetaan.warna} tipe_garis={pemetaan.tipe_garis} />
+                      <LegendItem tipe_geometri={tipe_geometri} icon_titik={pemetaan.icon_titik} warna={pemetaan.warna} tipe_garis={pemetaan.tipe_garis} nama={pemetaan.title || pemetaan.nama} />
                       {isActive && onOpacityChange && <OpacitySlider value={currentOpacity} onChange={(val) => onOpacityChange(pemetaan.key, val)} />}
                     </div>
                   );
@@ -573,7 +573,7 @@ const MapSidebar = ({
                                 ])
                               }
                             />
-                            <LegendItem tipe_geometri={pemetaan.tipe_geometri || 'polyline'} icon_titik={pemetaan.icon_titik} warna={pemetaan.warna} tipe_garis={pemetaan.tipe_garis} />
+                            <LegendItem tipe_geometri={pemetaan.tipe_geometri || 'polyline'} icon_titik={pemetaan.icon_titik} warna={pemetaan.warna} tipe_garis={pemetaan.tipe_garis} nama={item.name || item.nama} />
                           </div>
                         );
                       })}
