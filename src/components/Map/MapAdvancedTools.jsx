@@ -31,7 +31,7 @@ const MAX_FILES = 15;
 const MapAdvancedTools = ({ setPopupInfo }) => {
   const map = useMap();
   const [isMobileInit] = useState(window.innerWidth < 768);
-  const [isExpanded, setIsExpanded] = useState(!isMobileInit);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]); // { id, name, color, layer }
   const fileIdCounter = useRef(0);
 

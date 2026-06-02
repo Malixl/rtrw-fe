@@ -1099,7 +1099,50 @@ const Maps = () => {
   }, [layerGroupTrees, workerProcessGeoJSON]);
 
   const mapPolaRuang = React.useCallback((data) => {
-    return data.map((klasifikasi) => {
+    // Urutan klasifikasi sesuai dokumen RTRW
+    const klasifikasiOrder = [
+      'Kawasan Lindung',
+      'Kawasan Budi Daya',
+      'Kawasan Budidaya',  // fallback ejaan alternatif
+    ];
+
+    // Urutan children (pola ruang) sesuai dokumen RTRW
+    const childrenOrder = [
+      // Kawasan Lindung
+      'Badan Air',
+      'Kawasan yang Memberikan Perlindungan terhadap Kawasan Bawahannya',
+      'Kawasan Perlindungan Setempat',
+      'Kawasan Konservasi',
+      'Kawasan Pencadangan Konservasi di Laut',
+      'Kawasan Cagar Budaya',
+      'Kawasan Ekosistem Mangrove',
+      // Kawasan Budi Daya
+      'Kawasan Hutan Produksi',
+      'Kawasan Pertanian',
+      'Kawasan Perikanan',
+      'Kawasan Pergaraman',
+      'Kawasan Pertambangan dan Energi',
+      'Kawasan Peruntukan Industri',
+      'Kawasan Pariwisata',
+      'Kawasan Permukiman',
+      'Kawasan Transportasi',
+      'Kawasan Pertahanan dan Keamanan',
+    ];
+
+    // Sort klasifikasi
+    const sortedData = [...data].sort((a, b) => {
+      const nameA = a.nama || '';
+      const nameB = b.nama || '';
+      const indexA = klasifikasiOrder.findIndex(o => nameA.includes(o));
+      const indexB = klasifikasiOrder.findIndex(o => nameB.includes(o));
+
+      if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+      if (indexA !== -1) return -1;
+      if (indexB !== -1) return 1;
+      return nameA.localeCompare(nameB);
+    });
+
+    return sortedData.map((klasifikasi) => {
       // Map children
       let children = (klasifikasi.pola_ruang || []).map((pola) => ({
         ...pola,
@@ -1110,13 +1153,19 @@ const Maps = () => {
         isLeaf: true
       }));
 
-      // Sort so 'Badan Air' is always at the top
+      // Sort children sesuai dokumen RTRW
       children.sort((a, b) => {
-        const aIsBadanAir = a.title.toLowerCase().includes('badan air');
-        const bIsBadanAir = b.title.toLowerCase().includes('badan air');
-        if (aIsBadanAir && !bIsBadanAir) return -1;
-        if (!aIsBadanAir && bIsBadanAir) return 1;
-        return 0;
+        const nameA = a.title || '';
+        const nameB = b.title || '';
+        // Cari index yang paling cocok (menggunakan includes untuk handle variasi nama
+        // seperti "Kawasan Pertanian/Badan Air" tetap match "Kawasan Pertanian")
+        const indexA = childrenOrder.findIndex(o => nameA.includes(o));
+        const indexB = childrenOrder.findIndex(o => nameB.includes(o));
+
+        if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+        if (indexA !== -1) return -1;
+        if (indexB !== -1) return 1;
+        return nameA.localeCompare(nameB);
       });
 
       return {
@@ -1129,40 +1178,128 @@ const Maps = () => {
   }, []);
 
   const mapStrukturRuang = React.useCallback((data) => {
-    const order = [
+    // Urutan klasifikasi sesuai dokumen RTRW
+    const klasifikasiOrder = [
       'Sistem Pusat Permukiman',
-      'Sistem Infrastruktur Transportasi',
-      'Sistem Infrastruktur Energi',
-      'Sistem Infrastruktur Telekomunikasi',
-      'Sistem Infrastruktur Sumber Daya Air',
-      'Sistem Infrastruktur Prasarana Lainnya'
+      'Sistem Jaringan Transportasi',
+      'Sistem Infrastruktur Transportasi',  // fallback nama lama
+      'Transportasi Udara',
+      'Sistem Jaringan Energi',
+      'Sistem Infrastruktur Energi',        // fallback nama lama
+      'Sistem Jaringan Telekomunikasi',
+      'Sistem Infrastruktur Telekomunikasi', // fallback nama lama
+      'Sistem Jaringan Sumber Daya Air',
+      'Sistem Infrastruktur Sumber Daya Air', // fallback nama lama
+      'Sistem Jaringan Prasarana Lainnya',
+      'Sistem Infrastruktur Prasarana Lainnya' // fallback nama lama
     ];
 
-    // Buat salinan data dan urutkan
+    // Urutan item (children) dalam setiap klasifikasi, sesuai dokumen RTRW
+    const childrenOrder = [
+      // 1. Sistem Pusat Permukiman
+      'Pusat Kegiatan Nasional',
+      'Pusat Kegiatan Wilayah',
+      'Pusat Kegiatan Strategis Nasional',
+      'Pusat Kegiatan Lokal',
+      // 2. Sistem Jaringan Transportasi - Transportasi Darat
+      'Terminal Penumpang Tipe A',
+      'Terminal Penumpang Tipe B',
+      'Stasiun Kereta Api',
+      'Jembatan Timbang',
+      'Jembatan',
+      'Pelabuhan Sungai',
+      'Pelabuhan Penyeberangan',
+      'Jalan Arteri Primer',
+      'Jalan Kolektor Primer',
+      'Jalan Tol',
+      'Jaringan Jalur Kereta Api',
+      'Lintas Penyeberangan',
+      // 2. Transportasi Laut
+      'Pelabuhan Pengumpul',
+      'Pelabuhan Pengumpan',
+      'Pelabuhan Perikanan Nusantara',
+      'Pelabuhan Perikanan Pantai',
+      'Pangkalan Pendaratan Ikan',
+      'Terminal Khusus',
+      'Alur Pelayaran Masuk',
+      'Alur-Pelayaran Masuk',
+      'Alur Pelayaran Umum',
+      'Alur-Pelayaran Umum',
+      'Alur Pelayaran Khusus',
+      'Alur-Pelayaran Khusus',
+      // 3. Transportasi Udara
+      'Bandar Udara Pengumpul',
+      'Bandar Udara Pengumpan',
+      // 4. Sistem Jaringan Energi
+      'Minyak dan Gas Bumi',
+      'Infrastruktur Minyak',
+      'Pembangkitan Tenaga Listrik',
+      'Infrastruktur Pembangkitan',
+      'Gardu Listrik',
+      'Jaringan Minyak dan Gas',
+      'Jaringan Transmisi Tenaga Listrik',
+      'Jaringan Pipa',
+      'Jaringan Kabel',
+      // 5. Sistem Jaringan Telekomunikasi
+      'Infrastruktur Jaringan Tetap',
+      'Jaringan Tetap',
+      // 6. Sistem Jaringan Sumber Daya Air
+      'Bangunan Pengendalian Banjir',
+      'Bangunan Sumber Daya Air',
+      'Jaringan Pengendalian Banjir',
+      'Sistem Jaringan Air Bersih',
+      'Sistem Jaringan Irigasi',
+      // 7. Sistem Jaringan Prasarana Lainnya
+      'Sistem Penyediaan Air Minum',
+      'Infrastruktur Sistem Penyediaan Air Minum',
+      'Sistem Jaringan Persampahan',
+      'Sistem Pengelolaan Limbah',
+      'Sistem Jaringan Sistem Penyediaan Air Minum',
+    ];
+
+    // Sort klasifikasi
     const sortedData = [...data].sort((a, b) => {
-      // Kita pakai includes agar fleksibel jika ada typo atau tambahan spasi
-      const indexA = order.findIndex(o => (a.nama || '').includes(o));
-      const indexB = order.findIndex(o => (b.nama || '').includes(o));
+      const nameA = a.nama || '';
+      const nameB = b.nama || '';
+      const indexA = klasifikasiOrder.findIndex(o => nameA.includes(o));
+      const indexB = klasifikasiOrder.findIndex(o => nameB.includes(o));
 
       if (indexA !== -1 && indexB !== -1) return indexA - indexB;
       if (indexA !== -1) return -1;
       if (indexB !== -1) return 1;
-      return (a.nama || '').localeCompare(b.nama || '');
+      return nameA.localeCompare(nameB);
     });
 
-    return sortedData.map((klasifikasi) => ({
-      title: klasifikasi.nama,
-      key: `struktur-root-${klasifikasi.id}`,
-      ...klasifikasi,
-      children: (klasifikasi.struktur_ruang || []).map((struktur) => ({
+    return sortedData.map((klasifikasi) => {
+      // Sort children within each klasifikasi
+      const children = (klasifikasi.struktur_ruang || []).map((struktur) => ({
         ...struktur,
         type: 'struktur',
         title: struktur.nama,
         key: `struktur-${struktur.id}`,
         geojson_file: asset(struktur.geojson_file),
         isLeaf: true
-      }))
-    }));
+      }));
+
+      children.sort((a, b) => {
+        const nameA = a.title || '';
+        const nameB = b.title || '';
+        const indexA = childrenOrder.findIndex(o => nameA.includes(o));
+        const indexB = childrenOrder.findIndex(o => nameB.includes(o));
+
+        if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+        if (indexA !== -1) return -1;
+        if (indexB !== -1) return 1;
+        return nameA.localeCompare(nameB);
+      });
+
+      return {
+        title: klasifikasi.nama,
+        key: `struktur-root-${klasifikasi.id}`,
+        ...klasifikasi,
+        children
+      };
+    });
   }, []);
 
   const mapKetentuanKhusus = React.useCallback((data) => {
@@ -1245,19 +1382,42 @@ const Maps = () => {
   }, []);
 
   const mapKawasanStrategiProvinsi = React.useCallback((data) => {
-    return data.map((klasifikasi) => ({
-      title: klasifikasi.nama,
-      key: `kawasan-strategi-provinsi-root-${klasifikasi.id}`,
-      ...klasifikasi,
-      children: (klasifikasi.kawasan_strategi_provinsi || []).map((ksp) => ({
+    // Urutan item KSP sesuai dokumen RTRW
+    const childrenOrder = [
+      'Fungsi dan Daya Dukung Lingkungan Hidup',
+      'Pertumbuhan Ekonomi',
+    ];
+
+    return data.map((klasifikasi) => {
+      let children = (klasifikasi.kawasan_strategi_provinsi || []).map((ksp) => ({
         ...ksp,
         type: 'kawasan_strategi_provinsi',
         title: ksp.nama,
         key: `kawasan-strategi-provinsi-${ksp.id}`,
         geojson_file: asset(ksp.geojson_file),
         isLeaf: true
-      }))
-    }));
+      }));
+
+      // Sort children
+      children.sort((a, b) => {
+        const nameA = a.title || '';
+        const nameB = b.title || '';
+        const indexA = childrenOrder.findIndex(o => nameA.includes(o));
+        const indexB = childrenOrder.findIndex(o => nameB.includes(o));
+
+        if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+        if (indexA !== -1) return -1;
+        if (indexB !== -1) return 1;
+        return nameA.localeCompare(nameB);
+      });
+
+      return {
+        title: klasifikasi.nama,
+        key: `kawasan-strategi-provinsi-root-${klasifikasi.id}`,
+        ...klasifikasi,
+        children
+      };
+    });
   }, []);
 
   const mapDokumen = React.useCallback((data) => {
