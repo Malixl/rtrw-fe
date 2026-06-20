@@ -109,9 +109,9 @@ const Login = () => {
         </Form.Item>
         <Form.Item>
           <span className="m-0 block text-center">
-            Bukan admin? Silahkan{' '}
+            Bukan Admin/OPD? Silahkan{' '}
             <Link className="text-color-primary-500 hover:text-color-primary-200 font-bold underline" to="/">
-              Kembali ke beranda
+              Kembali ke Beranda
             </Link>
           </span>
         </Form.Item>
